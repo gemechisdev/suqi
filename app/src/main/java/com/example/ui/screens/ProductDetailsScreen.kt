@@ -44,6 +44,15 @@ import com.example.ui.components.*
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
+private fun mediaTypeOf(url: String): String {
+    val u = url.lowercase().substringBefore("?")
+    return when {
+        u.endsWith(".gif") -> "gif"
+        u.endsWith(".mp4") || u.endsWith(".webm") || u.endsWith(".m3u8") -> "video"
+        else -> "image"
+    }
+}
+
 @Composable
 fun ProductDetailsScreen(
     productId: String,

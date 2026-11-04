@@ -781,7 +781,7 @@ object SeedData {
                     shopId = "shop_techhub",
                     shopName = "TechAddis",
                     senderType = "SHOP",
-                    message = "Yes, it is available.\nWe can deliver within 1–3 days. 🚚\n#[Wireless Earbuds Pro:prod_airpods_pro]\nYou can also check our other electronics products.",
+                    message = "Yes, it is available.\nWe can deliver within 1–3 days. 🚚\nYou can also check our other electronics products.",
                     timestamp = "9:24 AM",
                     productContextName = "Wireless Earbuds Pro",
                     productContextPrice = "ETB 2,800",

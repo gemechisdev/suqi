@@ -170,6 +170,11 @@ fun ChatThreadScreen(
     var showProductPicker by remember { mutableStateOf(false) }
     var showShopPicker by remember { mutableStateOf(false) }
 
+    // Pending product attachment to embed in the next sent message
+    var pendingProductName by remember { mutableStateOf(productContextName) }
+    var pendingProductPrice by remember { mutableStateOf(productContextPrice) }
+    var pendingProductImage by remember { mutableStateOf(productContextImage) }
+
     fun loadMessages() {
         coroutineScope.launch {
             val res = viewModel.repository.getChatMessages(shopId)
@@ -309,10 +314,15 @@ fun ChatThreadScreen(
                                             shopId = shopId,
                                             messageData = mapOf(
                                                 "message" to text,
-                                                "productContextName" to (productContextName ?: ""),
-                                                "productContextPrice" to (productContextPrice ?: "")
+                                                "productContextName" to (pendingProductName ?: ""),
+                                                "productContextPrice" to (pendingProductPrice ?: ""),
+                                                "productContextImage" to (pendingProductImage ?: "")
                                             )
                                         )
+                                        // Clear pending attachment after send
+                                        pendingProductName = null
+                                        pendingProductPrice = null
+                                        pendingProductImage = null
                                         loadMessages()
                                     }
                                 }
@@ -374,13 +384,18 @@ fun ChatThreadScreen(
                             .widthIn(max = 300.dp)
                             .clip(
                                 RoundedCornerShape(
-                                    topStart = 16.dp,
-                                    topEnd = 16.dp,
-                                    bottomStart = if (isCustomer) 16.dp else 4.dp,
-                                    bottomEnd = if (isCustomer) 4.dp else 16.dp
+                                    topStart = 18.dp,
+                                    topEnd = 18.dp,
+                                    bottomStart = if (isCustomer) 18.dp else 4.dp,
+                                    bottomEnd = if (isCustomer) 4.dp else 18.dp
                                 )
                             )
-                            .background(if (isCustomer) SuqiPrimary else colors.secondaryBackground)
+                            .background(if (isCustomer) SuqiPrimary else colors.cardBackground)
+                            .then(
+                                if (!isCustomer) Modifier.border(1.dp, colors.border, RoundedCornerShape(
+                                    topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp
+                                )) else Modifier
+                            )
                             .padding(12.dp)
                     ) {
                         Column {
@@ -396,6 +411,30 @@ fun ChatThreadScreen(
                                     viewModel.navigate(ScreenDestination.ShopStorefront(sId))
                                 }
                             )
+
+                            // Embedded product card (mockup: image + name + price + chevron)
+                            val ctxName = msg.productContextName?.takeIf { it.isNotBlank() }
+                            val ctxPrice = msg.productContextPrice?.takeIf { it.isNotBlank() }
+                            val ctxImage = msg.productContextImage?.takeIf { it.isNotBlank() }
+                            if (ctxName != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                val matched = allProducts.firstOrNull {
+                                    it.name.equals(ctxName, ignoreCase = true) ||
+                                        it.name.contains(ctxName, ignoreCase = true)
+                                }
+                                ChatEmbeddedProductCard(
+                                    name = ctxName,
+                                    price = ctxPrice ?: matched?.let { formatEtb(it.price) },
+                                    imageUrl = ctxImage ?: matched?.primaryImageUrl,
+                                    isOnPrimary = isCustomer,
+                                    onClick = {
+                                        val id = matched?.id
+                                        if (id != null) {
+                                            viewModel.navigate(ScreenDestination.ProductDetails(id))
+                                        }
+                                    }
+                                )
+                            }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = msg.timestamp,
@@ -438,6 +477,9 @@ fun ChatThreadScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable {
                                     inputMessage = "$inputMessage #[${p.name}:${p.id}] ".trimStart()
+                                    pendingProductName = p.name
+                                    pendingProductPrice = formatEtb(p.price)
+                                    pendingProductImage = p.primaryImageUrl
                                     showProductPicker = false
                                 }
                                 .padding(vertical = 8.dp, horizontal = 4.dp),
@@ -597,27 +639,119 @@ private fun ChatBubbleMessageContent(
         }
 
         Column {
-            Text(
-                text = cleanedText,
-                fontFamily = SuqiFontFamily,
-                fontSize = 14.sp,
-                color = if (isCustomer) Color.White else colors.primaryText
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+            if (cleanedText.isNotBlank()) {
+                Text(
+                    text = cleanedText,
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 14.sp,
+                    color = if (isCustomer) Color.White else colors.primaryText
+                )
+            }
             matches.forEach { match ->
                 val isProduct = match.groupValues[1] == "#"
                 val label = match.groupValues[2]
                 val id = match.groupValues[3]
+                Spacer(modifier = Modifier.height(8.dp))
+                if (isProduct) {
+                    val prod = allProducts.firstOrNull { it.id == id }
+                        ?: allProducts.firstOrNull { it.name.equals(label, ignoreCase = true) }
+                    ChatEmbeddedProductCard(
+                        name = prod?.name ?: label,
+                        price = prod?.let { formatEtb(it.price) },
+                        imageUrl = prod?.primaryImageUrl,
+                        isOnPrimary = isCustomer,
+                        onClick = { onNavigateToProduct(id) }
+                    )
+                } else {
+                    MentionChip(
+                        type = "shop",
+                        label = label,
+                        onClick = { onNavigateToShop(id) },
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
 
-                MentionChip(
-                    type = if (isProduct) "product" else "shop",
-                    label = label,
-                    onClick = {
-                        if (isProduct) onNavigateToProduct(id) else onNavigateToShop(id)
-                    },
-                    modifier = Modifier.padding(vertical = 2.dp)
+/**
+ * Embedded product card inside a chat bubble (image + name + price + chevron).
+ * Matches the in-chat product mention mockup.
+ */
+@Composable
+private fun ChatEmbeddedProductCard(
+    name: String,
+    price: String?,
+    imageUrl: String?,
+    isOnPrimary: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = LocalSuqiColors.current
+    val cardBg = if (isOnPrimary) Color.White.copy(alpha = 0.18f) else colors.secondaryBackground
+    val titleColor = if (isOnPrimary) Color.White else colors.primaryText
+    val priceColor = if (isOnPrimary) Color.White else SuqiPrimary
+    val chevronColor = if (isOnPrimary) Color.White.copy(alpha = 0.85f) else colors.mutedText
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(cardBg)
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (isOnPrimary) Color.White.copy(alpha = 0.2f) else colors.cardBackground)
+        ) {
+            if (!imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    LucideIcons.ShoppingBag,
+                    contentDescription = null,
+                    tint = if (isOnPrimary) Color.White else SuqiPrimary,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(22.dp)
                 )
             }
         }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = name,
+                fontFamily = SuqiFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = titleColor,
+                maxLines = 2
+            )
+            if (!price.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = price,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    color = priceColor
+                )
+            }
+        }
+        Icon(
+            LucideIcons.ChevronRight,
+            contentDescription = null,
+            tint = chevronColor,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
