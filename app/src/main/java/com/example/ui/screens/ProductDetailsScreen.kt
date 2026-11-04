@@ -20,12 +20,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.net.Uri
+import android.widget.VideoView
+import androidx.compose.ui.viewinterop.AndroidView
+import coil.ImageLoader
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import android.os.Build
 import com.example.data.model.CartItemDto
 import com.example.data.model.ProductDto
 import com.example.data.model.ReviewDto
@@ -256,29 +265,106 @@ fun ProductDetailsScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // Main Gallery View
+            // Main Gallery View — rounded corners, image / GIF / video
             item {
+                val activeUrl = allImages.getOrElse(selectedImageIndex) { currentProd.primaryImageUrl }
+                val mediaType = mediaTypeOf(activeUrl)
+                val context = LocalContext.current
+                val gifLoader = remember {
+                    ImageLoader.Builder(context)
+                        .components {
+                            if (Build.VERSION.SDK_INT >= 28) {
+                                add(ImageDecoderDecoder.Factory())
+                            } else {
+                                add(GifDecoder.Factory())
+                            }
+                        }
+                        .build()
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(280.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .height(300.dp)
+                        .clip(RoundedCornerShape(20.dp))
                         .background(SuqiSecondaryBackground)
                 ) {
-                    val activeImg = allImages.getOrElse(selectedImageIndex) { currentProd.primaryImageUrl }
-                    AsyncImage(
-                        model = activeImg,
-                        contentDescription = currentProd.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    when (mediaType) {
+                        "video" -> {
+                            AndroidView(
+                                factory = { ctx ->
+                                    VideoView(ctx).apply {
+                                        setVideoURI(Uri.parse(activeUrl))
+                                        setOnPreparedListener { mp ->
+                                            mp.isLooping = true
+                                            start()
+                                        }
+                                    }
+                                },
+                                update = { vv ->
+                                    vv.setVideoURI(Uri.parse(activeUrl))
+                                    vv.start()
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            // Play indicator overlay
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.35f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    LucideIcons.Zap,
+                                    contentDescription = "Video",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        else -> {
+                            // image + gif via Coil (GifDecoder)
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(activeUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = currentProd.name,
+                                contentScale = ContentScale.Crop,
+                                imageLoader = gifLoader,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            if (mediaType == "gif") {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(12.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.Black.copy(alpha = 0.55f))
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        "GIF",
+                                        fontFamily = SuqiFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.sp,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
 
-                    // Image page indicator badge
+                    // Page indicator
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(16.dp)
+                            .padding(12.dp)
                             .clip(RoundedCornerShape(999.dp))
-                            .background(Color.Black.copy(alpha = 0.6f))
+                            .background(Color.Black.copy(alpha = 0.55f))
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
@@ -332,7 +418,7 @@ fun ProductDetailsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(SuqiWarningLight)
+                                .background(SuqiWarningBg)
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Icon(LucideIcons.Flame, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
@@ -402,7 +488,7 @@ fun ProductDetailsScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(SuqiPrimaryLight)
+                                    .background(SuqiPrimaryTint)
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
@@ -435,7 +521,7 @@ fun ProductDetailsScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSel) SuqiPrimaryLight else SuqiSecondaryBackground)
+                                        .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
                                         .border(
                                             1.5.dp,
                                             if (isSel) SuqiPrimary else SuqiBorder,
@@ -474,7 +560,7 @@ fun ProductDetailsScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSel) SuqiPrimaryLight else SuqiSecondaryBackground)
+                                        .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
                                         .border(
                                             1.5.dp,
                                             if (isSel) SuqiPrimary else SuqiBorder,

@@ -146,7 +146,7 @@ fun AccountHubScreen(
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = SuqiPrimaryLight),
+                    colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.primaryTint),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = androidx.compose.ui.graphics.SolidColor(SuqiPrimary.copy(alpha = 0.3f))
                     ),
@@ -247,7 +247,7 @@ fun AccountHubScreen(
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+                    colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.primaryTint),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = androidx.compose.ui.graphics.SolidColor(SuqiWarning.copy(alpha = 0.4f))
                     ),

@@ -120,7 +120,7 @@ fun CartScreen(
                         modifier = Modifier
                             .size(100.dp)
                             .clip(CircleShape)
-                            .background(SuqiPrimaryLight),
+                            .background(SuqiPrimaryTint),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -251,7 +251,7 @@ fun CartScreen(
                     Text("Cancel", color = SuqiPrimaryText)
                 }
             },
-            containerColor = Color.White,
+            containerColor = LocalSuqiColors.current.cardBackground,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -303,7 +303,7 @@ fun ShopCartGroupCard(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(SuqiPrimaryLight),
+                            .background(SuqiPrimaryTint),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(

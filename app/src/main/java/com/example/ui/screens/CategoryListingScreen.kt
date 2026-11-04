@@ -225,7 +225,7 @@ fun CategoryListingScreen(
     if (showFilterSheet) {
         ModalBottomSheet(
             onDismissRequest = { showFilterSheet = false },
-            containerColor = Color.White,
+            containerColor = LocalSuqiColors.current.cardBackground,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
             Column(
@@ -264,7 +264,7 @@ fun CategoryListingScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (sortBy == key) SuqiPrimaryLight else Color.Transparent)
+                                .background(if (sortBy == key) SuqiPrimaryTint else Color.Transparent)
                                 .clickable { sortBy = key }
                                 .padding(horizontal = 12.dp, vertical = 10.dp)
                         ) {

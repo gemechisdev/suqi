@@ -105,7 +105,7 @@ fun SuqiButton(
             enabled = enabled,
             shape = shape,
             colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color.White,
+                containerColor = LocalSuqiColors.current.cardBackground,
                 contentColor = SuqiPrimaryText
             ),
             border = ButtonDefaults.outlinedButtonBorder.copy(
@@ -314,7 +314,7 @@ fun SuqiSelectionCard(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (selected) Color.White else SuqiSecondaryBackground),
+                        .background(if (selected) LocalSuqiColors.current.cardBackground else SuqiSecondaryBackground),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -382,7 +382,7 @@ fun SuqiSelectionCard(
                     .size(20.dp)
                     .clip(CircleShape)
                     .border(2.dp, if (selected) SuqiPrimary else SuqiBorder, CircleShape)
-                    .background(Color.White),
+                    .background(LocalSuqiColors.current.cardBackground),
                 contentAlignment = Alignment.Center
             ) {
                 if (selected) {
@@ -764,23 +764,16 @@ fun SuqiTopHeader(
                 color = colors.primaryText
             )
         } else {
-            // Suqi Brand Logo
+            // Suqi Brand Logo (app mark + wordmark)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = R.drawable.suqi_logo),
+                    contentDescription = "Suqi",
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(SuqiPrimary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = LucideIcons.ShoppingBag,
-                        contentDescription = "Suqi Logo",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Suqi",
                     fontFamily = SuqiFontFamily,
@@ -906,7 +899,7 @@ fun MentionChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isProduct) SuqiPrimaryTint else Color(0xFFEFF6FF))
+            .background(if (isProduct) SuqiPrimaryTint else LocalSuqiColors.current.secondaryBackground)
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
@@ -914,7 +907,7 @@ fun MentionChip(
             Icon(
                 imageVector = if (isProduct) LucideIcons.ShoppingBag else LucideIcons.Store,
                 contentDescription = null,
-                tint = if (isProduct) SuqiPrimary else Color(0xFF2563EB),
+                tint = if (isProduct) SuqiPrimary else LocalSuqiColors.current.primaryText,
                 modifier = Modifier.size(13.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
@@ -923,7 +916,7 @@ fun MentionChip(
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
-                color = if (isProduct) SuqiPrimary else Color(0xFF2563EB)
+                color = if (isProduct) SuqiPrimary else LocalSuqiColors.current.primaryText
             )
         }
     }

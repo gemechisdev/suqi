@@ -132,7 +132,7 @@ fun AuthScreen(
                     },
                     shape = RoundedCornerShape(16.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, SuqiBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = LocalSuqiColors.current.cardBackground),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
@@ -319,7 +319,7 @@ fun OnboardingScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSel) SuqiPrimaryLight else SuqiSecondaryBackground)
+                                .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
                                 .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(14.dp))
                                 .clickable {
                                     selectedRegion = reg
@@ -354,7 +354,7 @@ fun OnboardingScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSel) SuqiPrimaryLight else SuqiSecondaryBackground)
+                                .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
                                 .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(14.dp))
                                 .clickable {
                                     selectedSubCity = sc

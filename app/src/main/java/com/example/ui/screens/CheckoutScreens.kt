@@ -341,7 +341,7 @@ fun CheckoutDeliveryScreen(
             dismissButton = {
                 TextButton(onClick = { showAddressDialog = false }) { Text("Cancel") }
             },
-            containerColor = Color.White,
+            containerColor = LocalSuqiColors.current.cardBackground,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -560,7 +560,7 @@ fun CheckoutPaymentScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                     Card(
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = SuqiPrimaryLight),
+                        colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.primaryTint),
                         border = CardDefaults.outlinedCardBorder().copy(
                             brush = androidx.compose.ui.graphics.SolidColor(SuqiPrimary.copy(alpha = 0.3f))
                         ),

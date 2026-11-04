@@ -217,7 +217,7 @@ fun SellerStudioScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.White)
+                                    .background(LocalSuqiColors.current.cardBackground)
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
@@ -391,7 +391,7 @@ fun QuickActionTile(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(SuqiPrimaryLight),
+                    .background(SuqiPrimaryTint),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
@@ -1029,7 +1029,7 @@ fun VerificationQueueScreen(
             dismissButton = {
                 TextButton(onClick = { selectedOrderForReject = null }) { Text("Cancel") }
             },
-            containerColor = Color.White,
+            containerColor = LocalSuqiColors.current.cardBackground,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -1108,7 +1108,7 @@ fun PaymentMethodsSetupScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(SuqiPrimaryLight)
+                        .background(SuqiPrimaryTint)
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1239,7 +1239,7 @@ fun PaymentMethodsSetupScreen(
                 ) { Text("Add") }
             },
             dismissButton = { TextButton(onClick = { showAddDialog = false }) { Text("Cancel") } },
-            containerColor = Color.White,
+            containerColor = LocalSuqiColors.current.cardBackground,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -1383,7 +1383,7 @@ fun PromotionsScreen(
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = SuqiPrimaryLight),
+                    colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.primaryTint),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -1579,7 +1579,7 @@ fun SellerVerificationScreen(
                 modifier = Modifier
                     .size(90.dp)
                     .clip(CircleShape)
-                    .background(SuqiPrimaryLight),
+                    .background(SuqiPrimaryTint),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(LucideIcons.BadgeCheck, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(48.dp))
@@ -1669,7 +1669,7 @@ fun SellerSubscriptionScreen(
         ) {
             Card(
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = SuqiPrimaryLight),
+                colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.primaryTint),
                 border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiPrimary)),
                 modifier = Modifier.fillMaxWidth()
             ) {

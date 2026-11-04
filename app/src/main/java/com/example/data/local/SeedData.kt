@@ -201,7 +201,7 @@ object SeedData {
                 descriptionAmharic = "የ12ኛ ትውልድ ኢንቴል ኮር አይ 5 ፕሮሰሰር፣ 8 ጊጋባይት ራም፣ 512 ጊጋባይት ኤስኤስዲ። ለስራ እና ለትምህርት ተመራጭ።",
                 descriptionAfaanOromo = "Piroosesarii Core i5, RAM 8GB fi SSD 512GB qaba.",
                 primaryImageUrl = "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=600",
-                extraImagesCsv = "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=600,https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=600",
+                extraImagesCsv = "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=600,https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=600,https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif,https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
                 categoryId = "cat_electronics",
                 subCategory = "Laptops",
                 price = 24999.0,

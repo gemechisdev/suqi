@@ -191,7 +191,7 @@ fun CustomerOrderCard(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(SuqiPrimaryLight),
+                            .background(SuqiPrimaryTint),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -299,7 +299,7 @@ fun CustomerOrderCard(
                 Button(
                     onClick = onViewDetails,
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimaryLight),
+                    colors = ButtonDefaults.buttonColors(containerColor = LocalSuqiColors.current.primaryTint),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                 ) {
                     Text(

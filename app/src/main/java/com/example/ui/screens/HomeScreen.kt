@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -40,20 +41,6 @@ import com.example.ui.components.*
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
-private data class HomeBannerSlide(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val buttonText: String,
-    val imageUrl: String,
-    val bgGradient: List<Color>,
-    val titleColor: Color,
-    val subtitleColor: Color,
-    val buttonBg: Color,
-    val buttonTextColor: Color,
-    val targetCategory: String,
-    val targetName: String
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,55 +60,49 @@ fun HomeScreen(
     var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
     var showLocationSheet by remember { mutableStateOf(false) }
 
-    // FitHub styled Carousel slides
+    // FitHub-style carousel slides (theme colors applied at render)
+    data class BannerSlide(
+        val id: String,
+        val title: String,
+        val subtitle: String,
+        val buttonText: String,
+        val imageUrl: String,
+        val targetCategory: String,
+        val targetName: String
+    )
     val slides = remember {
         listOf(
-            HomeBannerSlide(
+            BannerSlide(
                 id = "1",
                 title = "Discover\nAmazing Deals",
-                subtitle = "Shop Smart. Shop Suqi.",
+                subtitle = "Shop Smart. Shop Suqi — premium products across Ethiopia.",
                 buttonText = "Shop Now",
-                imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500",
-                bgGradient = listOf(Color(0xFFFFF3EB), Color(0xFFFFE5D3)),
-                titleColor = Color(0xFF0F172A),
-                subtitleColor = Color(0xFF64748B),
-                buttonBg = SuqiPrimary,
-                buttonTextColor = Color.White,
+                imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
                 targetCategory = "cat_electronics",
                 targetName = "Electronics"
             ),
-            HomeBannerSlide(
+            BannerSlide(
                 id = "2",
                 title = "Ethiopian\nFashion Week",
-                subtitle = "Handcrafted Habesha Kemis & modern styles",
+                subtitle = "Handcrafted styles and modern looks from local sellers.",
                 buttonText = "Explore Style",
-                imageUrl = "https://images.unsplash.com/photo-1523381294911-8d3cead13475?w=500",
-                bgGradient = listOf(Color(0xFFFFECE5), Color(0xFFFFD8CC)),
-                titleColor = Color(0xFF0F172A),
-                subtitleColor = Color(0xFF64748B),
-                buttonBg = SuqiPrimary,
-                buttonTextColor = Color.White,
+                imageUrl = "https://images.unsplash.com/photo-1523381294911-8d3cead13475?w=600",
                 targetCategory = "cat_fashion",
                 targetName = "Fashion"
             ),
-            HomeBannerSlide(
+            BannerSlide(
                 id = "3",
                 title = "Transform\nYour Home",
-                subtitle = "Authentic furniture & warm living",
+                subtitle = "Furniture and living essentials delivered across Ethiopia.",
                 buttonText = "View Decor",
-                imageUrl = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500",
-                bgGradient = listOf(Color(0xFFF1F5F9), Color(0xFFE2E8F0)),
-                titleColor = Color(0xFF0F172A),
-                subtitleColor = Color(0xFF475569),
-                buttonBg = SuqiPrimary,
-                buttonTextColor = Color.White,
+                imageUrl = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600",
                 targetCategory = "cat_home",
                 targetName = "Home & Living"
             )
         )
     }
 
-    val pagerState = rememberPagerState(pageCount = { slides.size })
+        val pagerState = rememberPagerState(pageCount = { slides.size })
 
     // Auto-advance banner slides smoothly
     LaunchedEffect(pagerState) {
@@ -162,7 +143,9 @@ fun HomeScreen(
                     viewModel.clearNotificationCount()
                     viewModel.navigate(ScreenDestination.Notifications)
                 },
-                showThemeToggle = false,
+                showThemeToggle = true,
+                isDarkTheme = effectiveDark,
+                onToggleTheme = { viewModel.setDarkMode(!effectiveDark) },
                 locationText = listOfNotNull(selectedSubCity.takeIf { it.isNotBlank() }, selectedCity).joinToString(", ").ifBlank { selectedCity },
                 onLocationClick = { showLocationSheet = true }
             )
@@ -253,99 +236,128 @@ fun HomeScreen(
                         state = pagerState,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp),
+                            .height(210.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp),
-                        pageSpacing = 12.dp
+                        pageSpacing = 14.dp
                     ) { page ->
                         val slide = slides[page]
+                        // 3D page-turn rotation based on scroll offset (FitHub-like depth)
+                        val pageOffset = (
+                            (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                        )
+                        val rotationY = pageOffset * -25f
+                        val scale = 0.92f + (1f - kotlin.math.abs(pageOffset).coerceIn(0f, 1f)) * 0.08f
+
+                        val gradient = if (effectiveDark) {
+                            listOf(Color(0xFF2A1F18), Color(0xFF1A1410))
+                        } else {
+                            listOf(Color(0xFFFFF3EB), Color(0xFFFFE5D3))
+                        }
+                        val titleCol = if (effectiveDark) Color(0xFFF8FAFC) else Color(0xFF171717)
+                        val subCol = if (effectiveDark) Color(0xFF94A3B8) else Color(0xFF737373)
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(Brush.horizontalGradient(slide.bgGradient))
-                                .clickable {
-                                    viewModel.navigate(ScreenDestination.CategoryListing(slide.targetCategory, slide.targetName))
+                                .graphicsLayer {
+                                    this.rotationY = rotationY
+                                    cameraDistance = 16f * density
+                                    scaleX = scale
+                                    scaleY = scale
+                                    alpha = 0.55f + (1f - kotlin.math.abs(pageOffset).coerceIn(0f, 1f)) * 0.45f
                                 }
-                                .padding(horizontal = 20.dp, vertical = 18.dp)
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(Brush.horizontalGradient(gradient))
+                                .clickable {
+                                    viewModel.navigate(
+                                        ScreenDestination.CategoryListing(slide.targetCategory, slide.targetName)
+                                    )
+                                }
                                 .testTag("banner_slide_${slide.id}")
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(start = 22.dp, end = 8.dp, top = 22.dp, bottom = 22.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.weight(1.3f)) {
-                                    Text(
-                                        text = slide.title,
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 21.sp,
-                                        lineHeight = 26.sp,
-                                        color = slide.titleColor
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = slide.subtitle,
-                                        fontFamily = SuqiFontFamily,
-                                        fontSize = 12.sp,
-                                        lineHeight = 16.sp,
-                                        color = slide.subtitleColor,
-                                        maxLines = 2
-                                    )
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Box(
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1.15f)
+                                        .fillMaxHeight(),
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = slide.title,
+                                            fontFamily = SuqiFontFamily,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 24.sp,
+                                            lineHeight = 30.sp,
+                                            color = titleCol
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = slide.subtitle,
+                                            fontFamily = SuqiFontFamily,
+                                            fontSize = 13.sp,
+                                            lineHeight = 18.sp,
+                                            color = subCol,
+                                            maxLines = 2
+                                        )
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(999.dp))
-                                            .background(slide.buttonBg)
-                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                            .background(SuqiPrimary)
+                                            .clickable {
+                                                viewModel.navigate(
+                                                    ScreenDestination.CategoryListing(
+                                                        slide.targetCategory,
+                                                        slide.targetName
+                                                    )
+                                                )
+                                            }
+                                            .padding(horizontal = 18.dp, vertical = 10.dp)
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                text = slide.buttonText,
-                                                fontFamily = SuqiFontFamily,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 12.sp,
-                                                color = slide.buttonTextColor
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Icon(
-                                                imageVector = LucideIcons.ArrowRight,
-                                                contentDescription = null,
-                                                tint = slide.buttonTextColor,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                        }
+                                        Text(
+                                            text = slide.buttonText,
+                                            fontFamily = SuqiFontFamily,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 14.sp,
+                                            color = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(
+                                            imageVector = LucideIcons.ArrowRight,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
                                     }
                                 }
-
-                                // Product hero image (FitHub style)
-                                Box(
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(slide.imageUrl)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = slide.title,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                                     modifier = Modifier
-                                        .weight(0.9f)
-                                        .fillMaxHeight(),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current)
-                                            .data(slide.imageUrl)
-                                            .crossfade(true)
-                                            .build(),
-                                        contentDescription = slide.title,
-                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .widthIn(max = 140.dp)
-                                    )
-                                }
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .padding(vertical = 4.dp)
+                                )
                             }
                         }
                     }
 
-                    // Dot & Pill Indicators (FitHub style: Active is elongated pill, Inactive are circular dots)
+                    // FitHub-style pill indicators
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 10.dp),
+                            .padding(top = 12.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -355,7 +367,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .padding(horizontal = 3.dp)
                                     .height(6.dp)
-                                    .width(if (isSelected) 22.dp else 6.dp)
+                                    .width(if (isSelected) 20.dp else 6.dp)
                                     .clip(RoundedCornerShape(999.dp))
                                     .background(if (isSelected) SuqiPrimary else colors.border)
                             )
@@ -548,7 +560,7 @@ fun CategoryShortcutItem(
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(SuqiPrimaryLight),
+                .background(SuqiPrimaryTint),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -700,7 +712,7 @@ fun LocationPickerContent(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (isSel) SuqiPrimaryLight else SuqiSecondaryBackground)
+                        .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
                         .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
                         .clickable {
                             selectedRegion = reg
@@ -734,7 +746,7 @@ fun LocationPickerContent(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (isSel) SuqiPrimaryLight else SuqiSecondaryBackground)
+                        .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
                         .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
                         .clickable { selectedSubCity = sc }
                         .padding(horizontal = 16.dp, vertical = 8.dp)

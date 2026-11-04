@@ -88,7 +88,7 @@ fun ChatListScreen(
                 items(conversations) { conv ->
                     Card(
                         shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.cardBackground),
                         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -103,7 +103,7 @@ fun ChatListScreen(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(CircleShape)
-                                    .background(SuqiPrimaryLight),
+                                    .background(SuqiPrimaryTint),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -244,7 +244,7 @@ fun ChatThreadScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
-                                .background(SuqiPrimaryLight)
+                                .background(SuqiPrimaryTint)
                                 .clickable { showProductPicker = true }
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
@@ -259,14 +259,14 @@ fun ChatThreadScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
-                                .background(Color(0xFFEFF6FF))
+                                .background(LocalSuqiColors.current.secondaryBackground)
                                 .clickable { showShopPicker = true }
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(LucideIcons.Store, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(12.dp))
+                                Icon(LucideIcons.Store, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("@ Shop", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF2563EB))
+                                Text("@ Shop", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = SuqiPrimary)
                             }
                         }
                     }
@@ -501,7 +501,7 @@ fun ChatThreadScreen(
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clip(CircleShape)
-                                    .background(SuqiPrimaryLight),
+                                    .background(SuqiPrimaryTint),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(s.name.take(2).uppercase(), fontWeight = FontWeight.Bold, color = SuqiPrimary)
@@ -511,7 +511,7 @@ fun ChatThreadScreen(
                                 Text(s.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                                 Text(s.category, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                             }
-                            Icon(LucideIcons.Plus, contentDescription = "Add", tint = Color(0xFF2563EB))
+                            Icon(LucideIcons.Plus, contentDescription = "Add", tint = SuqiPrimary)
                         }
                     }
                 }

@@ -81,7 +81,7 @@ fun NotificationsScreen(
                 items(notifications) { notif ->
                     Card(
                         shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = if (notif.isRead) Color.White else SuqiPrimaryLight),
+                        colors = CardDefaults.cardColors(containerColor = if (notif.isRead) LocalSuqiColors.current.cardBackground else LocalSuqiColors.current.primaryTint),
                         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
                     ) {
@@ -180,7 +180,7 @@ fun SavedAddressesScreen(
             items(addresses) { addr ->
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.cardBackground),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = androidx.compose.ui.graphics.SolidColor(if (addr.isDefault) SuqiPrimary else SuqiBorder)
                     ),
@@ -251,7 +251,7 @@ fun SavedAddressesScreen(
                 ) { Text("Save Address") }
             },
             dismissButton = { TextButton(onClick = { showAddDialog = false }) { Text("Cancel") } },
-            containerColor = Color.White,
+            containerColor = LocalSuqiColors.current.cardBackground,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -440,7 +440,7 @@ fun ReviewsScreen(
                 ) { Text("Submit") }
             },
             dismissButton = { TextButton(onClick = { showWriteDialog = false }) { Text("Cancel") } },
-            containerColor = Color.White,
+            containerColor = LocalSuqiColors.current.cardBackground,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -519,7 +519,7 @@ fun AdminConsoleScreen(
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.cardBackground),
                     border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -652,7 +652,7 @@ fun AdminFeaturesScreen(
                 items(pendingShops) { shop ->
                     Card(
                         shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.cardBackground),
                         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
                     ) {
@@ -789,7 +789,7 @@ fun AppSettingsScreen(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(SuqiPrimaryLight),
+                                .background(SuqiPrimaryTint),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(LucideIcons.MapPin, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(22.dp))
@@ -963,7 +963,7 @@ fun AppSettingsScreen(
                         val isSel = curSubCity == sc
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = if (isSel) SuqiPrimaryLight else colors.secondaryBackground,
+                            color = if (isSel) SuqiPrimaryTint else colors.secondaryBackground,
                             border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) SuqiPrimary else colors.border),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1032,7 +1032,7 @@ fun HelpLegalScreen(
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = SuqiPrimaryLight),
+                    colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.primaryTint),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {

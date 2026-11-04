@@ -243,7 +243,7 @@ fun ShopListItemRow(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(if (shop.isFollowing) SuqiSecondaryBackground else SuqiPrimaryLight)
+                    .background(if (shop.isFollowing) SuqiSecondaryBackground else SuqiPrimaryTint)
                     .clickable(onClick = onToggleFollow)
                     .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
@@ -307,7 +307,7 @@ fun ShopStorefrontScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(LocalSuqiColors.current.cardBackground)
                 ) {
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
@@ -318,7 +318,7 @@ fun ShopStorefrontScreen(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
+                            .background(LocalSuqiColors.current.cardBackground)
                     ) {
                         Icon(LucideIcons.Share2, contentDescription = "Share", tint = SuqiPrimaryText)
                     }
@@ -328,7 +328,7 @@ fun ShopStorefrontScreen(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
+                            .background(LocalSuqiColors.current.cardBackground)
                     ) {
                         Icon(LucideIcons.ShoppingCart, contentDescription = "Cart", tint = SuqiPrimaryText)
                     }
@@ -365,8 +365,8 @@ fun ShopStorefrontScreen(
                             .align(Alignment.BottomStart)
                             .offset(x = 16.dp, y = 30.dp)
                             .clip(CircleShape)
-                            .border(3.dp, Color.White, CircleShape)
-                            .background(Color.White),
+                            .border(3.dp, LocalSuqiColors.current.cardBackground, CircleShape)
+                            .background(LocalSuqiColors.current.cardBackground),
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
