@@ -1,0 +1,6 @@
+{
+  "name": "Suqi",
+  "description": "Multi-vendor marketplace app for Ethiopia with shop storefronts, multi-shop cart, seller studio, and order verification",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
