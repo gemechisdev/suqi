@@ -91,7 +91,7 @@ fun ProductDetailsScreen(
                         .background(SuqiSecondaryBackground)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = LucideIcons.ArrowLeft,
                         contentDescription = "Back",
                         tint = SuqiPrimaryText
                     )
@@ -114,7 +114,7 @@ fun ProductDetailsScreen(
                             .background(SuqiSecondaryBackground)
                     ) {
                         Icon(
-                            imageVector = if (currentProd.isWishlisted) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            imageVector = if (currentProd.isWishlisted) LucideIcons.HeartFilled else LucideIcons.Heart,
                             contentDescription = "Wishlist",
                             tint = if (currentProd.isWishlisted) SuqiPrimary else SuqiPrimaryText
                         )
@@ -129,7 +129,7 @@ fun ProductDetailsScreen(
                             .clip(CircleShape)
                             .background(SuqiSecondaryBackground)
                     ) {
-                        Icon(Icons.Outlined.Share, contentDescription = "Share", tint = SuqiPrimaryText)
+                        Icon(LucideIcons.Share2, contentDescription = "Share", tint = SuqiPrimaryText)
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -155,7 +155,7 @@ fun ProductDetailsScreen(
                                 }
                             }
                         ) {
-                            Icon(Icons.Outlined.ShoppingCart, contentDescription = "Cart", tint = SuqiPrimaryText)
+                            Icon(LucideIcons.ShoppingCart, contentDescription = "Cart", tint = SuqiPrimaryText)
                         }
                     }
                 }
@@ -335,7 +335,7 @@ fun ProductDetailsScreen(
                                 .background(SuqiWarningLight)
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            Icon(Icons.Filled.LocalFireDepartment, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
+                            Icon(LucideIcons.Flame, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Low Stock – Only ${currentProd.stockQuantity} left",
@@ -359,7 +359,7 @@ fun ProductDetailsScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Star, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
+                        Icon(LucideIcons.StarFilled, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${currentProd.rating} (${currentProd.reviewCount} reviews)",
@@ -540,7 +540,7 @@ fun ProductDetailsScreen(
                                     if (currentProd.shopVerified) {
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(
-                                            imageVector = Icons.Filled.CheckCircle,
+                                            imageVector = LucideIcons.CheckCircle,
                                             contentDescription = "Verified",
                                             tint = SuqiPrimary,
                                             modifier = Modifier.size(16.dp)
@@ -579,7 +579,7 @@ fun ProductDetailsScreen(
                                     .weight(1f)
                                     .height(42.dp)
                             ) {
-                                Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+                                Icon(LucideIcons.MessageCircle, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Chat", fontFamily = SuqiFontFamily, color = SuqiPrimary)
                             }

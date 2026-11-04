@@ -8,6 +8,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
+// Single TTF files currently ship Regular only; Compose synthesizes Medium/SemiBold.
+// Prefer SemiBold for headings per plan §12 (avoid ExtraBold).
 val SuqiFontFamily = FontFamily(
     Font(R.font.plus_jakarta_sans, FontWeight.Normal),
     Font(R.font.plus_jakarta_sans, FontWeight.Medium),
@@ -22,41 +24,38 @@ val EthiopicFontFamily = FontFamily(
     Font(R.font.noto_sans_ethiopic, FontWeight.Bold)
 )
 
-// Bold, high-clarity typography hierarchy (FitHub aesthetic)
+// Plan §12 hierarchy: Page title Semibold 24, Section Semibold 18,
+// Card/product Medium 14–16, Body Regular 14–16, Label 12–13, Price Semibold 16–18
 val Typography = Typography(
-    // Page Title: Bold 24sp
     headlineLarge = TextStyle(
         fontFamily = SuqiFontFamily,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 30.sp,
-        letterSpacing = (-0.5).sp
+        letterSpacing = (-0.3).sp
     ),
-    // Section Heading: Bold 18sp
     titleLarge = TextStyle(
         fontFamily = SuqiFontFamily,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 18.sp,
         lineHeight = 24.sp,
-        letterSpacing = (-0.3).sp
+        letterSpacing = (-0.2).sp
     ),
     titleMedium = TextStyle(
         fontFamily = SuqiFontFamily,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         lineHeight = 22.sp
     ),
-    // Product Title: Bold 15sp
     titleSmall = TextStyle(
         fontFamily = SuqiFontFamily,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Medium,
         fontSize = 15.sp,
         lineHeight = 20.sp
     ),
-    // Body: Medium / Normal 15-16sp
     bodyLarge = TextStyle(
         fontFamily = SuqiFontFamily,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Normal,
         fontSize = 15.sp,
         lineHeight = 22.sp
     ),
@@ -66,16 +65,15 @@ val Typography = Typography(
         fontSize = 14.sp,
         lineHeight = 20.sp
     ),
-    // Button & Action Labels: Bold 15-16sp
     labelLarge = TextStyle(
         fontFamily = SuqiFontFamily,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 15.sp,
         lineHeight = 20.sp
     ),
     labelMedium = TextStyle(
         fontFamily = SuqiFontFamily,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 13.sp,
         lineHeight = 18.sp
     ),

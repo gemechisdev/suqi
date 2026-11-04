@@ -97,7 +97,7 @@ fun SearchScreen(
                         .background(SuqiSecondaryBackground)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = LucideIcons.ArrowLeft,
                         contentDescription = "Back",
                         tint = SuqiPrimaryText,
                         modifier = Modifier.size(20.dp)
@@ -123,7 +123,7 @@ fun SearchScreen(
                     },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Filled.Search,
+                            imageVector = LucideIcons.Search,
                             contentDescription = null,
                             tint = SuqiSecondaryText,
                             modifier = Modifier.size(20.dp)
@@ -136,7 +136,7 @@ fun SearchScreen(
                                 productResults = emptyList()
                                 shopResults = emptyList()
                             }) {
-                                Icon(Icons.Filled.Clear, contentDescription = "Clear", tint = SuqiSecondaryText)
+                                Icon(LucideIcons.X, contentDescription = "Clear", tint = SuqiSecondaryText)
                             }
                         }
                     },
@@ -179,7 +179,7 @@ fun SearchScreen(
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.ShoppingCart,
+                            imageVector = LucideIcons.ShoppingCart,
                             contentDescription = "Cart",
                             tint = SuqiPrimaryText,
                             modifier = Modifier.size(20.dp)
@@ -233,7 +233,7 @@ fun SearchScreen(
                                 .padding(vertical = 10.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.History,
+                                imageVector = LucideIcons.History,
                                 contentDescription = "Recent",
                                 tint = SuqiSecondaryText,
                                 modifier = Modifier.size(18.dp)
@@ -247,7 +247,7 @@ fun SearchScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             Icon(
-                                imageVector = Icons.Outlined.NorthWest,
+                                imageVector = LucideIcons.ArrowUpLeft,
                                 contentDescription = null,
                                 tint = SuqiMutedText,
                                 modifier = Modifier.size(16.dp)
@@ -278,7 +278,7 @@ fun SearchScreen(
                             .padding(vertical = 10.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.TrendingUp,
+                            imageVector = LucideIcons.TrendingUp,
                             contentDescription = "Trending",
                             tint = SuqiPrimary,
                             modifier = Modifier.size(18.dp)
@@ -292,7 +292,7 @@ fun SearchScreen(
                             modifier = Modifier.weight(1f)
                         )
                         Icon(
-                            imageVector = Icons.Outlined.NorthWest,
+                            imageVector = LucideIcons.ArrowUpLeft,
                             contentDescription = null,
                             tint = SuqiMutedText,
                             modifier = Modifier.size(16.dp)
@@ -306,7 +306,7 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = 96.dp)
+                contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
             ) {
                 // Products | Shops Switcher
                 item {
@@ -372,7 +372,7 @@ fun SearchScreen(
                                 fontSize = 12.sp,
                                 color = SuqiPrimaryText
                             )
-                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(LucideIcons.ChevronDown, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
@@ -496,7 +496,7 @@ fun SearchResultProductRow(
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Star, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(13.dp))
+                    Icon(LucideIcons.StarFilled, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(13.dp))
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "${product.rating} (${product.reviewCount})",
@@ -538,7 +538,7 @@ fun SearchResultProductRow(
 
             IconButton(onClick = onToggleWishlist) {
                 Icon(
-                    imageVector = if (product.isWishlisted) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    imageVector = if (product.isWishlisted) LucideIcons.HeartFilled else LucideIcons.Heart,
                     contentDescription = "Wishlist",
                     tint = if (product.isWishlisted) SuqiPrimary else SuqiSecondaryText
                 )

@@ -89,7 +89,7 @@ fun CheckoutDeliveryScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -153,7 +153,7 @@ fun CheckoutDeliveryScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Outlined.Person, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                            Icon(LucideIcons.User, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -182,7 +182,7 @@ fun CheckoutDeliveryScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                            Icon(LucideIcons.MapPin, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = deliveryAddress,
@@ -202,7 +202,7 @@ fun CheckoutDeliveryScreen(
                             border = androidx.compose.foundation.BorderStroke(1.dp, SuqiBorder),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Outlined.AddLocation, contentDescription = null, tint = SuqiPrimaryText, modifier = Modifier.size(16.dp))
+                            Icon(LucideIcons.MapPinPlus, contentDescription = null, tint = SuqiPrimaryText, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Choose Another Address", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = SuqiPrimaryText)
                         }
@@ -231,9 +231,9 @@ fun CheckoutDeliveryScreen(
                     title = option.title,
                     subtitle = "${option.estimatedTime} • ${formatEtb(option.fee)}",
                     icon = when (option.optionType) {
-                        "EXPRESS" -> Icons.Outlined.Bolt
-                        "PICKUP" -> Icons.Outlined.Storefront
-                        else -> Icons.Outlined.LocalShipping
+                        "EXPRESS" -> LucideIcons.Zap
+                        "PICKUP" -> LucideIcons.Store
+                        else -> LucideIcons.Truck
                     },
                     onClick = { selectedOption = option }
                 )
@@ -410,7 +410,7 @@ fun CheckoutPaymentScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -545,9 +545,9 @@ fun CheckoutPaymentScreen(
                     title = method.bankName,
                     subtitle = "${method.accountName} • ${method.accountNumber}",
                     icon = when (method.providerType) {
-                        "BANK_TRANSFER" -> Icons.Outlined.AccountBalance
-                        "TELEBIRR" -> Icons.Outlined.PhoneAndroid
-                        else -> Icons.Outlined.Payments
+                        "BANK_TRANSFER" -> LucideIcons.Landmark
+                        "TELEBIRR" -> LucideIcons.Smartphone
+                        else -> LucideIcons.Wallet
                     },
                     onClick = { selectedMethod = method }
                 )
@@ -606,7 +606,7 @@ fun CheckoutPaymentScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, SuqiPrimary),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Outlined.ContentCopy, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+                                Icon(LucideIcons.Copy, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Copy Details", fontFamily = SuqiFontFamily, color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
                             }
@@ -691,7 +691,7 @@ fun OrderSubmittedScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Check,
+                            imageVector = LucideIcons.Check,
                             contentDescription = "Success",
                             tint = Color.White,
                             modifier = Modifier.size(36.dp)
@@ -757,7 +757,7 @@ fun OrderSubmittedScreen(
                                 },
                                 modifier = Modifier.size(28.dp)
                             ) {
-                                Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy", tint = SuqiSecondaryText, modifier = Modifier.size(16.dp))
+                                Icon(LucideIcons.Copy, contentDescription = "Copy", tint = SuqiSecondaryText, modifier = Modifier.size(16.dp))
                             }
                         }
 
@@ -822,7 +822,7 @@ fun OrderSubmittedScreen(
                     }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = SuqiSecondaryText, modifier = Modifier.size(16.dp))
+                        Icon(LucideIcons.MessageCircle, contentDescription = null, tint = SuqiSecondaryText, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Chat with Shop",

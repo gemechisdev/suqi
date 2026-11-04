@@ -69,7 +69,7 @@ fun AccountHubScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.Settings, contentDescription = "Settings", tint = SuqiPrimaryText)
                 }
             }
         },
@@ -133,7 +133,7 @@ fun AccountHubScreen(
                         }
 
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            imageVector = LucideIcons.ArrowRight,
                             contentDescription = null,
                             tint = SuqiSecondaryText,
                             modifier = Modifier.size(18.dp)
@@ -169,7 +169,7 @@ fun AccountHubScreen(
                                     .background(SuqiPrimary),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Icon(LucideIcons.Store, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
@@ -205,38 +205,38 @@ fun AccountHubScreen(
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     AccountMenuItem(
-                        icon = Icons.Outlined.ReceiptLong,
+                        icon = LucideIcons.Receipt,
                         title = "My Orders",
                         onClick = { viewModel.navigate(ScreenDestination.MyOrders) }
                     )
                     AccountMenuItem(
-                        icon = Icons.Outlined.FavoriteBorder,
+                        icon = LucideIcons.Heart,
                         title = "Wishlist",
                         badge = "12",
                         onClick = { viewModel.navigate(ScreenDestination.Wishlist) }
                     )
                     AccountMenuItem(
-                        icon = Icons.Outlined.LocationOn,
+                        icon = LucideIcons.MapPin,
                         title = "Saved Addresses",
                         onClick = { viewModel.navigate(ScreenDestination.SavedAddresses) }
                     )
                     AccountMenuItem(
-                        icon = Icons.Outlined.ChatBubbleOutline,
+                        icon = LucideIcons.MessageCircle,
                         title = "Messages & Support Chat",
                         onClick = { viewModel.navigate(ScreenDestination.ChatList) }
                     )
                     AccountMenuItem(
-                        icon = Icons.Outlined.Settings,
+                        icon = LucideIcons.Settings,
                         title = "App Settings",
                         onClick = { viewModel.navigate(ScreenDestination.AppSettings) }
                     )
                     AccountMenuItem(
-                        icon = Icons.Outlined.HelpOutline,
+                        icon = LucideIcons.HelpCircle,
                         title = "Help & Support",
                         onClick = { viewModel.navigate(ScreenDestination.HelpLegal) }
                     )
                     AccountMenuItem(
-                        icon = Icons.Outlined.AdminPanelSettings,
+                        icon = LucideIcons.Shield,
                         title = "Admin Console",
                         onClick = { viewModel.navigate(ScreenDestination.AdminConsole) }
                     )
@@ -263,7 +263,7 @@ fun AccountHubScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.EmojiEvents, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(24.dp))
+                            Icon(LucideIcons.Award, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
@@ -351,7 +351,7 @@ fun AccountMenuItem(
         }
 
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+            imageVector = LucideIcons.ArrowRight,
             contentDescription = null,
             tint = SuqiMutedText,
             modifier = Modifier.size(16.dp)

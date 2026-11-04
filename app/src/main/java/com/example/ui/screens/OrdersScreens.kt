@@ -81,7 +81,7 @@ fun MyOrdersScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -359,7 +359,7 @@ fun OrderDetailScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -394,7 +394,7 @@ fun OrderDetailScreen(
                             .weight(1f)
                             .height(48.dp)
                     ) {
-                        Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = SuqiPrimaryText, modifier = Modifier.size(16.dp))
+                        Icon(LucideIcons.MessageCircle, contentDescription = null, tint = SuqiPrimaryText, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Chat with Shop", fontFamily = SuqiFontFamily, color = SuqiPrimaryText)
                     }
@@ -465,9 +465,9 @@ fun OrderDetailScreen(
                         ) {
                             Icon(
                                 imageVector = when (currentOrder.paymentStatus) {
-                                    "VERIFIED" -> Icons.Filled.Check
-                                    "REJECTED" -> Icons.Filled.Close
-                                    else -> Icons.Filled.HourglassTop
+                                    "VERIFIED" -> LucideIcons.Check
+                                    "REJECTED" -> LucideIcons.X
+                                    else -> LucideIcons.Hourglass
                                 },
                                 contentDescription = null,
                                 tint = iconColor,
@@ -660,7 +660,7 @@ fun TimelineStep(
                 contentAlignment = Alignment.Center
             ) {
                 if (isDone) {
-                    Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                    Icon(LucideIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
                 }
             }
             if (!isLast) {

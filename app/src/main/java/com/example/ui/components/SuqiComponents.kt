@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -245,9 +247,9 @@ fun SuqiStatusBadge(
     modifier: Modifier = Modifier
 ) {
     val (bgColor, textColor) = when (type) {
-        StatusType.SUCCESS -> Pair(SuqiSuccessLight, SuqiSuccess)
-        StatusType.WARNING -> Pair(SuqiWarningLight, SuqiWarning)
-        StatusType.ERROR -> Pair(SuqiErrorLight, SuqiError)
+        StatusType.SUCCESS -> Pair(SuqiSuccessBg, SuqiSuccess)
+        StatusType.WARNING -> Pair(SuqiWarningBg, SuqiWarning)
+        StatusType.ERROR -> Pair(SuqiErrorBg, SuqiError)
         StatusType.NEUTRAL -> Pair(SuqiSecondaryBackground, SuqiSecondaryText)
     }
 
@@ -290,7 +292,8 @@ fun SuqiSelectionCard(
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(16.dp)
-    val bgColor = if (selected) SuqiPrimaryLight else Color.White
+    val colors = LocalSuqiColors.current
+    val bgColor = if (selected) colors.primaryTint else colors.cardBackground
     val borderColor = if (selected) SuqiPrimary else SuqiBorder
 
     Box(
@@ -338,7 +341,7 @@ fun SuqiSelectionCard(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(SuqiSuccessLight)
+                                .background(SuqiSuccessBg)
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
@@ -460,7 +463,7 @@ fun SuqiProductCard(
                         .background(colors.cardBackground.copy(alpha = 0.85f))
                 ) {
                     Icon(
-                        imageVector = if (product.isWishlisted) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        imageVector = if (product.isWishlisted) LucideIcons.HeartFilled else LucideIcons.Heart,
                         contentDescription = "Wishlist",
                         tint = if (product.isWishlisted) SuqiPrimary else colors.secondaryText,
                         modifier = Modifier.size(18.dp)
@@ -483,7 +486,7 @@ fun SuqiProductCard(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Filled.Star,
+                        imageVector = LucideIcons.StarFilled,
                         contentDescription = null,
                         tint = SuqiWarning,
                         modifier = Modifier.size(14.dp)
@@ -530,7 +533,7 @@ fun SuqiProductCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(SuqiWarningLight)
+                            .background(SuqiWarningBg)
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
@@ -545,7 +548,7 @@ fun SuqiProductCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(SuqiSuccessLight)
+                            .background(SuqiSuccessBg)
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
@@ -562,6 +565,14 @@ fun SuqiProductCard(
     }
 }
 
+/** Content padding reserved under the floating liquid bottom nav. */
+val SuqiBottomNavContentPadding = 96.dp
+
+/**
+ * Fluid / liquid bottom navigation (Plan §11 + mockup).
+ * Floating rounded surface, centre Search as a solid orange circle,
+ * soft orange liquid glow under the active/centre area.
+ */
 @Composable
 fun SuqiFloatingBottomNav(
     currentRoute: String,
@@ -569,73 +580,101 @@ fun SuqiFloatingBottomNav(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
-    Surface(
-        shape = RoundedCornerShape(28.dp),
-        color = colors.cardBackground,
-        shadowElevation = 10.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
-        modifier = modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .fillMaxWidth()
-            .height(68.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            NavItem(
-                route = "home",
-                label = "Home",
-                selectedIcon = Icons.Filled.Home,
-                unselectedIcon = Icons.Outlined.Home,
-                isSelected = currentRoute == "home",
-                onClick = { onNavigate("home") }
-            )
-            NavItem(
-                route = "categories",
-                label = "Categories",
-                selectedIcon = Icons.Filled.GridView,
-                unselectedIcon = Icons.Outlined.GridView,
-                isSelected = currentRoute == "categories",
-                onClick = { onNavigate("categories") }
-            )
+    val isSearch = currentRoute == "search"
 
-            // Center prominent Search button (FitHub accent)
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(SuqiPrimary)
-                    .clickable { onNavigate("search") }
-                    .testTag("nav_search"),
-                contentAlignment = Alignment.Center
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        // Soft liquid orange glow under the bar (mockup style)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = 10.dp)
+                .width(120.dp)
+                .height(28.dp)
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(
+                            SuqiPrimary.copy(alpha = 0.35f),
+                            SuqiPrimary.copy(alpha = 0.12f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = RoundedCornerShape(50)
+                )
+        )
+
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = colors.cardBackground,
+            shadowElevation = 12.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(68.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = "Search",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                NavItem(
+                    route = "home",
+                    label = "Home",
+                    selectedIcon = LucideIcons.House,
+                    unselectedIcon = LucideIcons.House,
+                    isSelected = currentRoute == "home",
+                    onClick = { onNavigate("home") }
+                )
+                NavItem(
+                    route = "categories",
+                    label = "Categories",
+                    selectedIcon = LucideIcons.LayoutGrid,
+                    unselectedIcon = LucideIcons.LayoutGrid,
+                    isSelected = currentRoute == "categories",
+                    onClick = { onNavigate("categories") }
+                )
+
+                // Centre Search – solid orange circle (mockup + plan centre prominence)
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .shadow(6.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(SuqiPrimary)
+                        .clickable { onNavigate("search") }
+                        .testTag("nav_search"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = LucideIcons.Search,
+                        contentDescription = "Search",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                NavItem(
+                    route = "shops",
+                    label = "Shops",
+                    selectedIcon = LucideIcons.Store,
+                    unselectedIcon = LucideIcons.Store,
+                    isSelected = currentRoute == "shops",
+                    onClick = { onNavigate("shops") }
+                )
+                NavItem(
+                    route = "account",
+                    label = "Account",
+                    selectedIcon = LucideIcons.User,
+                    unselectedIcon = LucideIcons.User,
+                    isSelected = currentRoute == "account",
+                    onClick = { onNavigate("account") }
                 )
             }
-
-            NavItem(
-                route = "shops",
-                label = "Shops",
-                selectedIcon = Icons.Filled.Storefront,
-                unselectedIcon = Icons.Outlined.Storefront,
-                isSelected = currentRoute == "shops",
-                onClick = { onNavigate("shops") }
-            )
-            NavItem(
-                route = "account",
-                label = "Account",
-                selectedIcon = Icons.Filled.Person,
-                unselectedIcon = Icons.Outlined.Person,
-                isSelected = currentRoute == "account",
-                onClick = { onNavigate("account") }
-            )
         }
     }
 }
@@ -656,7 +695,7 @@ private fun NavItem(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
             .testTag("nav_$route")
     ) {
         Icon(
@@ -669,7 +708,7 @@ private fun NavItem(
         Text(
             text = label,
             fontFamily = SuqiFontFamily,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
             fontSize = 11.sp,
             color = if (isSelected) SuqiPrimary else colors.secondaryText
         )
@@ -684,7 +723,7 @@ fun SuqiTopHeader(
     onCartClick: () -> Unit,
     onNotificationClick: (() -> Unit)? = null,
     onBackClick: (() -> Unit)? = null,
-    showThemeToggle: Boolean = true,
+    showThemeToggle: Boolean = false,
     isDarkTheme: Boolean = LocalSuqiColors.current.isDark,
     onToggleTheme: (() -> Unit)? = null,
     locationText: String? = null,
@@ -710,7 +749,7 @@ fun SuqiTopHeader(
                     .testTag("header_back_button")
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = LucideIcons.ArrowLeft,
                     contentDescription = "Back",
                     tint = colors.primaryText,
                     modifier = Modifier.size(20.dp)
@@ -720,8 +759,8 @@ fun SuqiTopHeader(
             Text(
                 text = title,
                 fontFamily = SuqiFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 22.sp,
                 color = colors.primaryText
             )
         } else {
@@ -735,7 +774,7 @@ fun SuqiTopHeader(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.ShoppingBag,
+                        imageVector = LucideIcons.ShoppingBag,
                         contentDescription = "Suqi Logo",
                         tint = Color.White,
                         modifier = Modifier.size(22.dp)
@@ -745,8 +784,8 @@ fun SuqiTopHeader(
                 Text(
                     text = "Suqi",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 26.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 24.sp,
                     color = SuqiPrimary
                 )
             }
@@ -768,7 +807,7 @@ fun SuqiTopHeader(
                         .testTag("header_theme_toggle")
                 ) {
                     Icon(
-                        imageVector = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                        imageVector = if (isDarkTheme) LucideIcons.Sun else LucideIcons.Moon,
                         contentDescription = if (isDarkTheme) "Switch to Light Mode" else "Switch to Dark Mode",
                         tint = if (isDarkTheme) Color(0xFFFBBF24) else colors.primaryText,
                         modifier = Modifier.size(20.dp)
@@ -805,7 +844,7 @@ fun SuqiTopHeader(
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Notifications,
+                            imageVector = LucideIcons.Bell,
                             contentDescription = "Notifications",
                             tint = colors.primaryText,
                             modifier = Modifier.size(20.dp)
@@ -842,7 +881,7 @@ fun SuqiTopHeader(
                     }
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.ShoppingCart,
+                        imageVector = LucideIcons.ShoppingCart,
                         contentDescription = "Cart",
                         tint = colors.primaryText,
                         modifier = Modifier.size(20.dp)
@@ -867,13 +906,13 @@ fun MentionChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isProduct) SuqiPrimaryLight else Color(0xFFEFF6FF))
+            .background(if (isProduct) SuqiPrimaryTint else Color(0xFFEFF6FF))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = if (isProduct) Icons.Filled.ShoppingBag else Icons.Filled.Storefront,
+                imageVector = if (isProduct) LucideIcons.ShoppingBag else LucideIcons.Store,
                 contentDescription = null,
                 tint = if (isProduct) SuqiPrimary else Color(0xFF2563EB),
                 modifier = Modifier.size(13.dp)

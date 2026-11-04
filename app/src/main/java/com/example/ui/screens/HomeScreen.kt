@@ -162,11 +162,9 @@ fun HomeScreen(
                     viewModel.clearNotificationCount()
                     viewModel.navigate(ScreenDestination.Notifications)
                 },
-                showThemeToggle = true,
-                isDarkTheme = effectiveDark,
-                onToggleTheme = {
-                    viewModel.setDarkMode(!effectiveDark)
-                }
+                showThemeToggle = false,
+                locationText = listOfNotNull(selectedSubCity.takeIf { it.isNotBlank() }, selectedCity).joinToString(", ").ifBlank { selectedCity },
+                onLocationClick = { showLocationSheet = true }
             )
         },
         containerColor = colors.surfaceBackground,
@@ -176,8 +174,44 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = 96.dp)
+            contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
         ) {
+            // Location row (mockup: under logo)
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                        .clickable { showLocationSheet = true }
+                        .testTag("home_location")
+                ) {
+                    Icon(
+                        imageVector = LucideIcons.MapPin,
+                        contentDescription = null,
+                        tint = SuqiPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = listOfNotNull(
+                            selectedSubCity.takeIf { it.isNotBlank() },
+                            selectedCity.takeIf { it.isNotBlank() }
+                        ).joinToString(", ").ifBlank { selectedCity.ifBlank { "Addis Ababa" } },
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                        color = colors.primaryText
+                    )
+                    Icon(
+                        imageVector = LucideIcons.ChevronDown,
+                        contentDescription = null,
+                        tint = colors.secondaryText,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
             // Search Bar Button (idle entry to SearchScreen)
             item {
                 Box(
@@ -192,7 +226,7 @@ fun HomeScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Filled.Search,
+                            imageVector = LucideIcons.Search,
                             contentDescription = "Search",
                             tint = colors.secondaryText,
                             modifier = Modifier.size(20.dp)
@@ -275,7 +309,7 @@ fun HomeScreen(
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                imageVector = LucideIcons.ArrowRight,
                                                 contentDescription = null,
                                                 tint = slide.buttonTextColor,
                                                 modifier = Modifier.size(13.dp)
@@ -340,27 +374,27 @@ fun HomeScreen(
                 ) {
                     CategoryShortcutItem(
                         title = "Electronics",
-                        icon = Icons.Outlined.Laptop,
+                        icon = LucideIcons.Laptop,
                         onClick = { viewModel.navigate(ScreenDestination.CategoryListing("cat_electronics", "Electronics")) }
                     )
                     CategoryShortcutItem(
                         title = "Fashion",
-                        icon = Icons.Outlined.Checkroom,
+                        icon = LucideIcons.Shirt,
                         onClick = { viewModel.navigate(ScreenDestination.CategoryListing("cat_fashion", "Fashion")) }
                     )
                     CategoryShortcutItem(
                         title = "Home & Living",
-                        icon = Icons.Outlined.Home,
+                        icon = LucideIcons.House,
                         onClick = { viewModel.navigate(ScreenDestination.CategoryListing("cat_home", "Home & Living")) }
                     )
                     CategoryShortcutItem(
                         title = "Beauty",
-                        icon = Icons.Outlined.AutoAwesome,
+                        icon = LucideIcons.Sparkles,
                         onClick = { viewModel.navigate(ScreenDestination.CategoryListing("cat_beauty", "Beauty & Care")) }
                     )
                     CategoryShortcutItem(
                         title = "More",
-                        icon = Icons.Outlined.GridView,
+                        icon = LucideIcons.LayoutGrid,
                         onClick = { viewModel.navigate(ScreenDestination.Categories) }
                     )
                 }
@@ -582,7 +616,7 @@ fun FeaturedShopCard(
                 if (shop.isVerified) {
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
-                        imageVector = Icons.Filled.CheckCircle,
+                        imageVector = LucideIcons.CheckCircle,
                         contentDescription = "Verified",
                         tint = SuqiPrimary,
                         modifier = Modifier.size(14.dp)
@@ -592,7 +626,7 @@ fun FeaturedShopCard(
             Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Filled.Star,
+                    imageVector = LucideIcons.StarFilled,
                     contentDescription = null,
                     tint = SuqiWarning,
                     modifier = Modifier.size(13.dp)

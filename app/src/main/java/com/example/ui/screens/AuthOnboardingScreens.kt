@@ -63,7 +63,7 @@ fun AuthScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.ShoppingBag,
+                        imageVector = LucideIcons.ShoppingBag,
                         contentDescription = "Suqi Logo",
                         tint = Color.White,
                         modifier = Modifier.size(46.dp)
@@ -109,7 +109,7 @@ fun AuthScreen(
                         .height(52.dp)
                         .testTag("auth_telegram")
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(LucideIcons.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Continue with Telegram",
@@ -138,7 +138,7 @@ fun AuthScreen(
                         .height(52.dp)
                         .testTag("auth_google")
                 ) {
-                    Icon(Icons.Filled.AccountCircle, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                    Icon(LucideIcons.CircleUser, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Continue with Google",
@@ -419,7 +419,7 @@ fun BecomeSellerScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(

@@ -76,7 +76,7 @@ fun CartScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
 
                 Text(
@@ -95,7 +95,7 @@ fun CartScreen(
                             .clip(CircleShape)
                             .background(SuqiSecondaryBackground)
                     ) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Clear Cart", tint = SuqiPrimaryText)
+                        Icon(LucideIcons.Trash2, contentDescription = "Clear Cart", tint = SuqiPrimaryText)
                     }
                 } else {
                     Spacer(modifier = Modifier.width(40.dp))
@@ -124,7 +124,7 @@ fun CartScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.ShoppingCart,
+                            imageVector = LucideIcons.ShoppingCart,
                             contentDescription = null,
                             tint = SuqiPrimary,
                             modifier = Modifier.size(48.dp)
@@ -324,7 +324,7 @@ fun ShopCartGroupCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
-                        imageVector = Icons.Filled.CheckCircle,
+                        imageVector = LucideIcons.CheckCircle,
                         contentDescription = "Verified",
                         tint = SuqiPrimary,
                         modifier = Modifier.size(16.dp)
@@ -364,7 +364,7 @@ fun ShopCartGroupCard(
                         .background(SuqiWarningLight)
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
+                    Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Some items have limited stock. Stock is held upon order submission.",
@@ -451,7 +451,7 @@ fun ShopCartGroupCard(
             if (appliedPromo != null) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Check, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(16.dp))
+                    Icon(LucideIcons.Check, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Promo code ${appliedPromo!!.code} applied (-${formatEtb(discountAmount)})",
@@ -613,7 +613,7 @@ fun CartItemRow(
                 modifier = Modifier.size(28.dp)
             ) {
                 Icon(
-                    imageVector = if (item.quantity == 1) Icons.Outlined.Delete else Icons.Filled.Remove,
+                    imageVector = if (item.quantity == 1) LucideIcons.Trash2 else LucideIcons.Minus,
                     contentDescription = "Decrease",
                     tint = SuqiPrimaryText,
                     modifier = Modifier.size(14.dp)
@@ -634,7 +634,7 @@ fun CartItemRow(
                 modifier = Modifier.size(28.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Add,
+                    imageVector = LucideIcons.Plus,
                     contentDescription = "Increase",
                     tint = SuqiPrimaryText,
                     modifier = Modifier.size(14.dp)

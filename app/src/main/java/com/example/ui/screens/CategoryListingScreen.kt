@@ -142,7 +142,7 @@ fun CategoryListingScreen(
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Tune,
+                                imageVector = LucideIcons.SlidersHorizontal,
                                 contentDescription = "Filter",
                                 tint = SuqiPrimaryText,
                                 modifier = Modifier.size(16.dp)
@@ -168,7 +168,7 @@ fun CategoryListingScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.SearchOff,
+                            imageVector = LucideIcons.SearchX,
                             contentDescription = null,
                             tint = SuqiMutedText,
                             modifier = Modifier.size(64.dp)

@@ -17,6 +17,10 @@ data class SuqiExtendedColors(
     val secondaryBackground: Color,
     val cardBackground: Color,
     val border: Color,
+    val primaryTint: Color,
+    val successBg: Color,
+    val warningBg: Color,
+    val errorBg: Color,
     val isDark: Boolean
 )
 
@@ -29,6 +33,10 @@ val LocalSuqiColors = staticCompositionLocalOf {
         secondaryBackground = SuqiSecondaryBgLight,
         cardBackground = Color.White,
         border = SuqiBorderLight,
+        primaryTint = SuqiPrimaryLight,
+        successBg = SuqiSuccessLight,
+        warningBg = SuqiWarningLight,
+        errorBg = SuqiErrorLight,
         isDark = false
     )
 }
@@ -61,7 +69,7 @@ val SuqiLightColorScheme = lightColorScheme(
 val SuqiDarkColorScheme = darkColorScheme(
     primary = SuqiPrimary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFF3A1F10),
+    primaryContainer = SuqiPrimaryDarkBg,
     onPrimaryContainer = Color(0xFFFF9E66),
     secondary = SuqiSecondaryTextDark,
     onSecondary = Color.White,
@@ -79,7 +87,7 @@ val SuqiDarkColorScheme = darkColorScheme(
     outlineVariant = SuqiBorderDark,
     error = SuqiError,
     onError = Color.White,
-    errorContainer = Color(0xFF450A0A),
+    errorContainer = SuqiErrorDarkBg,
     onErrorContainer = Color(0xFFFCA5A5)
 )
 
@@ -98,6 +106,10 @@ fun MyApplicationTheme(
             secondaryBackground = SuqiSecondaryBgDark,
             cardBackground = SuqiSurfaceDark,
             border = SuqiBorderDark,
+            primaryTint = SuqiPrimaryDarkBg,
+            successBg = SuqiSuccessDarkBg,
+            warningBg = SuqiWarningDarkBg,
+            errorBg = SuqiErrorDarkBg,
             isDark = true
         )
     } else {
@@ -109,6 +121,10 @@ fun MyApplicationTheme(
             secondaryBackground = SuqiSecondaryBgLight,
             cardBackground = Color.White,
             border = SuqiBorderLight,
+            primaryTint = SuqiPrimaryLight,
+            successBg = SuqiSuccessLight,
+            warningBg = SuqiWarningLight,
+            errorBg = SuqiErrorLight,
             isDark = false
         )
     }

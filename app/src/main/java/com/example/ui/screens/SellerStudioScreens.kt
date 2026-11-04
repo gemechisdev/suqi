@@ -79,7 +79,7 @@ fun SellerStudioScreen(
                             .clip(CircleShape)
                             .background(SuqiSecondaryBackground)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                        Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
@@ -98,7 +98,7 @@ fun SellerStudioScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.Outlined.Settings, contentDescription = "Shop Settings", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.Settings, contentDescription = "Shop Settings", tint = SuqiPrimaryText)
                 }
             }
         },
@@ -132,7 +132,7 @@ fun SellerStudioScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(20.dp))
+                                Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "$pendingCount payments awaiting verification",
@@ -283,25 +283,25 @@ fun SellerStudioScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     QuickActionTile(
-                        icon = Icons.Outlined.AddCircleOutline,
+                        icon = LucideIcons.CirclePlus,
                         title = "Add Product",
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.navigate(ScreenDestination.AddEditProduct()) }
                     )
                     QuickActionTile(
-                        icon = Icons.Outlined.Inventory2,
+                        icon = LucideIcons.Package,
                         title = "Products",
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.navigate(ScreenDestination.ProductManagement) }
                     )
                     QuickActionTile(
-                        icon = Icons.Outlined.FactCheck,
+                        icon = LucideIcons.ClipboardCheck,
                         title = "Verify Orders",
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.navigate(ScreenDestination.VerificationQueue) }
                     )
                     QuickActionTile(
-                        icon = Icons.Outlined.Payments,
+                        icon = LucideIcons.Wallet,
                         title = "Payments",
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.navigate(ScreenDestination.PaymentMethodsSetup) }
@@ -315,25 +315,25 @@ fun SellerStudioScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     QuickActionTile(
-                        icon = Icons.Outlined.LocalShipping,
+                        icon = LucideIcons.Truck,
                         title = "Delivery Setup",
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.navigate(ScreenDestination.DeliverySetup) }
                     )
                     QuickActionTile(
-                        icon = Icons.Outlined.Discount,
+                        icon = LucideIcons.BadgePercent,
                         title = "Promotions",
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.navigate(ScreenDestination.Promotions) }
                     )
                     QuickActionTile(
-                        icon = Icons.Outlined.VerifiedUser,
+                        icon = LucideIcons.BadgeCheck,
                         title = "Verification",
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.navigate(ScreenDestination.SellerVerification) }
                     )
                     QuickActionTile(
-                        icon = Icons.Outlined.Store,
+                        icon = LucideIcons.Store,
                         title = "Shop Settings",
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.navigate(ScreenDestination.ShopSettings) }
@@ -442,7 +442,7 @@ fun AddEditProductScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -512,7 +512,7 @@ fun AddEditProductScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(36.dp))
+                        Icon(LucideIcons.ImagePlus, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(36.dp))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "Add Photos & Videos",
@@ -650,7 +650,7 @@ fun ProductManagementScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -667,7 +667,7 @@ fun ProductManagementScreen(
                 containerColor = SuqiPrimary,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Product")
+                Icon(LucideIcons.Plus, contentDescription = "Add Product")
             }
         },
         containerColor = SuqiBackground,
@@ -685,7 +685,7 @@ fun ProductManagementScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = { Text("Search products...", color = SuqiMutedText) },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = SuqiSecondaryText) },
+                    leadingIcon = { Icon(LucideIcons.Search, contentDescription = null, tint = SuqiSecondaryText) },
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = SuqiSecondaryBackground,
@@ -792,7 +792,7 @@ fun ProductManagementScreen(
                         }
 
                         IconButton(onClick = { viewModel.showToast("Product options") }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "Options", tint = SuqiSecondaryText)
+                            Icon(LucideIcons.MoreVertical, contentDescription = "Options", tint = SuqiSecondaryText)
                         }
                     }
                 }
@@ -840,7 +840,7 @@ fun VerificationQueueScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -870,7 +870,7 @@ fun VerificationQueueScreen(
                         .background(SuqiWarningLight)
                         .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
-                    Icon(Icons.Filled.AccessTime, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(18.dp))
+                    Icon(LucideIcons.Clock, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "${queue.size} pending verifications",
@@ -1067,7 +1067,7 @@ fun PaymentMethodsSetupScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -1112,7 +1112,7 @@ fun PaymentMethodsSetupScreen(
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.Info, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                    Icon(LucideIcons.Info, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Add at least one payment method for your shop. Customers will use these to pay you directly.",
@@ -1190,7 +1190,7 @@ fun PaymentMethodsSetupScreen(
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, SuqiPrimary),
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, tint = SuqiPrimary)
+                    Icon(LucideIcons.Plus, contentDescription = null, tint = SuqiPrimary)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("+ Add Payment Method", color = SuqiPrimary, fontWeight = FontWeight.Bold)
                 }
@@ -1266,7 +1266,7 @@ fun DeliverySetupScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -1305,7 +1305,7 @@ fun DeliverySetupScreen(
                     selected = true,
                     title = "Standard Delivery",
                     subtitle = "1-3 days • ETB 50",
-                    icon = Icons.Outlined.LocalShipping,
+                    icon = LucideIcons.Truck,
                     onClick = {}
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -1313,7 +1313,7 @@ fun DeliverySetupScreen(
                     selected = true,
                     title = "Express Delivery",
                     subtitle = "Same day • ETB 100",
-                    icon = Icons.Outlined.Bolt,
+                    icon = LucideIcons.Zap,
                     onClick = {}
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -1321,7 +1321,7 @@ fun DeliverySetupScreen(
                     selected = true,
                     title = "Store Pickup",
                     subtitle = "Pick up at our store (Free)",
-                    icon = Icons.Outlined.Storefront,
+                    icon = LucideIcons.Store,
                     onClick = {}
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -1361,7 +1361,7 @@ fun PromotionsScreen(
                         .clip(CircleShape)
                         .background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -1472,7 +1472,7 @@ fun ShopSettingsScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Shop Settings", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -1562,7 +1562,7 @@ fun SellerVerificationScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Seller Verification", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -1582,7 +1582,7 @@ fun SellerVerificationScreen(
                     .background(SuqiPrimaryLight),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.VerifiedUser, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(48.dp))
+                Icon(LucideIcons.BadgeCheck, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(48.dp))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1655,7 +1655,7 @@ fun SellerSubscriptionScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Seller Subscription", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)

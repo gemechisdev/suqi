@@ -58,7 +58,7 @@ fun NotificationsScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Notifications", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -95,9 +95,9 @@ fun NotificationsScreen(
                             ) {
                                 Icon(
                                     imageVector = when (notif.type) {
-                                        "PAYMENT" -> Icons.Outlined.Payments
-                                        "CHAT" -> Icons.Outlined.ChatBubbleOutline
-                                        else -> Icons.Outlined.LocalShipping
+                                        "PAYMENT" -> LucideIcons.Wallet
+                                        "CHAT" -> LucideIcons.MessageCircle
+                                        else -> LucideIcons.Truck
                                     },
                                     contentDescription = null,
                                     tint = SuqiPrimary,
@@ -155,7 +155,7 @@ fun SavedAddressesScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Saved Addresses", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -167,7 +167,7 @@ fun SavedAddressesScreen(
                 containerColor = SuqiPrimary,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Address")
+                Icon(LucideIcons.Plus, contentDescription = "Add Address")
             }
         },
         containerColor = SuqiBackground,
@@ -291,7 +291,7 @@ fun WishlistScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Wishlist (${products.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -366,7 +366,7 @@ fun ReviewsScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Reviews: $targetName", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -378,7 +378,7 @@ fun ReviewsScreen(
                 containerColor = SuqiPrimary,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Filled.RateReview, contentDescription = null)
+                Icon(LucideIcons.MessageSquarePlus, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Write Review")
             }
@@ -407,7 +407,7 @@ fun ReviewsScreen(
                         for (i in 1..5) {
                             IconButton(onClick = { rating = i.toDouble() }, modifier = Modifier.size(36.dp)) {
                                 Icon(
-                                    Icons.Filled.Star,
+                                    LucideIcons.StarFilled,
                                     contentDescription = null,
                                     tint = if (i <= rating) SuqiWarning else SuqiBorder
                                 )
@@ -474,7 +474,7 @@ fun AdminConsoleScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Admin Console", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -500,13 +500,13 @@ fun AdminConsoleScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    QuickActionTile(Icons.Outlined.VerifiedUser, "Verify Sellers", Modifier.weight(1f)) {
+                    QuickActionTile(LucideIcons.BadgeCheck, "Verify Sellers", Modifier.weight(1f)) {
                         viewModel.navigate(ScreenDestination.AdminFeatures)
                     }
-                    QuickActionTile(Icons.Outlined.RateReview, "Moderate Reviews", Modifier.weight(1f)) {
+                    QuickActionTile(LucideIcons.MessageSquarePlus, "Moderate Reviews", Modifier.weight(1f)) {
                         viewModel.showToast("Review moderation queue: 0 flagged")
                     }
-                    QuickActionTile(Icons.Outlined.ViewCarousel, "Banners", Modifier.weight(1f)) {
+                    QuickActionTile(LucideIcons.GalleryHorizontal, "Banners", Modifier.weight(1f)) {
                         viewModel.showToast("Promotional banners updated")
                     }
                 }
@@ -626,7 +626,7 @@ fun AdminFeaturesScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Admin Seller Verification", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -724,7 +724,7 @@ fun AppSettingsScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(colors.secondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.primaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = colors.primaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -764,7 +764,7 @@ fun AppSettingsScreen(
                     ) {
                         Text(l, fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.primaryText)
                         if (isSel) {
-                            Icon(Icons.Filled.Check, contentDescription = null, tint = SuqiPrimary)
+                            Icon(LucideIcons.Check, contentDescription = null, tint = SuqiPrimary)
                         }
                     }
                 }
@@ -792,7 +792,7 @@ fun AppSettingsScreen(
                                 .background(SuqiPrimaryLight),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(22.dp))
+                            Icon(LucideIcons.MapPin, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(22.dp))
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -849,9 +849,9 @@ fun AppSettingsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = when (value) {
-                                    true -> Icons.Filled.DarkMode
-                                    false -> Icons.Filled.LightMode
-                                    null -> Icons.Outlined.BrightnessAuto
+                                    true -> LucideIcons.Moon
+                                    false -> LucideIcons.Sun
+                                    null -> LucideIcons.SunMoon
                                 },
                                 contentDescription = null,
                                 tint = if (isSelected) SuqiPrimary else colors.secondaryText,
@@ -867,7 +867,7 @@ fun AppSettingsScreen(
                             )
                         }
                         if (isSelected) {
-                            Icon(Icons.Filled.Check, contentDescription = null, tint = SuqiPrimary)
+                            Icon(LucideIcons.Check, contentDescription = null, tint = SuqiPrimary)
                         }
                     }
                 }
@@ -894,8 +894,8 @@ fun AppSettingsScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 Text("Linked Sign-Ins", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                 Spacer(modifier = Modifier.height(8.dp))
-                AccountMenuItem(Icons.Filled.AccountCircle, "Google (Linked: fitsum.gebre@gmail.com)") {}
-                AccountMenuItem(Icons.AutoMirrored.Filled.Send, "Telegram (Linked: +251 912 345 678)") {}
+                AccountMenuItem(LucideIcons.CircleUser, "Google (Linked: fitsum.gebre@gmail.com)") {}
+                AccountMenuItem(LucideIcons.Send, "Telegram (Linked: +251 912 345 678)") {}
 
                 Spacer(modifier = Modifier.height(24.dp))
                 TextButton(
@@ -987,7 +987,7 @@ fun AppSettingsScreen(
                                     color = if (isSel) SuqiPrimary else colors.primaryText
                                 )
                                 if (isSel) {
-                                    Icon(Icons.Filled.Check, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+                                    Icon(LucideIcons.Check, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -1016,7 +1016,7 @@ fun HelpLegalScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Help & Legal", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -1036,7 +1036,7 @@ fun HelpLegalScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Outlined.Headphones, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(40.dp))
+                        Icon(LucideIcons.Headphones, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(40.dp))
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Need Help?", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Text("Our Ethiopia support team is here to help you.", fontSize = 13.sp, color = SuqiSecondaryText)
@@ -1047,11 +1047,11 @@ fun HelpLegalScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                AccountMenuItem(Icons.Outlined.Quiz, "Frequently Asked Questions") { viewModel.showToast("Opening FAQs") }
-                AccountMenuItem(Icons.Outlined.Description, "Terms of Service") { viewModel.showToast("Terms of Service") }
-                AccountMenuItem(Icons.Outlined.Shield, "Privacy Policy") { viewModel.showToast("Privacy Policy") }
-                AccountMenuItem(Icons.Outlined.Handshake, "Seller Agreement") { viewModel.showToast("Seller Agreement") }
-                AccountMenuItem(Icons.Outlined.Info, "About Suqi (v1.0.0)") { viewModel.showToast("Suqi v1.0.0 - Made for Ethiopia") }
+                AccountMenuItem(LucideIcons.HelpCircle, "Frequently Asked Questions") { viewModel.showToast("Opening FAQs") }
+                AccountMenuItem(LucideIcons.FileText, "Terms of Service") { viewModel.showToast("Terms of Service") }
+                AccountMenuItem(LucideIcons.Shield, "Privacy Policy") { viewModel.showToast("Privacy Policy") }
+                AccountMenuItem(LucideIcons.Handshake, "Seller Agreement") { viewModel.showToast("Seller Agreement") }
+                AccountMenuItem(LucideIcons.Info, "About Suqi (v1.0.0)") { viewModel.showToast("Suqi v1.0.0 - Made for Ethiopia") }
             }
         }
     }

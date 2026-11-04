@@ -65,7 +65,7 @@ fun ChatListScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(text = "Chat Messages", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -203,7 +203,7 @@ fun ChatThreadScreen(
                     onClick = { viewModel.goBack() },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(colors.secondaryBackground)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.primaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = colors.primaryText)
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
@@ -216,7 +216,7 @@ fun ChatThreadScreen(
                             color = colors.primaryText
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Filled.CheckCircle, contentDescription = "Verified", tint = SuqiPrimary, modifier = Modifier.size(14.dp))
+                        Icon(LucideIcons.CheckCircle, contentDescription = "Verified", tint = SuqiPrimary, modifier = Modifier.size(14.dp))
                     }
                     Text(text = "Online", fontSize = 11.sp, color = SuqiSuccess)
                 }
@@ -249,7 +249,7 @@ fun ChatThreadScreen(
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.ShoppingBag, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
+                                Icon(LucideIcons.ShoppingBag, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("# Product", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = SuqiPrimary)
                             }
@@ -264,7 +264,7 @@ fun ChatThreadScreen(
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(12.dp))
+                                Icon(LucideIcons.Store, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("@ Shop", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF2563EB))
                             }
@@ -278,7 +278,7 @@ fun ChatThreadScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = { viewModel.showToast("Attach photo") }) {
-                            Icon(Icons.Outlined.SentimentSatisfied, contentDescription = "Emoji", tint = colors.secondaryText)
+                            Icon(LucideIcons.Smile, contentDescription = "Emoji", tint = colors.secondaryText)
                         }
 
                         OutlinedTextField(
@@ -322,7 +322,7 @@ fun ChatThreadScreen(
                                 .clip(CircleShape)
                                 .background(SuqiPrimary)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(18.dp))
+                            Icon(LucideIcons.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -457,7 +457,7 @@ fun ChatThreadScreen(
                                 Text(p.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText, maxLines = 1)
                                 Text("ETB ${p.price.toLong()}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = SuqiPrimary)
                             }
-                            Icon(Icons.Filled.Add, contentDescription = "Add", tint = SuqiPrimary)
+                            Icon(LucideIcons.Plus, contentDescription = "Add", tint = SuqiPrimary)
                         }
                     }
                 }
@@ -511,7 +511,7 @@ fun ChatThreadScreen(
                                 Text(s.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                                 Text(s.category, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                             }
-                            Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color(0xFF2563EB))
+                            Icon(LucideIcons.Plus, contentDescription = "Add", tint = Color(0xFF2563EB))
                         }
                     }
                 }

@@ -76,7 +76,7 @@ fun ShopsScreen(
                             .background(SuqiSecondaryBackground)
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Search,
+                            imageVector = LucideIcons.Search,
                             contentDescription = "Search",
                             tint = SuqiPrimaryText,
                             modifier = Modifier.size(20.dp)
@@ -93,7 +93,7 @@ fun ShopsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = 96.dp)
+            contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
         ) {
             // Filter Pills Row (Checklist 04)
             item {
@@ -206,7 +206,7 @@ fun ShopListItemRow(
                     if (shop.isVerified) {
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
-                            imageVector = Icons.Filled.CheckCircle,
+                            imageVector = LucideIcons.CheckCircle,
                             contentDescription = "Verified",
                             tint = SuqiPrimary,
                             modifier = Modifier.size(16.dp)
@@ -217,7 +217,7 @@ fun ShopListItemRow(
                 Spacer(modifier = Modifier.height(3.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Star, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(14.dp))
+                    Icon(LucideIcons.StarFilled, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "${shop.rating} (${shop.reviewCount})",
@@ -309,7 +309,7 @@ fun ShopStorefrontScreen(
                         .clip(CircleShape)
                         .background(Color.White)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SuqiPrimaryText)
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
 
                 Row {
@@ -320,7 +320,7 @@ fun ShopStorefrontScreen(
                             .clip(CircleShape)
                             .background(Color.White)
                     ) {
-                        Icon(Icons.Outlined.Share, contentDescription = "Share", tint = SuqiPrimaryText)
+                        Icon(LucideIcons.Share2, contentDescription = "Share", tint = SuqiPrimaryText)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(
@@ -330,7 +330,7 @@ fun ShopStorefrontScreen(
                             .clip(CircleShape)
                             .background(Color.White)
                     ) {
-                        Icon(Icons.Outlined.ShoppingCart, contentDescription = "Cart", tint = SuqiPrimaryText)
+                        Icon(LucideIcons.ShoppingCart, contentDescription = "Cart", tint = SuqiPrimaryText)
                     }
                 }
             }
@@ -401,7 +401,7 @@ fun ShopStorefrontScreen(
                                 if (currentShop.isVerified) {
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
-                                        imageVector = Icons.Filled.CheckCircle,
+                                        imageVector = LucideIcons.CheckCircle,
                                         contentDescription = "Verified",
                                         tint = SuqiPrimary,
                                         modifier = Modifier.size(18.dp)
@@ -410,7 +410,7 @@ fun ShopStorefrontScreen(
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Star, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(14.dp))
+                                Icon(LucideIcons.StarFilled, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = "${currentShop.rating} (${currentShop.reviewCount} reviews)",
@@ -480,7 +480,7 @@ fun ShopStorefrontScreen(
                                 .height(46.dp)
                         ) {
                             Icon(
-                                imageVector = if (currentShop.isFollowing) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                imageVector = if (currentShop.isFollowing) LucideIcons.HeartFilled else LucideIcons.Heart,
                                 contentDescription = null,
                                 tint = SuqiPrimary,
                                 modifier = Modifier.size(18.dp)
@@ -505,7 +505,7 @@ fun ShopStorefrontScreen(
                                 .height(46.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.ChatBubbleOutline,
+                                imageVector = LucideIcons.MessageCircle,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(18.dp)
@@ -535,7 +535,7 @@ fun ShopStorefrontScreen(
                             )
                         },
                         leadingIcon = {
-                            Icon(Icons.Filled.Search, contentDescription = null, tint = SuqiSecondaryText)
+                            Icon(LucideIcons.Search, contentDescription = null, tint = SuqiSecondaryText)
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
@@ -694,7 +694,7 @@ fun ReviewItemCard(review: ReviewDto) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 for (i in 1..5) {
                     Icon(
-                        imageVector = Icons.Filled.Star,
+                        imageVector = LucideIcons.StarFilled,
                         contentDescription = null,
                         tint = if (i <= review.rating) SuqiWarning else SuqiBorder,
                         modifier = Modifier.size(14.dp)

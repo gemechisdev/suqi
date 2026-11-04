@@ -83,7 +83,7 @@ fun CategoriesScreen(
                 title = "Categories",
                 cartCount = cartCount,
                 onCartClick = { viewModel.navigate(ScreenDestination.Cart) },
-                showThemeToggle = true,
+                showThemeToggle = false,
                 isDarkTheme = effectiveDark,
                 onToggleTheme = { viewModel.setDarkMode(!effectiveDark) },
                 actions = {
@@ -96,7 +96,7 @@ fun CategoriesScreen(
                             .testTag("categories_search_btn")
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Search,
+                            imageVector = LucideIcons.Search,
                             contentDescription = "Search",
                             tint = SuqiPrimaryText,
                             modifier = Modifier.size(20.dp)
@@ -113,7 +113,7 @@ fun CategoriesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = 96.dp)
+            contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
         ) {
             // Horizontal Filter Pills Row
             item {
@@ -273,7 +273,7 @@ fun CategoriesScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                        imageVector = LucideIcons.ArrowRight,
                                         contentDescription = null,
                                         tint = Color.White,
                                         modifier = Modifier.size(13.dp)
