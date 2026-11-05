@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -108,10 +109,7 @@ fun SuqiButton(
                 containerColor = LocalSuqiColors.current.cardBackground,
                 contentColor = SuqiPrimaryText
             ),
-            border = ButtonDefaults.outlinedButtonBorder.copy(
-                brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder),
-                width = 1.dp
-            ),
+            border = BorderStroke(1.dp, SuqiBorder),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
             modifier = modifier
                 .heightIn(min = 48.dp)

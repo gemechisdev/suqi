@@ -28,6 +28,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.net.Uri
 import com.example.data.model.ChatMessageDto
 import com.example.data.model.ProductDto
 import com.example.data.model.ShopDto
@@ -81,7 +87,7 @@ fun ChatListScreen(
             if (conversations.isEmpty()) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                        Text("No active conversations.", color = SuqiSecondaryText)
+                        Text(text = "No active conversations.", color = SuqiSecondaryText)
                     }
                 }
             } else {
@@ -174,6 +180,27 @@ fun ChatThreadScreen(
     var pendingProductName by remember { mutableStateOf(productContextName) }
     var pendingProductPrice by remember { mutableStateOf(productContextPrice) }
     var pendingProductImage by remember { mutableStateOf(productContextImage) }
+    var showEmojiPicker by remember { mutableStateOf(false) }
+    var pendingPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var productSearchQuery by remember { mutableStateOf("") }
+    var shopSearchQuery by remember { mutableStateOf("") }
+
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            pendingPhotoUri = uri
+            viewModel.showToast("Photo attached")
+        }
+    }
+
+    val emojiList = remember {
+        listOf(
+            "😀", "😂", "😊", "😍", "🥰", "😎", "🤔", "😢", "😭", "👍",
+            "👎", "🙏", "👏", "🔥", "❤️", "🧡", "✅", "🎉", "🚚", "📦",
+            "💬", "📍", "⭐", "💯", "🙌", "🤝", "👋", "😅", "🙂", "😉"
+        )
+    }
 
     fun loadMessages() {
         coroutineScope.launch {
@@ -230,84 +257,177 @@ fun ChatThreadScreen(
         bottomBar = {
             Surface(
                 color = colors.cardBackground,
-                shadowElevation = 12.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
-                modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)
+                shadowElevation = 8.dp,
+                tonalElevation = 0.dp
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Quick Mention Toolbar
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    // Quick mention toolbar
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Add to chat:", fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.secondaryText, fontWeight = FontWeight.Medium)
-
-                        // Product Mention Chip Button
+                        Text(
+                            text = "Add:",
+                            fontFamily = SuqiFontFamily,
+                            fontSize = 11.sp,
+                            color = colors.secondaryText,
+                            fontWeight = FontWeight.Medium
+                        )
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
                                 .background(SuqiPrimaryTint)
                                 .clickable { showProductPicker = true }
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(LucideIcons.ShoppingBag, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
+                                Icon(imageVector = LucideIcons.ShoppingBag, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("# Product", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = SuqiPrimary)
+                                Text(text = "# Product", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = SuqiPrimary)
                             }
                         }
-
-                        // Shop Mention Chip Button
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
-                                .background(LocalSuqiColors.current.secondaryBackground)
+                                .background(colors.secondaryBackground)
                                 .clickable { showShopPicker = true }
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(LucideIcons.Store, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
+                                Icon(imageVector = LucideIcons.Store, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("@ Shop", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = SuqiPrimary)
+                                Text(text = "@ Shop", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = colors.primaryText)
                             }
                         }
                     }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { viewModel.showToast("Attach photo") }) {
-                            Icon(LucideIcons.Smile, contentDescription = "Emoji", tint = colors.secondaryText)
+                    // Pending attachments preview
+                    if (pendingProductName != null || pendingPhotoUri != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (pendingProductName != null) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(SuqiPrimaryTint)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(imageVector = LucideIcons.ShoppingBag, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = pendingProductName.orEmpty(),
+                                        fontFamily = SuqiFontFamily,
+                                        fontSize = 12.sp,
+                                        color = SuqiPrimary,
+                                        maxLines = 1,
+                                        modifier = Modifier.widthIn(max = 140.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        LucideIcons.X,
+                                        contentDescription = "Remove",
+                                        tint = SuqiPrimary,
+                                        modifier = Modifier.size(14.dp).clickable {
+                                            pendingProductName = null
+                                            pendingProductPrice = null
+                                            pendingProductImage = null
+                                        }
+                                    )
+                                }
+                            }
+                            if (pendingPhotoUri != null) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colors.secondaryBackground)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(imageVector = LucideIcons.ImagePlus, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = "Photo", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        LucideIcons.X,
+                                        contentDescription = "Remove",
+                                        tint = colors.mutedText,
+                                        modifier = Modifier.size(14.dp).clickable { pendingPhotoUri = null }
+                                    )
+                                }
+                            }
                         }
+                    }
+
+                    // Input row: + | multi-line field | emoji | send
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        IconButton(
+                            onClick = { photoPicker.launch("image/*") },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(colors.secondaryBackground)
+                        ) {
+                            Icon(LucideIcons.Plus, contentDescription = "Attach photo", tint = colors.primaryText)
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
 
                         OutlinedTextField(
                             value = inputMessage,
                             onValueChange = { inputMessage = it },
-                            placeholder = { Text("Type a message or use #product / @shop...", color = colors.mutedText, fontSize = 13.sp) },
-                            shape = RoundedCornerShape(24.dp),
+                            placeholder = {
+                                Text(
+                                    text = "Type a message...",
+                                    color = colors.mutedText,
+                                    fontFamily = SuqiFontFamily,
+                                    fontSize = 14.sp
+                                )
+                            },
+                            shape = RoundedCornerShape(22.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = colors.secondaryBackground,
                                 unfocusedContainerColor = colors.secondaryBackground,
-                                focusedBorderColor = SuqiPrimary,
-                                unfocusedBorderColor = colors.border,
+                                focusedBorderColor = SuqiPrimary.copy(alpha = 0.5f),
+                                unfocusedBorderColor = Color.Transparent,
                                 focusedTextColor = colors.primaryText,
                                 unfocusedTextColor = colors.primaryText
                             ),
-                            modifier = Modifier.weight(1f).heightIn(max = 48.dp)
+                            minLines = 1,
+                            maxLines = 5,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 44.dp, max = 120.dp)
                         )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        IconButton(
+                            onClick = { showEmojiPicker = true },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(LucideIcons.Smile, contentDescription = "Emoji", tint = colors.secondaryText)
+                        }
 
                         IconButton(
                             onClick = {
-                                if (inputMessage.isNotBlank()) {
-                                    val text = inputMessage.trim()
+                                if (inputMessage.isNotBlank() || pendingProductName != null || pendingPhotoUri != null) {
+                                    val text = inputMessage.trim().ifBlank {
+                                        if (pendingPhotoUri != null) "📷 Photo" else ""
+                                    }
                                     inputMessage = ""
                                     coroutineScope.launch {
                                         viewModel.repository.sendChatMessage(
@@ -319,10 +439,10 @@ fun ChatThreadScreen(
                                                 "productContextImage" to (pendingProductImage ?: "")
                                             )
                                         )
-                                        // Clear pending attachment after send
                                         pendingProductName = null
                                         pendingProductPrice = null
                                         pendingProductImage = null
+                                        pendingPhotoUri = null
                                         loadMessages()
                                     }
                                 }
@@ -338,8 +458,6 @@ fun ChatThreadScreen(
                 }
             }
         },
-        containerColor = colors.surfaceBackground,
-        modifier = modifier.fillMaxSize()
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(paddingValues),
@@ -399,8 +517,27 @@ fun ChatThreadScreen(
                             .padding(12.dp)
                     ) {
                         Column {
+                            val ctxName = msg.productContextName?.takeIf { it.isNotBlank() }
+                            val ctxPrice = msg.productContextPrice?.takeIf { it.isNotBlank() }
+                            val ctxImage = msg.productContextImage?.takeIf { it.isNotBlank() }
+                            val suppressKeys = buildSet {
+                                if (ctxName != null) {
+                                    add(ctxName.lowercase())
+                                    allProducts.firstOrNull {
+                                        it.name.equals(ctxName, ignoreCase = true) ||
+                                            it.name.contains(ctxName, ignoreCase = true)
+                                    }?.id?.lowercase()?.let { add(it) }
+                                }
+                            }
+                            // Strip structured #[Name:id] tokens for products already in productContext
+                            val displayText = if (ctxName != null) {
+                                // Remove structured product mentions already shown as productContext card
+                                val mentionPattern = Regex("""#\[[^\]]+\]""")
+                                msg.message.replace(mentionPattern, "").trim()
+                            } else msg.message
+
                             ChatBubbleMessageContent(
-                                text = msg.message,
+                                text = displayText,
                                 isCustomer = isCustomer,
                                 allProducts = allProducts,
                                 allShops = allShops,
@@ -409,13 +546,10 @@ fun ChatThreadScreen(
                                 },
                                 onNavigateToShop = { sId ->
                                     viewModel.navigate(ScreenDestination.ShopStorefront(sId))
-                                }
+                                },
+                                suppressProductKeys = suppressKeys
                             )
 
-                            // Embedded product card (mockup: image + name + price + chevron)
-                            val ctxName = msg.productContextName?.takeIf { it.isNotBlank() }
-                            val ctxPrice = msg.productContextPrice?.takeIf { it.isNotBlank() }
-                            val ctxImage = msg.productContextImage?.takeIf { it.isNotBlank() }
                             if (ctxName != null) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 val matched = allProducts.firstOrNull {
@@ -450,116 +584,328 @@ fun ChatThreadScreen(
         }
     }
 
-    // Modal Sheet to select a Product to #mention
+
+    // Product picker with search
     if (showProductPicker) {
         ModalBottomSheet(
-            onDismissRequest = { showProductPicker = false },
-            containerColor = colors.cardBackground
+            onDismissRequest = {
+                showProductPicker = false
+                productSearchQuery = ""
+            },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
+            val filteredProducts = remember(allProducts, productSearchQuery) {
+                val q = productSearchQuery.trim()
+                if (q.isEmpty()) allProducts
+                else allProducts.filter {
+                    it.name.contains(q, ignoreCase = true) ||
+                        it.shopName.contains(q, ignoreCase = true) ||
+                        it.categoryId.contains(q, ignoreCase = true)
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
             ) {
                 Text(
-                    text = "Select Product to Mention",
+                    text = "Select product",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = colors.primaryText
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                LazyColumn(modifier = Modifier.fillMaxHeight(0.6f)) {
-                    items(allProducts) { p ->
+                OutlinedTextField(
+                    value = productSearchQuery,
+                    onValueChange = { productSearchQuery = it },
+                    placeholder = { Text(text = "Search products...", color = colors.mutedText) },
+                    leadingIcon = {
+                        Icon(imageVector = LucideIcons.Search, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
+                    },
+                    trailingIcon = {
+                        if (productSearchQuery.isNotBlank()) {
+                            IconButton(onClick = { productSearchQuery = "" }) {
+                                Icon(imageVector = LucideIcons.X, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = colors.secondaryBackground,
+                        unfocusedContainerColor = colors.secondaryBackground,
+                        focusedBorderColor = SuqiPrimary,
+                        unfocusedBorderColor = colors.border,
+                        focusedTextColor = colors.primaryText,
+                        unfocusedTextColor = colors.primaryText
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${filteredProducts.size} products",
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 12.sp,
+                    color = colors.mutedText
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                ) {
+                    if (filteredProducts.isEmpty()) {
+                        item {
+                            Text(
+                                "No products match \"$productSearchQuery\"",
+                                fontFamily = SuqiFontFamily,
+                                color = colors.secondaryText,
+                                modifier = Modifier.padding(24.dp)
+                            )
+                        }
+                    }
+                    items(filteredProducts, key = { it.id }) { productItem ->
                         Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(14.dp))
                                 .clickable {
-                                    inputMessage = "$inputMessage #[${p.name}:${p.id}] ".trimStart()
-                                    pendingProductName = p.name
-                                    pendingProductPrice = formatEtb(p.price)
-                                    pendingProductImage = p.primaryImageUrl
+                                    pendingProductName = productItem.name
+                                    pendingProductPrice = formatEtb(productItem.price)
+                                    pendingProductImage = productItem.primaryImageUrl
+                                    productSearchQuery = ""
                                     showProductPicker = false
                                 }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(vertical = 8.dp, horizontal = 4.dp)
                         ) {
                             AsyncImage(
-                                model = p.primaryImageUrl,
-                                contentDescription = p.name,
+                                model = productItem.primaryImageUrl,
+                                contentDescription = productItem.name,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(colors.secondaryBackground)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(p.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText, maxLines = 1)
-                                Text("ETB ${p.price.toLong()}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = SuqiPrimary)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = productItem.name,
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp,
+                                    color = colors.primaryText,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = productItem.shopName,
+                                    fontFamily = SuqiFontFamily,
+                                    fontSize = 12.sp,
+                                    color = colors.mutedText
+                                )
                             }
-                            Icon(LucideIcons.Plus, contentDescription = "Add", tint = SuqiPrimary)
+                            Text(
+                                text = formatEtb(productItem.price),
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = SuqiPrimary
+                            )
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 
-    // Modal Sheet to select a Shop to @mention
-    if (showShopPicker) {
+        if (showShopPicker) {
         ModalBottomSheet(
-            onDismissRequest = { showShopPicker = false },
-            containerColor = colors.cardBackground
+            onDismissRequest = {
+                showShopPicker = false
+                shopSearchQuery = ""
+            },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        ) {
+            val filteredShops = remember(allShops, shopSearchQuery) {
+                val q = shopSearchQuery.trim()
+                if (q.isEmpty()) allShops
+                else allShops.filter {
+                    it.name.contains(q, ignoreCase = true) ||
+                        it.city.contains(q, ignoreCase = true) ||
+                        it.category.contains(q, ignoreCase = true)
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = "Select shop",
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    color = colors.primaryText
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = shopSearchQuery,
+                    onValueChange = { shopSearchQuery = it },
+                    placeholder = { Text(text = "Search shops...", color = colors.mutedText) },
+                    leadingIcon = {
+                        Icon(imageVector = LucideIcons.Search, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
+                    },
+                    trailingIcon = {
+                        if (shopSearchQuery.isNotBlank()) {
+                            IconButton(onClick = { shopSearchQuery = "" }) {
+                                Icon(imageVector = LucideIcons.X, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = colors.secondaryBackground,
+                        unfocusedContainerColor = colors.secondaryBackground,
+                        focusedBorderColor = SuqiPrimary,
+                        unfocusedBorderColor = colors.border,
+                        focusedTextColor = colors.primaryText,
+                        unfocusedTextColor = colors.primaryText
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${filteredShops.size} shops",
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 12.sp,
+                    color = colors.mutedText
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                ) {
+                    if (filteredShops.isEmpty()) {
+                        item {
+                            Text(
+                                "No shops match \"$shopSearchQuery\"",
+                                fontFamily = SuqiFontFamily,
+                                color = colors.secondaryText,
+                                modifier = Modifier.padding(24.dp)
+                            )
+                        }
+                    }
+                    items(filteredShops, key = { it.id }) { shop ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    inputMessage = "$inputMessage @[${shop.name}:${shop.id}] ".trimStart()
+                                    shopSearchQuery = ""
+                                    showShopPicker = false
+                                }
+                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                        ) {
+                            AsyncImage(
+                                model = shop.logoUrl.ifBlank { shop.coverUrl },
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(colors.secondaryBackground)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = shop.name,
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp,
+                                    color = colors.primaryText
+                                )
+                                Text(
+                                    text = "${shop.city} · ${shop.category}",
+                                    fontFamily = SuqiFontFamily,
+                                    fontSize = 12.sp,
+                                    color = colors.mutedText
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+
+    // Emoji picker sheet
+    if (showEmojiPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showEmojiPicker = false },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .navigationBarsPadding()
             ) {
                 Text(
-                    text = "Select Shop to Mention",
+                    text = "Emoji",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = colors.primaryText
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                LazyColumn(modifier = Modifier.fillMaxHeight(0.6f)) {
-                    items(allShops) { s ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    inputMessage = "$inputMessage @[${s.name}:${s.id}] ".trimStart()
-                                    showShopPicker = false
-                                }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
+                // 6-column grid
+                val rows = emojiList.chunked(6)
+                rows.forEach { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        row.forEach { emoji ->
+                            Text(
+                                text = emoji,
+                                fontSize = 28.sp,
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(SuqiPrimaryTint),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(s.name.take(2).uppercase(), fontWeight = FontWeight.Bold, color = SuqiPrimary)
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(s.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
-                                Text(s.category, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
-                            }
-                            Icon(LucideIcons.Plus, contentDescription = "Add", tint = SuqiPrimary)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        inputMessage += emoji
+                                        showEmojiPicker = false
+                                    }
+                                    .padding(10.dp)
+                            )
+                        }
+                        // pad incomplete row
+                        repeat(6 - row.size) {
+                            Spacer(modifier = Modifier.size(48.dp))
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
+
 }
 
 /**
@@ -572,7 +918,9 @@ private fun ChatBubbleMessageContent(
     allProducts: List<ProductDto>,
     allShops: List<ShopDto>,
     onNavigateToProduct: (String) -> Unit,
-    onNavigateToShop: (String) -> Unit
+    onNavigateToShop: (String) -> Unit,
+    /** Product names/ids already shown via productContext — skip duplicate cards */
+    suppressProductKeys: Set<String> = emptySet()
 ) {
     val colors = LocalSuqiColors.current
     // Regex matching #[Title:id] or @[Title:id] or simple #Word or @Word
@@ -605,18 +953,25 @@ private fun ChatBubbleMessageContent(
                 manualTokens.forEach { token ->
                     if (token.startsWith("#") && token.length > 1) {
                         val name = token.removePrefix("#")
-                        val prod = allProducts.firstOrNull { it.name.contains(name, ignoreCase = true) || it.id.equals(name, ignoreCase = true) }
+                        if (name.lowercase() in suppressProductKeys) return@forEach
+                        val prod = allProducts.firstOrNull {
+                            it.name.contains(name, ignoreCase = true) || it.id.equals(name, ignoreCase = true)
+                        }
                         if (prod != null) {
-                            MentionChip(
-                                type = "product",
-                                label = prod.name,
-                                onClick = { onNavigateToProduct(prod.id) },
-                                modifier = Modifier.padding(top = 2.dp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            ChatEmbeddedProductCard(
+                                name = prod.name,
+                                price = formatEtb(prod.price),
+                                imageUrl = prod.primaryImageUrl,
+                                isOnPrimary = isCustomer,
+                                onClick = { onNavigateToProduct(prod.id) }
                             )
                         }
                     } else if (token.startsWith("@") && token.length > 1) {
                         val name = token.removePrefix("@")
-                        val shop = allShops.firstOrNull { it.name.contains(name, ignoreCase = true) || it.id.equals(name, ignoreCase = true) }
+                        val shop = allShops.firstOrNull {
+                            it.name.contains(name, ignoreCase = true) || it.id.equals(name, ignoreCase = true)
+                        }
                         if (shop != null) {
                             MentionChip(
                                 type = "shop",
@@ -633,9 +988,8 @@ private fun ChatBubbleMessageContent(
         // Render cleaned text + interactive chips
         var cleanedText = text
         matches.forEach { match ->
-            val symbol = match.groupValues[1]
-            val label = match.groupValues[2]
-            cleanedText = cleanedText.replace(match.value, "$symbol$label")
+            // Remove structured tokens from body text; products render as cards below
+            cleanedText = cleanedText.replace(match.value, "").trim()
         }
 
         Column {
@@ -651,10 +1005,12 @@ private fun ChatBubbleMessageContent(
                 val isProduct = match.groupValues[1] == "#"
                 val label = match.groupValues[2]
                 val id = match.groupValues[3]
-                Spacer(modifier = Modifier.height(8.dp))
                 if (isProduct) {
+                    val keyMatch = label.lowercase() in suppressProductKeys || id.lowercase() in suppressProductKeys
+                    if (keyMatch) return@forEach // already shown as productContext card
                     val prod = allProducts.firstOrNull { it.id == id }
                         ?: allProducts.firstOrNull { it.name.equals(label, ignoreCase = true) }
+                    Spacer(modifier = Modifier.height(8.dp))
                     ChatEmbeddedProductCard(
                         name = prod?.name ?: label,
                         price = prod?.let { formatEtb(it.price) },
@@ -663,6 +1019,7 @@ private fun ChatBubbleMessageContent(
                         onClick = { onNavigateToProduct(id) }
                     )
                 } else {
+                    Spacer(modifier = Modifier.height(8.dp))
                     MentionChip(
                         type = "shop",
                         label = label,
