@@ -236,7 +236,7 @@ fun CategoryListingScreen(
                 Text(
                     text = "Sort & Filter",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = SuqiPrimaryText
                 )

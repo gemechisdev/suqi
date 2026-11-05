@@ -182,7 +182,7 @@ fun ProductDetailsScreen(
         bottomBar = {
             // Sticky Bottom Action Bar with Add to Cart and Buy Now
             Surface(
-                color = Color.White,
+                color = LocalSuqiColors.current.cardBackground,
                 shadowElevation = 16.dp,
                 border = androidx.compose.foundation.BorderStroke(1.dp, SuqiBorder),
                 modifier = Modifier
@@ -446,7 +446,7 @@ fun ProductDetailsScreen(
                     Text(
                         text = currentProd.name,
                         fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 20.sp,
                         color = SuqiPrimaryText
                     )
@@ -479,7 +479,7 @@ fun ProductDetailsScreen(
                         Text(
                             text = formatEtb(currentProd.price),
                             fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 22.sp,
                             color = SuqiPrimary
                         )

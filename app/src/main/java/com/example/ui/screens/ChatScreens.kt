@@ -74,7 +74,7 @@ fun ChatListScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Chat Messages", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Chat Messages", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         containerColor = SuqiBackground,

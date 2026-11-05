@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 // Primary must remain #FF6500 — do not change without owner instruction.
 // ─────────────────────────────────────────────────────────────
 
+// LOCKED Plan §12 tokens — do not change without product owner decision
 val SuqiPrimary = Color(0xFFFF6500)
 val SuqiPrimaryHover = Color(0xFFE85B00)
 val SuqiPrimaryLight = Color(0xFFFFF0E6)
@@ -27,8 +28,8 @@ val SuqiBackgroundDark = Color(0xFF0F1015)
 val SuqiSurfaceDark = Color(0xFF181920)
 val SuqiSecondaryBgDark = Color(0xFF22232C)
 val SuqiPrimaryTextDark = Color(0xFFF8FAFC)
-val SuqiSecondaryTextDark = Color(0xFF94A3B8)
-val SuqiMutedTextDark = Color(0xFF64748B)
+val SuqiSecondaryTextDark = Color(0xFFA1A1AA)
+val SuqiMutedTextDark = Color(0xFF8B8B96)
 val SuqiBorderDark = Color(0xFF2E303E)
 
 // Semantic

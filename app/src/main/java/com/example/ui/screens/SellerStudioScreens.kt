@@ -85,7 +85,7 @@ fun SellerStudioScreen(
                     Text(
                         text = "Seller Studio",
                         fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 20.sp,
                         color = SuqiPrimaryText
                     )
@@ -116,7 +116,7 @@ fun SellerStudioScreen(
                 item {
                     Card(
                         shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = SuqiWarningLight),
+                        colors = CardDefaults.cardColors(containerColor = SuqiWarningBg),
                         border = CardDefaults.outlinedCardBorder().copy(
                             brush = androidx.compose.ui.graphics.SolidColor(SuqiWarning.copy(alpha = 0.5f))
                         ),
@@ -208,7 +208,7 @@ fun SellerStudioScreen(
                                 Text(
                                     text = "ETB 248,750",
                                     fontFamily = SuqiFontFamily,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     fontSize = 20.sp,
                                     color = SuqiPrimaryText
                                 )
@@ -272,7 +272,7 @@ fun SellerStudioScreen(
                 Text(
                     text = "Quick Actions",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = SuqiPrimaryText
                 )
@@ -448,14 +448,14 @@ fun AddEditProductScreen(
                 Text(
                     text = if (productId == null) "Add Product" else "Edit Product",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp
                 )
             }
         },
         bottomBar = {
             Surface(
-                color = Color.White,
+                color = LocalSuqiColors.current.cardBackground,
                 shadowElevation = 12.dp,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -656,7 +656,7 @@ fun ProductManagementScreen(
                 Text(
                     text = "Product Management",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp
                 )
             }
@@ -846,7 +846,7 @@ fun VerificationQueueScreen(
                 Text(
                     text = "Verification Queue",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp
                 )
             }
@@ -867,7 +867,7 @@ fun VerificationQueueScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(SuqiWarningLight)
+                        .background(SuqiWarningBg)
                         .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
                     Icon(LucideIcons.Clock, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(18.dp))
@@ -1073,14 +1073,14 @@ fun PaymentMethodsSetupScreen(
                 Text(
                     text = "Payment Methods",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp
                 )
             }
         },
         bottomBar = {
             Surface(
-                color = Color.White,
+                color = LocalSuqiColors.current.cardBackground,
                 shadowElevation = 12.dp,
                 modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)
             ) {
@@ -1147,7 +1147,7 @@ fun PaymentMethodsSetupScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(4.dp))
-                                        .background(SuqiSuccessLight)
+                                        .background(SuqiSuccessBg)
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text("Required", fontSize = 11.sp, color = SuqiSuccess, fontWeight = FontWeight.Bold)
@@ -1272,7 +1272,7 @@ fun DeliverySetupScreen(
                 Text(
                     text = "Delivery & Fulfilment",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp
                 )
             }
@@ -1367,7 +1367,7 @@ fun PromotionsScreen(
                 Text(
                     text = "Promotions & Discounts",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp
                 )
             }
@@ -1406,7 +1406,7 @@ fun PromotionsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text(text = "Create Promo Code", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(text = "Create Promo Code", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
@@ -1475,7 +1475,7 @@ fun ShopSettingsScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Shop Settings", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Shop Settings", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         bottomBar = {
@@ -1565,7 +1565,7 @@ fun SellerVerificationScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Seller Verification", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Seller Verification", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         containerColor = SuqiBackground,
@@ -1590,7 +1590,7 @@ fun SellerVerificationScreen(
             Text(
                 text = "Get Your Shop Verified",
                 fontFamily = SuqiFontFamily,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 20.sp
             )
 
@@ -1658,7 +1658,7 @@ fun SellerSubscriptionScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Seller Subscription", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Seller Subscription", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         containerColor = SuqiBackground,
@@ -1679,7 +1679,7 @@ fun SellerSubscriptionScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Pro Seller Plan", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = SuqiPrimary)
+                        Text("Pro Seller Plan", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = SuqiPrimary)
                         SuqiStatusBadge("Active", StatusType.SUCCESS)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -1687,7 +1687,7 @@ fun SellerSubscriptionScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Text("ETB 299 / month", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = SuqiPrimaryText)
+                    Text("ETB 299 / month", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = SuqiPrimaryText)
 
                     Spacer(modifier = Modifier.height(16.dp))
 

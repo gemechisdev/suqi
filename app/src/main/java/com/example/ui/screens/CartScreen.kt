@@ -82,7 +82,7 @@ fun CartScreen(
                 Text(
                     text = "My Cart",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp,
                     color = SuqiPrimaryText
                 )
@@ -134,7 +134,7 @@ fun CartScreen(
                     Text(
                         text = "Your Cart is Empty",
                         fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 20.sp,
                         color = SuqiPrimaryText
                     )
@@ -361,7 +361,7 @@ fun ShopCartGroupCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(SuqiWarningLight)
+                        .background(SuqiWarningBg)
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))

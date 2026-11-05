@@ -394,7 +394,7 @@ fun ShopStorefrontScreen(
                                 Text(
                                     text = currentShop.name,
                                     fontFamily = SuqiFontFamily,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     fontSize = 20.sp,
                                     color = SuqiPrimaryText
                                 )
@@ -432,7 +432,7 @@ fun ShopStorefrontScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(999.dp))
-                                    .background(SuqiSuccessLight)
+                                    .background(SuqiSuccessBg)
                                     .padding(horizontal = 10.dp, vertical = 4.dp)
                             ) {
                                 Text(

@@ -221,13 +221,15 @@ fun CategoriesScreen(
                         .clip(RoundedCornerShape(24.dp))
                         .background(
                             Brush.horizontalGradient(
-                                colors = if (effectiveDark) listOf(Color(0xFF261D17), Color(0xFF332014))
-                                else listOf(Color(0xFFFFF1EB), Color(0xFFFFE0D0))
+                                colors = if (effectiveDark)
+                                    listOf(LocalSuqiColors.current.secondaryBackground, LocalSuqiColors.current.cardBackground)
+                                else
+                                    listOf(SuqiPrimarySubtle, SuqiPrimaryLight)
                             )
                         )
                         .border(
                             1.dp,
-                            if (effectiveDark) Color(0xFF4D2B17) else Color(0xFFFFD5C0),
+                            if (effectiveDark) LocalSuqiColors.current.border else SuqiPrimary.copy(alpha = 0.25f),
                             RoundedCornerShape(24.dp)
                         )
                         .clickable { viewModel.navigate(ScreenDestination.Shops) }
@@ -243,9 +245,9 @@ fun CategoriesScreen(
                             Text(
                                 text = "Shop Local",
                                 fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.ExtraBold,
+                                fontWeight = FontWeight.SemiBold,
                                 fontSize = 18.sp,
-                                color = if (effectiveDark) Color(0xFFFF8A3D) else Color(0xFF171717)
+                                color = if (effectiveDark) SuqiPrimary else LocalSuqiColors.current.primaryText
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
@@ -254,7 +256,7 @@ fun CategoriesScreen(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 lineHeight = 18.sp,
-                                color = if (effectiveDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                                color = LocalSuqiColors.current.secondaryText
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Box(

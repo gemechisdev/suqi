@@ -248,13 +248,15 @@ fun HomeScreen(
                         val rotationY = pageOffset * -25f
                         val scale = 0.92f + (1f - kotlin.math.abs(pageOffset).coerceIn(0f, 1f)) * 0.08f
 
+                        // Plan §12: warm primary-light surfaces; dark uses theme cards
+                        val themeColors = LocalSuqiColors.current
                         val gradient = if (effectiveDark) {
-                            listOf(Color(0xFF2A1F18), Color(0xFF1A1410))
+                            listOf(themeColors.secondaryBackground, themeColors.cardBackground)
                         } else {
-                            listOf(Color(0xFFFFF3EB), Color(0xFFFFE5D3))
+                            listOf(SuqiPrimarySubtle, SuqiPrimaryLight)
                         }
-                        val titleCol = if (effectiveDark) Color(0xFFF8FAFC) else Color(0xFF171717)
-                        val subCol = if (effectiveDark) Color(0xFF94A3B8) else Color(0xFF737373)
+                        val titleCol = themeColors.primaryText
+                        val subCol = themeColors.secondaryText
 
                         Box(
                             modifier = Modifier
@@ -686,7 +688,7 @@ fun LocationPickerContent(
         Text(
             text = "Select Your Location",
             fontFamily = SuqiFontFamily,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             fontSize = 18.sp,
             color = SuqiPrimaryText
         )

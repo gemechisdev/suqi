@@ -75,7 +75,7 @@ fun AuthScreen(
                 Text(
                     text = "Suqi",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 28.sp,
                     color = SuqiPrimary
                 )
@@ -246,7 +246,7 @@ fun OnboardingScreen(
                 Text(
                     text = "Welcome to Suqi!",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 24.sp,
                     color = SuqiPrimaryText,
                     textAlign = TextAlign.Center,
@@ -425,7 +425,7 @@ fun BecomeSellerScreen(
                 Text(
                     text = "Become a Seller",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp,
                     color = SuqiPrimaryText
                 )

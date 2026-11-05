@@ -95,7 +95,7 @@ fun CheckoutDeliveryScreen(
                 Text(
                     text = "Checkout",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp,
                     color = SuqiPrimaryText
                 )
@@ -103,7 +103,7 @@ fun CheckoutDeliveryScreen(
         },
         bottomBar = {
             Surface(
-                color = Color.White,
+                color = LocalSuqiColors.current.cardBackground,
                 shadowElevation = 12.dp,
                 border = androidx.compose.foundation.BorderStroke(1.dp, SuqiBorder),
                 modifier = Modifier
@@ -137,7 +137,7 @@ fun CheckoutDeliveryScreen(
                 Text(
                     text = "Delivery Details",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = SuqiPrimaryText
                 )
@@ -217,7 +217,7 @@ fun CheckoutDeliveryScreen(
                 Text(
                     text = "Delivery Option (From ${viewModel.activeCheckoutShopName.value})",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = SuqiPrimaryText
                 )
@@ -246,7 +246,7 @@ fun CheckoutDeliveryScreen(
                 Text(
                     text = "Order Summary",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = SuqiPrimaryText
                 )
@@ -295,11 +295,11 @@ fun CheckoutDeliveryScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Total", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Total", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                             Text(
                                 formatEtb(totalAmount),
                                 fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 fontSize = 20.sp,
                                 color = SuqiPrimary
                             )
@@ -416,7 +416,7 @@ fun CheckoutPaymentScreen(
                 Text(
                     text = "Payment",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp,
                     color = SuqiPrimaryText
                 )
@@ -424,7 +424,7 @@ fun CheckoutPaymentScreen(
         },
         bottomBar = {
             Surface(
-                color = Color.White,
+                color = LocalSuqiColors.current.cardBackground,
                 shadowElevation = 12.dp,
                 border = androidx.compose.foundation.BorderStroke(1.dp, SuqiBorder),
                 modifier = Modifier
@@ -531,7 +531,7 @@ fun CheckoutPaymentScreen(
                 Text(
                     text = "Payment Method (From ${viewModel.activeCheckoutShopName.value})",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = SuqiPrimaryText
                 )
@@ -680,7 +680,7 @@ fun OrderSubmittedScreen(
                     modifier = Modifier
                         .size(88.dp)
                         .clip(CircleShape)
-                        .background(SuqiSuccessLight),
+                        .background(SuqiSuccessBg),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
@@ -704,7 +704,7 @@ fun OrderSubmittedScreen(
                 Text(
                     text = "Order Submitted!",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 24.sp,
                     color = SuqiPrimaryText
                 )
@@ -744,7 +744,7 @@ fun OrderSubmittedScreen(
                             Text(
                                 text = orderReference,
                                 fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 fontSize = 18.sp,
                                 color = SuqiPrimaryText
                             )

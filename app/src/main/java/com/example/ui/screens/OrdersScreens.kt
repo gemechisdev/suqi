@@ -87,7 +87,7 @@ fun MyOrdersScreen(
                 Text(
                     text = "My Orders",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp,
                     color = SuqiPrimaryText
                 )
@@ -365,7 +365,7 @@ fun OrderDetailScreen(
                 Text(
                     text = "Order Details",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp,
                     color = SuqiPrimaryText
                 )
@@ -373,7 +373,7 @@ fun OrderDetailScreen(
         },
         bottomBar = {
             Surface(
-                color = Color.White,
+                color = LocalSuqiColors.current.cardBackground,
                 shadowElevation = 12.dp,
                 border = androidx.compose.foundation.BorderStroke(1.dp, SuqiBorder),
                 modifier = Modifier
@@ -480,7 +480,7 @@ fun OrderDetailScreen(
                         Text(
                             text = "Order #${currentOrder.orderReference}",
                             fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 18.sp
                         )
 

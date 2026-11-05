@@ -61,7 +61,7 @@ fun NotificationsScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Notifications", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Notifications", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         containerColor = SuqiBackground,
@@ -158,7 +158,7 @@ fun SavedAddressesScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Saved Addresses", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Saved Addresses", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         floatingActionButton = {
@@ -294,7 +294,7 @@ fun WishlistScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Wishlist (${products.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Wishlist (${products.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         containerColor = SuqiBackground,
@@ -369,7 +369,7 @@ fun ReviewsScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Reviews: $targetName", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(text = "Reviews: $targetName", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
             }
         },
         floatingActionButton = {
@@ -477,7 +477,7 @@ fun AdminConsoleScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Admin Console", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Admin Console", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         containerColor = SuqiBackground,
@@ -496,7 +496,7 @@ fun AdminConsoleScreen(
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text(text = "Admin Quick Actions", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(text = "Admin Quick Actions", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -512,7 +512,7 @@ fun AdminConsoleScreen(
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text(text = "Platform Feature Toggles", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(text = "Platform Feature Toggles", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
@@ -629,7 +629,7 @@ fun AdminFeaturesScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Admin Seller Verification", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Admin Seller Verification", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         containerColor = SuqiBackground,
@@ -730,7 +730,7 @@ fun AppSettingsScreen(
                 Text(
                     text = "App Settings",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp,
                     color = colors.primaryText
                 )
@@ -924,7 +924,7 @@ fun AppSettingsScreen(
                 Text(
                     text = "Select Delivery Location",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = colors.primaryText
                 )
@@ -1019,7 +1019,7 @@ fun HelpLegalScreen(
                     Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Help & Legal", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(text = "Help & Legal", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
             }
         },
         containerColor = SuqiBackground,
@@ -1038,7 +1038,7 @@ fun HelpLegalScreen(
                     Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(LucideIcons.Headphones, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(40.dp))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Need Help?", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Need Help?", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                         Text("Our Ethiopia support team is here to help you.", fontSize = 13.sp, color = SuqiSecondaryText)
                         Spacer(modifier = Modifier.height(14.dp))
                         SuqiButton(text = "Contact Support", onClick = { viewModel.showToast("Opening support channel...") })

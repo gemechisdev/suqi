@@ -8,8 +8,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
-// Single TTF files currently ship Regular only; Compose synthesizes Medium/SemiBold.
-// Prefer SemiBold for headings per plan §12 (avoid ExtraBold).
+/**
+ * Plan §12 typography:
+ * - Plus Jakarta Sans primary, Noto Sans Ethiopic fallback
+ * - Hierarchy: SemiBold for titles, Medium for labels, Normal for body
+ * - Avoid ExtraBold / heavy Bold for UI chrome
+ */
 val SuqiFontFamily = FontFamily(
     Font(R.font.plus_jakarta_sans, FontWeight.Normal),
     Font(R.font.plus_jakarta_sans, FontWeight.Medium),
@@ -17,47 +21,67 @@ val SuqiFontFamily = FontFamily(
     Font(R.font.plus_jakarta_sans, FontWeight.Bold)
 )
 
-val EthiopicFontFamily = FontFamily(
+val SuqiEthiopicFontFamily = FontFamily(
     Font(R.font.noto_sans_ethiopic, FontWeight.Normal),
     Font(R.font.noto_sans_ethiopic, FontWeight.Medium),
     Font(R.font.noto_sans_ethiopic, FontWeight.SemiBold),
     Font(R.font.noto_sans_ethiopic, FontWeight.Bold)
 )
 
-// Plan §12 hierarchy: Page title Semibold 24, Section Semibold 18,
-// Card/product Medium 14–16, Body Regular 14–16, Label 12–13, Price Semibold 16–18
-val Typography = Typography(
+val SuqiTypography = Typography(
+    displayLarge = TextStyle(
+        fontFamily = SuqiFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 32.sp,
+        lineHeight = 40.sp
+    ),
+    displayMedium = TextStyle(
+        fontFamily = SuqiFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 28.sp,
+        lineHeight = 36.sp
+    ),
     headlineLarge = TextStyle(
         fontFamily = SuqiFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = (-0.3).sp
+        lineHeight = 32.sp
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = SuqiFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 20.sp,
+        lineHeight = 28.sp
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = SuqiFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 26.sp
     ),
     titleLarge = TextStyle(
         fontFamily = SuqiFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 18.sp,
-        lineHeight = 24.sp,
-        letterSpacing = (-0.2).sp
+        lineHeight = 26.sp
     ),
     titleMedium = TextStyle(
         fontFamily = SuqiFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
-        lineHeight = 22.sp
+        lineHeight = 24.sp
     ),
     titleSmall = TextStyle(
         fontFamily = SuqiFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 15.sp,
+        fontSize = 14.sp,
         lineHeight = 20.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = SuqiFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp
+        fontSize = 16.sp,
+        lineHeight = 24.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = SuqiFontFamily,
@@ -65,22 +89,28 @@ val Typography = Typography(
         fontSize = 14.sp,
         lineHeight = 20.sp
     ),
+    bodySmall = TextStyle(
+        fontFamily = SuqiFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp
+    ),
     labelLarge = TextStyle(
         fontFamily = SuqiFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
+        fontSize = 14.sp,
         lineHeight = 20.sp
     ),
     labelMedium = TextStyle(
         fontFamily = SuqiFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
-        lineHeight = 18.sp
+        fontSize = 12.sp,
+        lineHeight = 16.sp
     ),
     labelSmall = TextStyle(
         fontFamily = SuqiFontFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
-        lineHeight = 15.sp
+        lineHeight = 14.sp
     )
 )

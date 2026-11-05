@@ -1,6 +1,15 @@
 package com.example.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -22,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -443,7 +453,7 @@ fun SuqiProductCard(
                         Text(
                             text = "-${product.discountPercent}%",
                             fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp,
                             color = Color.White
                         )
@@ -508,7 +518,7 @@ fun SuqiProductCard(
                     Text(
                         text = formatEtb(product.price),
                         fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
                         color = SuqiPrimary
                     )
@@ -567,9 +577,13 @@ fun SuqiProductCard(
 val SuqiBottomNavContentPadding = 96.dp
 
 /**
- * Fluid / liquid bottom navigation (Plan §11 + mockup).
- * Floating rounded surface, centre Search as a solid orange circle,
- * soft orange liquid glow under the active/centre area.
+ * Fluid / liquid bottom navigation (Plan §11).
+ *
+ * - Floating rounded surface with soft elevation
+ * - Sliding liquid pill indicator under the active tab
+ * - Centre Search kept visually prominent (orange circle)
+ * - Smooth spring transitions for colour + indicator position
+ * - Reduced-motion: shorter springs when system animations are off
  */
 @Composable
 fun SuqiFloatingBottomNav(
@@ -578,7 +592,61 @@ fun SuqiFloatingBottomNav(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
-    val isSearch = currentRoute == "search"
+    val density = LocalDensity.current
+
+    data class TabSpec(
+        val route: String,
+        val label: String,
+        val icon: androidx.compose.ui.graphics.vector.ImageVector
+    )
+    val sideTabs = listOf(
+        TabSpec("home", "Home", LucideIcons.House),
+        TabSpec("categories", "Categories", LucideIcons.LayoutGrid),
+        TabSpec("shops", "Shops", LucideIcons.Store),
+        TabSpec("account", "Account", LucideIcons.User)
+    )
+    // Indices: 0 home, 1 categories, 2 search (centre), 3 shops, 4 account
+    val selectedIndex = when (currentRoute) {
+        "home" -> 0
+        "categories" -> 1
+        "search" -> 2
+        "shops" -> 3
+        "account" -> 4
+        else -> 0
+    }
+
+    // Track each tab's centre X inside the row for the liquid indicator
+    val tabCenters = remember { mutableStateListOf(0f, 0f, 0f, 0f, 0f) }
+    val tabWidths = remember { mutableStateListOf(0f, 0f, 0f, 0f, 0f) }
+
+    val indicatorX by animateDpAsState(
+        targetValue = with(density) {
+            val cx = tabCenters.getOrNull(selectedIndex) ?: 0f
+            val w = tabWidths.getOrNull(selectedIndex) ?: 0f
+            (cx - w / 2f).toDp()
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "liquidIndicatorX"
+    )
+    val indicatorW by animateDpAsState(
+        targetValue = with(density) {
+            val w = tabWidths.getOrNull(selectedIndex) ?: 48f
+            w.toDp().coerceAtLeast(40.dp)
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "liquidIndicatorW"
+    )
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (currentRoute == "search") 0.45f else 0.28f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "glowAlpha"
+    )
 
     Box(
         modifier = modifier
@@ -587,18 +655,18 @@ fun SuqiFloatingBottomNav(
             .padding(horizontal = 16.dp, vertical = 6.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Soft liquid orange glow under the bar (mockup style)
+        // Soft liquid orange glow under the bar — follows active area
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = 10.dp)
-                .width(120.dp)
-                .height(28.dp)
+                .offset(y = 12.dp)
+                .width(140.dp)
+                .height(32.dp)
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.radialGradient(
                         colors = listOf(
-                            SuqiPrimary.copy(alpha = 0.35f),
-                            SuqiPrimary.copy(alpha = 0.12f),
+                            SuqiPrimary.copy(alpha = glowAlpha),
+                            SuqiPrimary.copy(alpha = glowAlpha * 0.35f),
                             Color.Transparent
                         )
                     ),
@@ -615,91 +683,168 @@ fun SuqiFloatingBottomNav(
                 .fillMaxWidth()
                 .height(68.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                NavItem(
-                    route = "home",
-                    label = "Home",
-                    selectedIcon = LucideIcons.House,
-                    unselectedIcon = LucideIcons.House,
-                    isSelected = currentRoute == "home",
-                    onClick = { onNavigate("home") }
-                )
-                NavItem(
-                    route = "categories",
-                    label = "Categories",
-                    selectedIcon = LucideIcons.LayoutGrid,
-                    unselectedIcon = LucideIcons.LayoutGrid,
-                    isSelected = currentRoute == "categories",
-                    onClick = { onNavigate("categories") }
-                )
-
-                // Centre Search – solid orange circle (mockup + plan centre prominence)
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .shadow(6.dp, CircleShape)
-                        .clip(CircleShape)
-                        .background(SuqiPrimary)
-                        .clickable { onNavigate("search") }
-                        .testTag("nav_search"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = LucideIcons.Search,
-                        contentDescription = "Search",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Sliding liquid pill behind the active non-search tab
+                if (selectedIndex != 2) {
+                    Box(
+                        modifier = Modifier
+                            .offset(x = indicatorX, y = 10.dp)
+                            .width(indicatorW)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(SuqiPrimary.copy(alpha = 0.12f))
                     )
                 }
 
-                NavItem(
-                    route = "shops",
-                    label = "Shops",
-                    selectedIcon = LucideIcons.Store,
-                    unselectedIcon = LucideIcons.Store,
-                    isSelected = currentRoute == "shops",
-                    onClick = { onNavigate("shops") }
-                )
-                NavItem(
-                    route = "account",
-                    label = "Account",
-                    selectedIcon = LucideIcons.User,
-                    unselectedIcon = LucideIcons.User,
-                    isSelected = currentRoute == "account",
-                    onClick = { onNavigate("account") }
-                )
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Home
+                    FluidNavItem(
+                        label = sideTabs[0].label,
+                        icon = sideTabs[0].icon,
+                        isSelected = selectedIndex == 0,
+                        onClick = { onNavigate("home") },
+                        testTag = "nav_home",
+                        onPositioned = { cx, w ->
+                            if (tabCenters[0] != cx || tabWidths[0] != w) {
+                                tabCenters[0] = cx; tabWidths[0] = w
+                            }
+                        }
+                    )
+                    // Categories
+                    FluidNavItem(
+                        label = sideTabs[1].label,
+                        icon = sideTabs[1].icon,
+                        isSelected = selectedIndex == 1,
+                        onClick = { onNavigate("categories") },
+                        testTag = "nav_categories",
+                        onPositioned = { cx, w ->
+                            if (tabCenters[1] != cx || tabWidths[1] != w) {
+                                tabCenters[1] = cx; tabWidths[1] = w
+                            }
+                        }
+                    )
+
+                    // Centre Search — prominent solid orange circle
+                    Box(
+                        modifier = Modifier
+                            .onGloballyPositioned { coords ->
+                                val pos = coords.positionInParent()
+                                val cx = pos.x + coords.size.width / 2f
+                                val w = coords.size.width.toFloat()
+                                if (tabCenters[2] != cx || tabWidths[2] != w) {
+                                    tabCenters[2] = cx; tabWidths[2] = w
+                                }
+                            }
+                            .size(52.dp)
+                            .shadow(8.dp, CircleShape, ambientColor = SuqiPrimary.copy(alpha = 0.35f), spotColor = SuqiPrimary.copy(alpha = 0.45f))
+                            .clip(CircleShape)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    listOf(SuqiPrimary, SuqiPrimaryHover)
+                                )
+                            )
+                            .clickable { onNavigate("search") }
+                            .testTag("nav_search"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Inner liquid ring when search is active
+                        if (selectedIndex == 2) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .padding(3.dp)
+                                    .border(1.5.dp, Color.White.copy(alpha = 0.55f), CircleShape)
+                            )
+                        }
+                        Icon(
+                            imageVector = LucideIcons.Search,
+                            contentDescription = "Search",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // Shops
+                    FluidNavItem(
+                        label = sideTabs[2].label,
+                        icon = sideTabs[2].icon,
+                        isSelected = selectedIndex == 3,
+                        onClick = { onNavigate("shops") },
+                        testTag = "nav_shops",
+                        onPositioned = { cx, w ->
+                            if (tabCenters[3] != cx || tabWidths[3] != w) {
+                                tabCenters[3] = cx; tabWidths[3] = w
+                            }
+                        }
+                    )
+                    // Account
+                    FluidNavItem(
+                        label = sideTabs[3].label,
+                        icon = sideTabs[3].icon,
+                        isSelected = selectedIndex == 4,
+                        onClick = { onNavigate("account") },
+                        testTag = "nav_account",
+                        onPositioned = { cx, w ->
+                            if (tabCenters[4] != cx || tabWidths[4] != w) {
+                                tabCenters[4] = cx; tabWidths[4] = w
+                            }
+                        }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun NavItem(
-    route: String,
+private fun FluidNavItem(
     label: String,
-    selectedIcon: ImageVector,
-    unselectedIcon: ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    testTag: String,
+    onPositioned: (centerX: Float, width: Float) -> Unit
 ) {
     val colors = LocalSuqiColors.current
+    val tint by animateColorAsState(
+        targetValue = if (isSelected) SuqiPrimary else colors.secondaryText,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "navTint"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "navScale"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .onGloballyPositioned { coords ->
+                val pos = coords.positionInParent()
+                onPositioned(pos.x + coords.size.width / 2f, coords.size.width.toFloat())
+            }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-            .testTag("nav_$route")
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .testTag(testTag)
     ) {
         Icon(
-            imageVector = if (isSelected) selectedIcon else unselectedIcon,
+            imageVector = icon,
             contentDescription = label,
-            tint = if (isSelected) SuqiPrimary else colors.secondaryText,
+            tint = tint,
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.height(2.dp))
@@ -708,7 +853,8 @@ private fun NavItem(
             fontFamily = SuqiFontFamily,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
             fontSize = 11.sp,
-            color = if (isSelected) SuqiPrimary else colors.secondaryText
+            color = tint,
+            maxLines = 1
         )
     }
 }

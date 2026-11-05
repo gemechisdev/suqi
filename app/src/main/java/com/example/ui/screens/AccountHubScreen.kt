@@ -57,7 +57,7 @@ fun AccountHubScreen(
                 Text(
                     text = "My Account",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 22.sp,
                     color = SuqiPrimaryText
                 )
@@ -107,7 +107,7 @@ fun AccountHubScreen(
                             Text(
                                 text = "FG",
                                 fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 fontSize = 18.sp,
                                 color = Color.White
                             )

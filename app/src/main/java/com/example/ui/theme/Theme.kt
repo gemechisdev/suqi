@@ -132,7 +132,7 @@ fun MyApplicationTheme(
     CompositionLocalProvider(LocalSuqiColors provides extendedColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = Typography,
+            typography = SuqiTypography,
             content = content
         )
     }
