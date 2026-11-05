@@ -589,6 +589,10 @@ fun CheckoutPaymentScreen(
                                 errorMessage = "Please enter the transaction reference number"
                                 return@Button
                             }
+                            if (!com.example.util.EthiopianMarketplaceUtils.isValidPaymentReference(transactionReference)) {
+                                errorMessage = "Invalid reference format. Please enter at least 6 alphanumeric characters from your bank receipt/SMS."
+                                return@Button
+                            }
                             if (selectedMethod == null) {
                                 errorMessage = "Please select a payment method"
                                 return@Button

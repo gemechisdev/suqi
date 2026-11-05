@@ -53,6 +53,7 @@ fun HomeScreen(
     val unreadNotifCount by viewModel.unreadNotificationCount.collectAsState()
     val selectedCity by viewModel.selectedCity.collectAsState()
     val selectedSubCity by viewModel.selectedSubCity.collectAsState()
+    val recentlyViewed by viewModel.recentlyViewed.collectAsState()
     val colors = LocalSuqiColors.current
 
     var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
@@ -644,6 +645,54 @@ fun HomeScreen(
                     }
                 }
             }
+
+            // Recently Viewed Products Section (Plan §19 & P3 Operational Features)
+            if (recentlyViewed.isNotEmpty()) {
+                item {
+                    Column(modifier = Modifier.padding(top = 24.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(LucideIcons.History, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Recently Viewed",
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 18.sp,
+                                    color = colors.primaryText
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(recentlyViewed) { prod ->
+                                Box(modifier = Modifier.width(160.dp)) {
+                                    SuqiProductCard(
+                                        product = prod,
+                                        onClick = { viewModel.navigate(ScreenDestination.ProductDetails(prod.id)) },
+                                        onToggleWishlist = {
+                                            coroutineScope.launch {
+                                                viewModel.repository.toggleWishlist(prod.id)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -800,8 +849,9 @@ fun LocationPickerContent(
     var selectedCity by remember { mutableStateOf(currentCity) }
     var selectedSubCity by remember { mutableStateOf(currentSubCity) }
 
-    val regions = listOf("Addis Ababa", "Oromia", "Amhara", "Dire Dawa", "Sidama")
-    val subCitiesAddis = listOf("Bole", "Kirkos", "Yeka", "Arada", "Lideta", "Nifas Silk-Lafto")
+    val regions = com.example.util.EthiopianMarketplaceUtils.ETHIOPIA_REGIONS
+    val subCitiesAddis = com.example.util.EthiopianMarketplaceUtils.ADDIS_ABABA_SUB_CITIES
+    val regionalHubs = com.example.util.EthiopianMarketplaceUtils.REGIONAL_COMMERCIAL_HUBS
 
     Column(
         modifier = Modifier
@@ -816,7 +866,7 @@ fun LocationPickerContent(
             color = SuqiPrimaryText
         )
         Text(
-            text = "See products, shops and delivery fees tailored to your area.",
+            text = "See products, shops and delivery fees tailored to your area across Ethiopia.",
             fontFamily = SuqiFontFamily,
             fontSize = 13.sp,
             color = SuqiSecondaryText
@@ -842,6 +892,11 @@ fun LocationPickerContent(
                         .clickable {
                             selectedRegion = reg
                             selectedCity = if (reg == "Addis Ababa") "Addis Ababa" else "Adama"
+                            if (reg == "Addis Ababa") {
+                                selectedSubCity = "Bole"
+                            } else {
+                                selectedSubCity = "Center"
+                            }
                         }
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
@@ -858,31 +913,65 @@ fun LocationPickerContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "Sub-City / District",
-            fontFamily = SuqiFontFamily,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(subCitiesAddis) { sc ->
-                val isSel = sc == selectedSubCity
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
-                        .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
-                        .clickable { selectedSubCity = sc }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = sc,
-                        fontFamily = SuqiFontFamily,
-                        fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
-                        fontSize = 13.sp,
-                        color = if (isSel) SuqiPrimary else SuqiPrimaryText
-                    )
+        if (selectedRegion == "Addis Ababa") {
+            Text(
+                text = "Addis Ababa Sub-City (All 11 Kifle Ketemas)",
+                fontFamily = SuqiFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(subCitiesAddis) { sc ->
+                    val isSel = sc == selectedSubCity
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
+                            .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
+                            .clickable { selectedSubCity = sc }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = sc,
+                            fontFamily = SuqiFontFamily,
+                            fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                            fontSize = 13.sp,
+                            color = if (isSel) SuqiPrimary else SuqiPrimaryText
+                        )
+                    }
+                }
+            }
+        } else {
+            Text(
+                text = "Commercial Hub City",
+                fontFamily = SuqiFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(regionalHubs) { hub ->
+                    val isSel = hub == selectedCity
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
+                            .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
+                            .clickable {
+                                selectedCity = hub
+                                selectedSubCity = "Center"
+                            }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = hub,
+                            fontFamily = SuqiFontFamily,
+                            fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                            fontSize = 13.sp,
+                            color = if (isSel) SuqiPrimary else SuqiPrimaryText
+                        )
+                    }
                 }
             }
         }

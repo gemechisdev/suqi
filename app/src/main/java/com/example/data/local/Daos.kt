@@ -128,6 +128,12 @@ interface OrderDao {
     @Query("SELECT * FROM orders WHERE shopId = :shopId AND paymentStatus = 'PENDING_VERIFICATION' ORDER BY createdAt DESC")
     suspend fun getPendingVerificationOrders(shopId: String): List<OrderEntity>
 
+    @Query("SELECT * FROM orders WHERE transactionReference = :reference AND paymentStatus != 'REJECTED' LIMIT 1")
+    suspend fun getOrderByTransactionReference(reference: String): OrderEntity?
+
+    @Query("SELECT * FROM orders WHERE customerUserId = :userId AND orderStatus IN ('Confirmed', 'Dispatched', 'Delivered')")
+    suspend fun getEligibleOrdersForCustomer(userId: String): List<OrderEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrder(order: OrderEntity)
 

@@ -125,6 +125,16 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     val activeCheckoutShopId = MutableStateFlow("")
     val activeCheckoutShopName = MutableStateFlow("")
 
+    // Recently Viewed Products
+    private val _recentlyViewed = MutableStateFlow<List<ProductDto>>(emptyList())
+    val recentlyViewed: StateFlow<List<ProductDto>> = _recentlyViewed.asStateFlow()
+
+    fun recordProductView(product: ProductDto) {
+        val current = _recentlyViewed.value.filter { it.id != product.id }.toMutableList()
+        current.add(0, product)
+        _recentlyViewed.value = current.take(10)
+    }
+
     // Toast message channel
     val toastMessage = MutableStateFlow<String?>(null)
     fun showToast(message: String) {

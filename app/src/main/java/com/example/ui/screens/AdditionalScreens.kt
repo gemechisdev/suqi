@@ -1014,6 +1014,9 @@ fun HelpLegalScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
+    var activeDocument by remember { mutableStateOf<com.example.util.EthiopianMarketplaceUtils.LegalDocument?>(null) }
+    var showFaqDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             Row(
@@ -1050,21 +1053,101 @@ fun HelpLegalScreen(
                         Icon(LucideIcons.Headphones, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(40.dp))
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Need Help?", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                        Text("Our Ethiopia support team is here to help you.", fontSize = 13.sp, color = SuqiSecondaryText)
+                        Text("Our Addis Ababa support team is here to assist you 7 days a week.", fontSize = 13.sp, color = SuqiSecondaryText)
                         Spacer(modifier = Modifier.height(14.dp))
-                        SuqiButton(text = "Contact Support", onClick = { viewModel.showToast("Opening support channel...") })
+                        SuqiButton(
+                            text = "Call Support (+251 912 345 678)",
+                            onClick = { viewModel.showToast("Direct line: +251 912 345 678") }
+                        )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                AccountMenuItem(LucideIcons.HelpCircle, "Frequently Asked Questions") { viewModel.showToast("Opening FAQs") }
-                AccountMenuItem(LucideIcons.FileText, "Terms of Service") { viewModel.showToast("Terms of Service") }
-                AccountMenuItem(LucideIcons.Shield, "Privacy Policy") { viewModel.showToast("Privacy Policy") }
-                AccountMenuItem(LucideIcons.Handshake, "Seller Agreement") { viewModel.showToast("Seller Agreement") }
-                AccountMenuItem(LucideIcons.Info, "About Suqi (v1.0.0)") { viewModel.showToast("Suqi v1.0.0 - Made for Ethiopia") }
+                AccountMenuItem(LucideIcons.HelpCircle, "Frequently Asked Questions") {
+                    showFaqDialog = true
+                }
+                AccountMenuItem(LucideIcons.FileText, "Terms of Service (Proclamation 1205/2020)") {
+                    activeDocument = com.example.util.EthiopianMarketplaceUtils.TERMS_OF_SERVICE
+                }
+                AccountMenuItem(LucideIcons.Shield, "Privacy Policy & Data Protection") {
+                    activeDocument = com.example.util.EthiopianMarketplaceUtils.PRIVACY_POLICY
+                }
+                AccountMenuItem(LucideIcons.Handshake, "Vendor Marketplace Agreement") {
+                    activeDocument = com.example.util.EthiopianMarketplaceUtils.SELLER_AGREEMENT
+                }
+                AccountMenuItem(LucideIcons.Info, "About Suqi (v1.0.0)") {
+                    viewModel.showToast("Suqi v1.0.0 — Crafted for Ethiopian E-Commerce")
+                }
             }
         }
+    }
+
+    // Active Legal Document Dialog
+    activeDocument?.let { doc ->
+        AlertDialog(
+            onDismissRequest = { activeDocument = null },
+            title = {
+                Column {
+                    Text(text = doc.title, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(text = doc.subtitle, fontSize = 12.sp, color = SuqiSecondaryText)
+                }
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(doc.sections) { sec ->
+                        Column {
+                            Text(text = sec.heading, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = SuqiPrimary)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = sec.content, fontFamily = SuqiFontFamily, fontSize = 13.sp, lineHeight = 18.sp, color = SuqiPrimaryText)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { activeDocument = null }) {
+                    Text("Close", color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
+    }
+
+    // FAQ Dialog
+    if (showFaqDialog) {
+        AlertDialog(
+            onDismissRequest = { showFaqDialog = false },
+            title = {
+                Text("Frequently Asked Questions", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(com.example.util.EthiopianMarketplaceUtils.FAQS) { (q, a) ->
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(text = "Q: $q", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = SuqiPrimary)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(text = a, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiPrimaryText, lineHeight = 17.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showFaqDialog = false }) {
+                    Text("Close", color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
     }
 }
 

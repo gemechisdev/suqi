@@ -343,6 +343,15 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             return@withContext ApiResponse(success = false, message = "Transaction reference is required")
         }
 
+        // Ethiopian Fraud Prevention: Prevent duplicate transaction reference submission
+        val existingOrderWithRef = db.orderDao().getOrderByTransactionReference(transactionReference)
+        if (existingOrderWithRef != null) {
+            return@withContext ApiResponse(
+                success = false,
+                message = "This transaction reference ($transactionReference) has already been submitted for another active order. Please check your bank receipt or SMS confirmation."
+            )
+        }
+
         val itemsJson = orderData["itemsJson"] as? String ?: "[]"
         val user = db.userDao().getFirstUser()
         val userId = user?.id ?: "user_fitsum"
@@ -444,6 +453,18 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             ?: return@withContext ApiResponse(success = false, message = "Order not found")
 
         val newRef = payload["transactionReference"]?.trim() ?: ""
+        if (newRef.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Transaction reference is required")
+        }
+
+        val existing = db.orderDao().getOrderByTransactionReference(newRef)
+        if (existing != null && existing.id != orderId) {
+            return@withContext ApiResponse(
+                success = false,
+                message = "This transaction reference ($newRef) is already registered on another order."
+            )
+        }
+
         val newMethod = payload["paymentMethodTitle"] ?: order.paymentMethodTitle
 
         val updated = order.copy(
@@ -745,24 +766,57 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun submitReview(reviewData: Map<String, Any>): ApiResponse<ReviewDto> = withContext(Dispatchers.IO) {
         val currentUser = db.userDao().getFirstUser()
+        val userId = currentUser?.id ?: "user_fitsum"
         val targetId = reviewData["targetId"] as String
         val targetType = reviewData["targetType"] as? String ?: "PRODUCT"
-        val rating = (reviewData["rating"] as Number).toDouble()
-        val comment = reviewData["comment"] as String
+        val rating = (reviewData["rating"] as Number).toDouble().coerceIn(1.0, 5.0)
+        val comment = (reviewData["comment"] as? String)?.trim() ?: ""
+
+        if (comment.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Review comment cannot be empty.")
+        }
+
+        // Check if user is a verified purchaser for this target
+        val confirmedOrders = db.orderDao().getEligibleOrdersForCustomer(userId)
+        val isVerifiedBuyer = when (targetType) {
+            "PRODUCT" -> confirmedOrders.any { it.itemsJson.contains(targetId) }
+            "SHOP" -> confirmedOrders.any { it.shopId == targetId }
+            else -> confirmedOrders.isNotEmpty()
+        }
 
         val review = ReviewEntity(
             id = "rev_${System.currentTimeMillis()}",
-            userId = currentUser?.id ?: "user_fitsum",
+            userId = userId,
             userName = currentUser?.name ?: "Customer",
             userAvatar = currentUser?.avatarUrl ?: "",
             targetType = targetType,
             targetId = targetId,
             rating = rating,
             comment = comment,
-            isVerifiedPurchase = true,
+            isVerifiedPurchase = isVerifiedBuyer,
             date = "Just now"
         )
         db.reviewDao().insert(review)
+
+        // Update product or shop aggregate rating in the database
+        if (targetType == "PRODUCT") {
+            val prod = db.productDao().getProductById(targetId)
+            if (prod != null) {
+                val newCount = prod.reviewCount + 1
+                val newRating = ((prod.rating * prod.reviewCount) + rating) / newCount
+                val roundedRating = Math.round(newRating * 10.0) / 10.0
+                db.productDao().updateProduct(prod.copy(rating = roundedRating, reviewCount = newCount))
+            }
+        } else if (targetType == "SHOP") {
+            val shop = db.shopDao().getShopById(targetId)
+            if (shop != null) {
+                val newCount = shop.reviewCount + 1
+                val newRating = ((shop.rating * shop.reviewCount) + rating) / newCount
+                val roundedRating = Math.round(newRating * 10.0) / 10.0
+                db.shopDao().updateShop(shop.copy(rating = roundedRating, reviewCount = newCount))
+            }
+        }
+
         ApiResponse(success = true, data = review.toDto())
     }
 

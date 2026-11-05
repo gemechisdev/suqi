@@ -73,6 +73,7 @@ fun ProductDetailsScreen(
         if (res.success && res.data != null) {
             val p = res.data
             product = p
+            viewModel.recordProductView(p)
             if (p.colors.isNotEmpty()) selectedColor = p.colors.first()
             if (p.sizesOrSpecs.isNotEmpty()) selectedSpec = p.sizesOrSpecs.first()
         }

@@ -534,6 +534,21 @@ fun SearchResultProductRow(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Stock status badge
+                when {
+                    product.stockQuantity <= 0 -> {
+                        SuqiStatusBadge(statusText = "Out of Stock", type = StatusType.ERROR)
+                    }
+                    product.stockQuantity in 1..5 -> {
+                        SuqiStatusBadge(statusText = "Only ${product.stockQuantity} left", type = StatusType.WARNING)
+                    }
+                    else -> {
+                        SuqiStatusBadge(statusText = "In Stock", type = StatusType.SUCCESS)
+                    }
+                }
             }
 
             IconButton(onClick = onToggleWishlist) {
