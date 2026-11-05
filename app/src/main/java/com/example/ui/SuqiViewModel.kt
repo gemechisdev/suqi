@@ -113,6 +113,8 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     val activeCheckoutDeliveryOption = MutableStateFlow<ShopDeliveryOptionDto?>(null)
     val activeCheckoutPaymentMethod = MutableStateFlow<ShopPaymentMethodDto?>(null)
     val activeCheckoutTransactionRef = MutableStateFlow("")
+    val activeCheckoutPayerIdentifier = MutableStateFlow("")
+    val activeCheckoutTotalAmount = MutableStateFlow(0.0)
     val activeCheckoutShopPromoCode = MutableStateFlow<PromoCodeDto?>(null)
     val activeCheckoutItems = MutableStateFlow<List<CartItemDto>>(emptyList())
     val activeCheckoutShopId = MutableStateFlow("")

@@ -457,6 +457,79 @@ fun HomeScreen(
                 }
             }
 
+            // New Arrivals Section (Plan §19 Screen 01)
+            item {
+                Column(modifier = Modifier.padding(top = 22.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "New Arrivals",
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 18.sp,
+                                color = colors.primaryText
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(SuqiPrimary)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "NEW",
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                        Text(
+                            text = "See all →",
+                            fontFamily = SuqiFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = SuqiPrimary,
+                            modifier = Modifier.clickable {
+                                viewModel.navigate(ScreenDestination.CategoryListing("all", "New Arrivals"))
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(products.reversed().take(6)) { prod ->
+                            Box(modifier = Modifier.width(160.dp)) {
+                                SuqiProductCard(
+                                    product = prod,
+                                    onClick = { viewModel.navigate(ScreenDestination.ProductDetails(prod.id)) },
+                                    onToggleWishlist = {
+                                        coroutineScope.launch {
+                                            viewModel.repository.toggleWishlist(prod.id)
+                                            val refreshed = viewModel.repository.getProducts()
+                                            if (refreshed.success && refreshed.data != null) {
+                                                products = refreshed.data
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Popular Products Section
             item {
                 Column(modifier = Modifier.padding(top = 24.dp)) {
@@ -472,7 +545,7 @@ fun HomeScreen(
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 18.sp,
-                            color = SuqiPrimaryText
+                            color = colors.primaryText
                         )
                         Text(
                             text = "See all →",
@@ -518,6 +591,56 @@ fun HomeScreen(
                     }
                     if (chunk.size == 1) {
                         Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+
+            // Recommended for You Section (Plan §19 Screen 01)
+            item {
+                Column(modifier = Modifier.padding(top = 24.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(LucideIcons.Sparkles, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Recommended for You",
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 18.sp,
+                                color = colors.primaryText
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(products.take(6)) { prod ->
+                            Box(modifier = Modifier.width(160.dp)) {
+                                SuqiProductCard(
+                                    product = prod,
+                                    onClick = { viewModel.navigate(ScreenDestination.ProductDetails(prod.id)) },
+                                    onToggleWishlist = {
+                                        coroutineScope.launch {
+                                            viewModel.repository.toggleWishlist(prod.id)
+                                            val refreshed = viewModel.repository.getProducts()
+                                            if (refreshed.success && refreshed.data != null) {
+                                                products = refreshed.data
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }

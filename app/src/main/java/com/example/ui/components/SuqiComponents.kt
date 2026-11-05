@@ -602,7 +602,7 @@ fun SuqiFloatingBottomNav(
     val sideTabs = listOf(
         TabSpec("home", "Home", LucideIcons.House),
         TabSpec("categories", "Categories", LucideIcons.LayoutGrid),
-        TabSpec("shops", "Shops", LucideIcons.Store),
+        TabSpec("shops", "Shops", LucideIcons.Tag),
         TabSpec("account", "Account", LucideIcons.User)
     )
     // Indices: 0 home, 1 categories, 2 search (centre), 3 shops, 4 account
@@ -615,15 +615,15 @@ fun SuqiFloatingBottomNav(
         else -> 0
     }
 
-    // Track each tab's centre X inside the row for the liquid indicator
+    // Track each tab's centre X inside the row for the bottom indicator bar
     val tabCenters = remember { mutableStateListOf(0f, 0f, 0f, 0f, 0f) }
     val tabWidths = remember { mutableStateListOf(0f, 0f, 0f, 0f, 0f) }
 
+    val barWidthDp = 44.dp
     val indicatorX by animateDpAsState(
         targetValue = with(density) {
             val cx = tabCenters.getOrNull(selectedIndex) ?: 0f
-            val w = tabWidths.getOrNull(selectedIndex) ?: 0f
-            (cx - w / 2f).toDp()
+            (cx - (barWidthDp.toPx() / 2f)).toDp()
         },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -631,19 +631,8 @@ fun SuqiFloatingBottomNav(
         ),
         label = "liquidIndicatorX"
     )
-    val indicatorW by animateDpAsState(
-        targetValue = with(density) {
-            val w = tabWidths.getOrNull(selectedIndex) ?: 48f
-            w.toDp().coerceAtLeast(40.dp)
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "liquidIndicatorW"
-    )
     val glowAlpha by animateFloatAsState(
-        targetValue = if (currentRoute == "search") 0.45f else 0.28f,
+        targetValue = if (currentRoute == "search") 0.45f else 0.22f,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
         label = "glowAlpha"
     )
@@ -655,18 +644,18 @@ fun SuqiFloatingBottomNav(
             .padding(horizontal = 16.dp, vertical = 6.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Soft liquid orange glow under the bar — follows active area
+        // Soft liquid orange glow under the bar
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = 12.dp)
-                .width(140.dp)
-                .height(32.dp)
+                .offset(y = 10.dp)
+                .width(130.dp)
+                .height(28.dp)
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.radialGradient(
                         colors = listOf(
                             SuqiPrimary.copy(alpha = glowAlpha),
-                            SuqiPrimary.copy(alpha = glowAlpha * 0.35f),
+                            SuqiPrimary.copy(alpha = glowAlpha * 0.3f),
                             Color.Transparent
                         )
                     ),
@@ -677,22 +666,23 @@ fun SuqiFloatingBottomNav(
         Surface(
             shape = RoundedCornerShape(28.dp),
             color = colors.cardBackground,
-            shadowElevation = 12.dp,
+            shadowElevation = 10.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(68.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Sliding liquid pill behind the active non-search tab
+                // Sleek orange active indicator pill at bottom edge (Plan §11 + reference screenshot)
                 if (selectedIndex != 2) {
                     Box(
                         modifier = Modifier
-                            .offset(x = indicatorX, y = 10.dp)
-                            .width(indicatorW)
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(SuqiPrimary.copy(alpha = 0.12f))
+                            .align(Alignment.BottomStart)
+                            .offset(x = indicatorX, y = (-2).dp)
+                            .width(barWidthDp)
+                            .height(3.5.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(SuqiPrimary)
                     )
                 }
 

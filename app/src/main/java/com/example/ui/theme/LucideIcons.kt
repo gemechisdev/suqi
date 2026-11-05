@@ -2965,4 +2965,35 @@ object LucideIcons {
             )
         }.build()
     }
+
+    val Tag: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Lucide.Tag",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            val nodes0 = PathParser().parsePathString(
+                "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"
+            ).toNodes()
+            addPath(
+                pathData = nodes0,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+                fill = SolidColor(Color.Transparent)
+            )
+            val nodes1 = PathParser().parsePathString("M7 7h.01").toNodes()
+            addPath(
+                pathData = nodes1,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+                fill = SolidColor(Color.Transparent)
+            )
+        }.build()
+    }
 }

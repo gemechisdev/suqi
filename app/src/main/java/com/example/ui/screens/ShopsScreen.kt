@@ -45,8 +45,10 @@ fun ShopsScreen(
 
     var shops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
     var selectedFilter by remember { mutableStateOf("All") }
+    var selectedCategory by remember { mutableStateOf("All Categories") }
 
     val filterOptions = listOf("All", "Verified", "Top Rated", "Following", "Nearby")
+    val categoryOptions = listOf("All Categories", "Electronics", "Fashion", "Home & Living", "Beauty & Care", "Groceries", "Sports")
 
     fun loadShops() {
         coroutineScope.launch {
@@ -59,6 +61,14 @@ fun ShopsScreen(
 
     LaunchedEffect(selectedFilter) {
         loadShops()
+    }
+
+    val filteredShops = remember(shops, selectedCategory) {
+        if (selectedCategory == "All Categories") {
+            shops
+        } else {
+            shops.filter { it.category.contains(selectedCategory.take(5), ignoreCase = true) }
+        }
     }
 
     Scaffold(
@@ -95,26 +105,26 @@ fun ShopsScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
         ) {
-            // Filter Pills Row (Checklist 04)
+            // Category Filter Pills Row (Checklist 04 & 11)
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(filterOptions) { filter ->
-                        val isSel = filter == selectedFilter
+                    items(categoryOptions) { cat ->
+                        val isSel = cat == selectedCategory
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
                                 .background(if (isSel) SuqiPrimary else SuqiSecondaryBackground)
-                                .clickable { selectedFilter = filter }
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .clickable { selectedCategory = cat }
+                                .padding(horizontal = 14.dp, vertical = 7.dp)
                         ) {
                             Text(
-                                text = filter,
+                                text = cat,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 color = if (isSel) Color.White else SuqiPrimaryText
                             )
                         }
@@ -122,7 +132,40 @@ fun ShopsScreen(
                 }
             }
 
-            if (shops.isEmpty()) {
+            // Status Filter Pills Row (Checklist 04)
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filterOptions) { filter ->
+                        val isSel = filter == selectedFilter
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(if (isSel) LocalSuqiColors.current.primaryTint else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (isSel) SuqiPrimary else SuqiBorder,
+                                    RoundedCornerShape(999.dp)
+                                )
+                                .clickable { selectedFilter = filter }
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = filter,
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                                fontSize = 12.sp,
+                                color = if (isSel) SuqiPrimary else SuqiSecondaryText
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            if (filteredShops.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -131,14 +174,14 @@ fun ShopsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No shops found for \"$selectedFilter\"",
+                            text = "No shops found matching your filters.",
                             fontFamily = SuqiFontFamily,
                             color = SuqiSecondaryText
                         )
                     }
                 }
             } else {
-                items(shops) { shop ->
+                items(filteredShops) { shop ->
                     ShopListItemRow(
                         shop = shop,
                         onClick = { viewModel.navigate(ScreenDestination.ShopStorefront(shop.id)) },
@@ -224,6 +267,20 @@ fun ShopListItemRow(
                         fontFamily = SuqiFontFamily,
                         fontSize = 12.sp,
                         color = SuqiSecondaryText
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "•",
+                        fontSize = 11.sp,
+                        color = SuqiMutedText
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "${shop.productCount} Products",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        color = SuqiPrimary
                     )
                 }
 

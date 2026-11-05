@@ -395,6 +395,7 @@ fun ProductDetailsScreen(
                     ) {
                         items(allImages.indices.toList()) { index ->
                             val isSel = index == selectedImageIndex
+                            val thumbType = mediaTypeOf(allImages[index])
                             Box(
                                 modifier = Modifier
                                     .size(60.dp)
@@ -412,6 +413,41 @@ fun ProductDetailsScreen(
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
                                 )
+
+                                if (thumbType == "gif") {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(3.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color.Black.copy(alpha = 0.65f))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text(
+                                            "GIF",
+                                            fontFamily = SuqiFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 9.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                } else if (thumbType == "video") {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.Center)
+                                            .size(22.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.Black.copy(alpha = 0.6f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            LucideIcons.Zap,
+                                            contentDescription = "Video",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -715,6 +751,90 @@ fun ProductDetailsScreen(
                 }
             }
 
+            // Specifications Section (Plan §19 Screen 05)
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        text = "Specifications",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            SpecRowItem(label = "Category", value = currentProd.categoryId.replace("cat_", "").replaceFirstChar { it.uppercase() })
+                            SpecRowItem(label = "Condition", value = "Brand New • Authentic")
+                            SpecRowItem(label = "Stock Availability", value = "${currentProd.stockQuantity} in stock")
+                            SpecRowItem(label = "Merchant Guarantee", value = "7-day return guarantee")
+                            if (currentProd.colors.isNotEmpty()) {
+                                SpecRowItem(label = "Available Colors", value = currentProd.colors.joinToString(", "))
+                            }
+                            if (currentProd.sizesOrSpecs.isNotEmpty()) {
+                                SpecRowItem(label = "Available Options", value = currentProd.sizesOrSpecs.joinToString(", "))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Delivery & Shipping Information Block (Plan §19 Screen 05)
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        text = "Delivery & Shipping",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(LucideIcons.Truck, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Addis Ababa Delivery", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text("1–2 business days • Starting from 50 ETB", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiSecondaryText)
+                                }
+                            }
+                            HorizontalDivider(color = SuqiBorder, thickness = 1.dp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(LucideIcons.Store, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Store Pickup Available", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text("Free collection from ${currentProd.shopName} in Addis Ababa", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiSecondaryText)
+                                }
+                            }
+                            HorizontalDivider(color = SuqiBorder, thickness = 1.dp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(LucideIcons.ShieldCheck, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Verified Payment Protection", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text("Order verified against merchant transaction statement before dispatch", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiSecondaryText)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Customer Reviews Section
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -754,5 +874,28 @@ fun ProductDetailsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SpecRowItem(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontFamily = SuqiFontFamily,
+            fontSize = 13.sp,
+            color = SuqiSecondaryText
+        )
+        Text(
+            text = value,
+            fontFamily = SuqiFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 13.sp,
+            color = SuqiPrimaryText
+        )
     }
 }

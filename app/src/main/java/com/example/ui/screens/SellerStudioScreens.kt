@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -426,6 +427,26 @@ fun AddEditProductScreen(
     var colorsStr by remember { mutableStateOf("Color: Black, White, Blue") }
     var description by remember { mutableStateOf("High quality premium product with standard warranty.") }
 
+    // Dynamic attributes by category (Plan §5.2)
+    var attr1 by remember { mutableStateOf("") } // Brand / Material / Dimensions
+    var attr2 by remember { mutableStateOf("") } // Warranty / Gender / Expiry
+
+    // Multilingual names and descriptions (Plan §5.2)
+    var showMultilingual by remember { mutableStateOf(false) }
+    var nameAmharic by remember { mutableStateOf("") }
+    var descAmharic by remember { mutableStateOf("") }
+    var nameOromo by remember { mutableStateOf("") }
+    var descOromo by remember { mutableStateOf("") }
+
+    val categories = listOf(
+        "cat_electronics" to "Electronics",
+        "cat_fashion" to "Fashion",
+        "cat_home" to "Home & Living",
+        "cat_beauty" to "Beauty & Care",
+        "cat_groceries" to "Groceries",
+        "cat_sports" to "Sports"
+    )
+
     Scaffold(
         topBar = {
             Row(
@@ -472,12 +493,18 @@ fun AddEditProductScreen(
                                 val res = viewModel.repository.createProduct(
                                     mapOf(
                                         "name" to name,
+                                        "nameAmharic" to nameAmharic,
+                                        "nameAfaanOromo" to nameOromo,
                                         "price" to p,
                                         "discountPercent" to d,
                                         "stockQuantity" to s,
                                         "stockHoldEnabled" to stockHold,
                                         "categoryId" to categoryId,
-                                        "description" to description
+                                        "description" to description,
+                                        "descriptionAmharic" to descAmharic,
+                                        "descriptionAfaanOromo" to descOromo,
+                                        "attribute1" to attr1,
+                                        "attribute2" to attr2
                                     )
                                 )
                                 if (res.success) {
@@ -529,12 +556,45 @@ fun AddEditProductScreen(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Category Selector Chips (Plan §5.2)
+            item {
+                Text(
+                    text = "Category *",
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = SuqiPrimaryText
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(categories) { (id, label) ->
+                        val isSel = id == categoryId
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(if (isSel) SuqiPrimary else SuqiSecondaryBackground)
+                                .clickable { categoryId = id }
+                                .padding(horizontal = 14.dp, vertical = 7.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 12.sp,
+                                color = if (isSel) Color.White else SuqiPrimaryText
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    SuqiTextField(value = name, onValueChange = { name = it }, label = "Product Name *")
+                    SuqiTextField(value = name, onValueChange = { name = it }, label = "Product Name (English) *")
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -594,15 +654,99 @@ fun AddEditProductScreen(
                     SuqiTextField(
                         value = description,
                         onValueChange = { description = it },
-                        label = "Description *",
+                        label = "Description (English) *",
                         singleLine = false
                     )
 
                     SuqiTextField(
                         value = colorsStr,
                         onValueChange = { colorsStr = it },
-                        label = "Product Variations"
+                        label = "Product Variations (e.g., Color / Size)"
                     )
+
+                    // Dynamic Category Attributes (Plan §5.2)
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = "Category-Specific Attributes",
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                            when (categoryId) {
+                                "cat_electronics" -> {
+                                    SuqiTextField(value = attr1, onValueChange = { attr1 = it }, label = "Brand / Manufacturer", placeholder = "e.g., Apple, Samsung, Sony")
+                                    SuqiTextField(value = attr2, onValueChange = { attr2 = it }, label = "Warranty Period", placeholder = "e.g., 6 Months, 1 Year")
+                                }
+                                "cat_fashion" -> {
+                                    SuqiTextField(value = attr1, onValueChange = { attr1 = it }, label = "Material / Fabric", placeholder = "e.g., 100% Cotton, Ethiopian Shemma")
+                                    SuqiTextField(value = attr2, onValueChange = { attr2 = it }, label = "Gender & Fit", placeholder = "e.g., Unisex, Slim Fit")
+                                }
+                                "cat_home" -> {
+                                    SuqiTextField(value = attr1, onValueChange = { attr1 = it }, label = "Dimensions & Weight", placeholder = "e.g., 120 x 60 x 75 cm")
+                                    SuqiTextField(value = attr2, onValueChange = { attr2 = it }, label = "Material", placeholder = "e.g., Solid Wood, Metal")
+                                }
+                                else -> {
+                                    SuqiTextField(value = attr1, onValueChange = { attr1 = it }, label = "Product Origin / Brand", placeholder = "e.g., Made in Ethiopia")
+                                    SuqiTextField(value = attr2, onValueChange = { attr2 = it }, label = "Shelf Life / Packaging", placeholder = "e.g., 12 Months")
+                                }
+                            }
+                        }
+                    }
+
+                    // Multilingual Accordion (Plan §5.2: Amharic & Afaan Oromo)
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showMultilingual = !showMultilingual },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(LucideIcons.Sparkles, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Multilingual Details (አማርኛ / Afaan Oromoo)",
+                                        fontFamily = SuqiFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                Icon(
+                                    imageVector = LucideIcons.ChevronDown,
+                                    contentDescription = null,
+                                    tint = SuqiSecondaryText,
+                                    modifier = Modifier.graphicsLayer { rotationZ = if (showMultilingual) 180f else 0f }
+                                )
+                            }
+
+                            if (showMultilingual) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text("Amharic (አማርኛ)", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiPrimary)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                SuqiTextField(value = nameAmharic, onValueChange = { nameAmharic = it }, label = "የእቃው ስም (Name in Amharic)")
+                                Spacer(modifier = Modifier.height(8.dp))
+                                SuqiTextField(value = descAmharic, onValueChange = { descAmharic = it }, label = "ዝርዝር መግለጫ (Description in Amharic)", singleLine = false)
+
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text("Afaan Oromoo", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiPrimary)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                SuqiTextField(value = nameOromo, onValueChange = { nameOromo = it }, label = "Maqaa Oomishaa (Name in Afaan Oromo)")
+                                Spacer(modifier = Modifier.height(8.dp))
+                                SuqiTextField(value = descOromo, onValueChange = { descOromo = it }, label = "Ibsa Oomishaa (Description in Afaan Oromo)", singleLine = false)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -913,10 +1057,16 @@ fun VerificationQueueScreen(
                                         fontSize = 15.sp
                                     )
                                     Text(
-                                        text = order.customerName,
+                                        text = "${order.customerName} • ${order.customerPhone}",
                                         fontFamily = SuqiFontFamily,
                                         fontSize = 13.sp,
                                         color = SuqiSecondaryText
+                                    )
+                                    Text(
+                                        text = "Submitted ${order.createdAt.take(16)}",
+                                        fontFamily = SuqiFontFamily,
+                                        fontSize = 11.sp,
+                                        color = SuqiMutedText
                                     )
                                 }
                                 SuqiStatusBadge("Pending", StatusType.WARNING)
@@ -952,7 +1102,28 @@ fun VerificationQueueScreen(
                                 Text(formatEtb(order.totalAmount), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Audit trail compliance note (Plan §5.2)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SuqiSecondaryBackground)
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                            ) {
+                                Icon(LucideIcons.ShieldCheck, contentDescription = null, tint = SuqiSecondaryText, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Audit trail: Verification action will log actor ID & timestamp.",
+                                    fontFamily = SuqiFontFamily,
+                                    fontSize = 11.sp,
+                                    color = SuqiSecondaryText
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
 
                             // Approve & Reject Buttons (Checklist 22 & Mockup 4)
                             Row(
@@ -1088,8 +1259,12 @@ fun PaymentMethodsSetupScreen(
                     SuqiButton(
                         text = "Save Changes",
                         onClick = {
-                            viewModel.showToast("Payment methods updated!")
-                            viewModel.goBack()
+                            if (methods.isEmpty()) {
+                                viewModel.showToast("At least 1 active payment method is required to accept orders!")
+                            } else {
+                                viewModel.showToast("Payment methods saved successfully!")
+                                viewModel.goBack()
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1104,18 +1279,33 @@ fun PaymentMethodsSetupScreen(
             contentPadding = PaddingValues(16.dp)
         ) {
             item {
+                val hasMethods = methods.isNotEmpty()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(SuqiPrimaryTint)
+                        .background(if (hasMethods) LocalSuqiColors.current.primaryTint else SuqiWarningBg)
+                        .border(
+                            1.dp,
+                            if (hasMethods) SuqiPrimary.copy(alpha = 0.3f) else SuqiWarning.copy(alpha = 0.5f),
+                            RoundedCornerShape(14.dp)
+                        )
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(LucideIcons.Info, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                    Icon(
+                        imageVector = if (hasMethods) LucideIcons.Info else LucideIcons.TriangleAlert,
+                        contentDescription = null,
+                        tint = if (hasMethods) SuqiPrimary else SuqiWarning,
+                        modifier = Modifier.size(20.dp)
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Add at least one payment method for your shop. Customers will use these to pay you directly.",
+                        text = if (hasMethods) {
+                            "Add or manage payment methods for your shop. Customers will use these accounts to pay you directly."
+                        } else {
+                            "Store Activation Required: Add at least 1 active payment method (Telebirr, CBE, etc.) before your shop can accept customer orders."
+                        },
                         fontFamily = SuqiFontFamily,
                         fontSize = 13.sp,
                         color = SuqiPrimaryText
