@@ -52,25 +52,6 @@ fun CategoriesScreen(
     val cartCount = if (rawCartCount <= 0) 2 else rawCartCount
     val isDark by viewModel.isDarkMode.collectAsState()
     val effectiveDark = isDark ?: isSystemInDarkTheme()
-    val colors = LocalSuqiColors.current
-
-    var selectedFilter by remember { mutableStateOf("All") }
-
-    val filterPills = remember {
-        listOf(
-            "All",
-            "Electronics",
-            "Fashion",
-            "Home & Living",
-            "Beauty & Personal Care",
-            "Furniture",
-            "Sports",
-            "Toys & Games",
-            "Groceries",
-            "Health & Fitness"
-        )
-    }
-
     // 9 Categories precisely matching the user's reference design
     val categoryCards = remember {
         listOf(
@@ -149,10 +130,7 @@ fun CategoriesScreen(
         )
     }
 
-    val visibleCards = remember(selectedFilter) {
-        if (selectedFilter == "All") categoryCards
-        else categoryCards.filter { it.filterTag.equals(selectedFilter, ignoreCase = true) || it.name.contains(selectedFilter, ignoreCase = true) }
-    }
+    val colors = LocalSuqiColors.current
 
     Scaffold(
         topBar = {
@@ -243,55 +221,10 @@ fun CategoriesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding + 16.dp)
+            contentPadding = PaddingValues(top = 10.dp, bottom = SuqiBottomNavContentPadding + 16.dp)
         ) {
-            // Top Horizontal Category Filter Pills (Matches reference design)
-            item {
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 14.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(filterPills) { pill ->
-                        val isSelected = selectedFilter == pill
-                        val pillBg = if (isSelected) {
-                            SuqiPrimary
-                        } else if (effectiveDark) {
-                            colors.secondaryBackground
-                        } else {
-                            Color(0xFFEFF2F7)
-                        }
-                        val pillTextColor = if (isSelected) {
-                            Color.White
-                        } else {
-                            colors.primaryText
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(pillBg)
-                                .clickable { selectedFilter = pill }
-                                .padding(horizontal = 20.dp, vertical = 10.dp)
-                                .testTag("category_pill_$pill"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = pill,
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                fontSize = 13.sp,
-                                color = pillTextColor
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 2-Column Grid of Category Cards (Exact 2-column layout as reference image)
-            val chunkedPairs = visibleCards.chunked(2)
+            // 2-Column Grid of Category Cards (Single browse hierarchy)
+            val chunkedPairs = categoryCards.chunked(2)
             items(chunkedPairs) { pair ->
                 Row(
                     modifier = Modifier
@@ -331,46 +264,62 @@ private fun CategoryCardItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.cardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(LocalSuqiColors.current.border.copy(alpha = 0.5f))
+        ),
         modifier = modifier
-            .height(148.dp)
-            .shadow(4.dp, RoundedCornerShape(24.dp), ambientColor = Color.Black.copy(alpha = 0.12f), spotColor = Color.Black.copy(alpha = 0.15f))
-            .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(item.gradientColors))
+            .height(152.dp)
             .clickable(onClick = onClick)
             .testTag("category_card_${item.id}")
     ) {
-        // Product image positioned on the right and bottom
         Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(0.78f)
-                .align(Alignment.BottomEnd)
-                .padding(end = 4.dp, bottom = 4.dp)
+                .fillMaxSize()
+                .padding(5.dp) // small 5dp padding between card border and image
+                .clip(RoundedCornerShape(17.dp))
         ) {
+            // Full background image
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(item.imageUrl)
                     .crossfade(true)
                     .build(),
                 contentDescription = item.cleanName,
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.BottomEnd,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-        }
 
-        // Category title at top-left in crisp white font
-        Text(
-            text = item.name,
-            fontFamily = SuqiFontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 17.sp,
-            lineHeight = 22.sp,
-            color = Color.White,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 16.dp, top = 16.dp, end = 24.dp)
-        )
+            // Category gradient overlay maintaining rich category colors
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                item.gradientColors.first().copy(alpha = 0.88f),
+                                item.gradientColors.getOrElse(1) { item.gradientColors.first() }.copy(alpha = 0.65f),
+                                Color.Black.copy(alpha = 0.35f)
+                            )
+                        )
+                    )
+            )
+
+            // Category title at top-left in crisp white font
+            Text(
+                text = item.name,
+                fontFamily = SuqiFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                lineHeight = 22.sp,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(14.dp)
+            )
+        }
     }
 }

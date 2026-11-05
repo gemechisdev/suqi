@@ -633,8 +633,8 @@ fun ShopStorefrontScreen(
                 }
             }
 
-            // Products or Reviews content
-            if (selectedTab == 0 || selectedTab == 1) {
+            // Tab Content: 0 = Products, 1 = Collections, 2 = Reviews
+            if (selectedTab == 0) {
                 val filteredProducts = if (shopSearchQuery.isBlank()) products else products.filter {
                     it.name.contains(shopSearchQuery, ignoreCase = true)
                 }
@@ -662,6 +662,81 @@ fun ShopStorefrontScreen(
                         }
                         if (chunk.size == 1) {
                             Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            } else if (selectedTab == 1) {
+                // Curated Shop Collections (Checklist Item 09 & Plan §5.2)
+                val collections = listOf(
+                    Triple("Best Sellers & Staff Picks", "Top rated electronics with full local warranty", "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600"),
+                    Triple("New Season Arrivals", "Freshly restocked laptops, smartphones and accessories", "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600"),
+                    Triple("Flash Deals & Clearance", "Up to 35% discount on selected gadgets", "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=600"),
+                    Triple("Everyday Bundles & Packs", "Combo packs with fast free Addis Ababa delivery", "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600")
+                )
+
+                items(collections) { (title, subtitle, img) ->
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = SuqiSurface),
+                        border = CardDefaults.outlinedCardBorder().copy(
+                            brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .clickable {
+                                selectedTab = 0
+                                viewModel.showToast("Viewing: $title")
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(SuqiSecondaryBackground)
+                            ) {
+                                AsyncImage(
+                                    model = img,
+                                    contentDescription = title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = title,
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = SuqiPrimaryText
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = subtitle,
+                                    fontFamily = SuqiFontFamily,
+                                    fontSize = 12.sp,
+                                    color = SuqiSecondaryText,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Explore Collection →",
+                                        fontFamily = SuqiFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp,
+                                        color = SuqiPrimary
+                                    )
+                                }
+                            }
                         }
                     }
                 }

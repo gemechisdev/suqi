@@ -161,10 +161,11 @@ fun SuqiAppRoot(
                 is ScreenDestination.PaymentMethodsSetup -> PaymentMethodsSetupScreen(viewModel = viewModel)
                 is ScreenDestination.DeliverySetup -> DeliverySetupScreen(viewModel = viewModel)
                 is ScreenDestination.VerificationQueue -> VerificationQueueScreen(viewModel = viewModel)
-                is ScreenDestination.SellerOrders -> MyOrdersScreen(viewModel = viewModel)
+                is ScreenDestination.SellerOrders -> SellerOrdersScreen(viewModel = viewModel)
                 is ScreenDestination.SellerVerification -> SellerVerificationScreen(viewModel = viewModel)
                 is ScreenDestination.Promotions -> PromotionsScreen(viewModel = viewModel)
                 is ScreenDestination.ShopSettings -> ShopSettingsScreen(viewModel = viewModel)
+                is ScreenDestination.Following -> FollowingScreen(viewModel = viewModel)
                 is ScreenDestination.ChatList -> ChatListScreen(viewModel = viewModel)
                 is ScreenDestination.ChatThread -> ChatThreadScreen(
                     shopId = dest.shopId,
@@ -185,6 +186,10 @@ fun SuqiAppRoot(
                 is ScreenDestination.SellerSubscription -> SellerSubscriptionScreen(viewModel = viewModel)
                 is ScreenDestination.AdminConsole -> AdminConsoleScreen(viewModel = viewModel)
                 is ScreenDestination.AdminFeatures -> AdminFeaturesScreen(viewModel = viewModel)
+                is ScreenDestination.AdminCategories -> AdminCategoriesScreen(viewModel = viewModel)
+                is ScreenDestination.AdminBanners -> AdminBannersScreen(viewModel = viewModel)
+                is ScreenDestination.AdminModeration -> AdminModerationScreen(viewModel = viewModel)
+                is ScreenDestination.AdminSubscriptionPlans -> AdminSubscriptionPlansScreen(viewModel = viewModel)
                 is ScreenDestination.AppSettings -> AppSettingsScreen(viewModel = viewModel)
                 is ScreenDestination.HelpLegal -> HelpLegalScreen(viewModel = viewModel)
             }

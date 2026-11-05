@@ -36,11 +36,16 @@ fun AccountHubScreen(
     modifier: Modifier = Modifier
 ) {
     var user by remember { mutableStateOf<UserDto?>(null) }
+    var followedCount by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         val res = viewModel.repository.getCurrentUser()
         if (res.success && res.data != null) {
             user = res.data
+        }
+        val fRes = viewModel.repository.getShops(filter = "FOLLOWING")
+        if (fRes.success && fRes.data != null) {
+            followedCount = fRes.data.size
         }
     }
 
@@ -214,6 +219,12 @@ fun AccountHubScreen(
                         title = "Wishlist",
                         badge = "12",
                         onClick = { viewModel.navigate(ScreenDestination.Wishlist) }
+                    )
+                    AccountMenuItem(
+                        icon = LucideIcons.HeartFilled,
+                        title = "Following",
+                        badge = if (followedCount > 0) "$followedCount" else null,
+                        onClick = { viewModel.navigate(ScreenDestination.Following) }
                     )
                     AccountMenuItem(
                         icon = LucideIcons.MapPin,

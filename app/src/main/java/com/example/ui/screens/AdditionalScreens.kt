@@ -20,10 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.model.*
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
@@ -504,10 +506,19 @@ fun AdminConsoleScreen(
                         viewModel.navigate(ScreenDestination.AdminFeatures)
                     }
                     QuickActionTile(LucideIcons.MessageSquarePlus, "Moderate Reviews", Modifier.weight(1f)) {
-                        viewModel.showToast("Review moderation queue: 0 flagged")
+                        viewModel.navigate(ScreenDestination.AdminModeration)
                     }
                     QuickActionTile(LucideIcons.GalleryHorizontal, "Banners", Modifier.weight(1f)) {
-                        viewModel.showToast("Promotional banners updated")
+                        viewModel.navigate(ScreenDestination.AdminBanners)
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    QuickActionTile(LucideIcons.Tag, "Categories & Types", Modifier.weight(1f)) {
+                        viewModel.navigate(ScreenDestination.AdminCategories)
+                    }
+                    QuickActionTile(LucideIcons.Award, "Subscription Plans", Modifier.weight(1f)) {
+                        viewModel.navigate(ScreenDestination.AdminSubscriptionPlans)
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -1052,6 +1063,570 @@ fun HelpLegalScreen(
                 AccountMenuItem(LucideIcons.Shield, "Privacy Policy") { viewModel.showToast("Privacy Policy") }
                 AccountMenuItem(LucideIcons.Handshake, "Seller Agreement") { viewModel.showToast("Seller Agreement") }
                 AccountMenuItem(LucideIcons.Info, "About Suqi (v1.0.0)") { viewModel.showToast("Suqi v1.0.0 - Made for Ethiopia") }
+            }
+        }
+    }
+}
+
+// ==========================================
+// ADMIN TOOLS: Categories & Shop Types (Plan §5.2)
+// ==========================================
+@Composable
+fun AdminCategoriesScreen(
+    viewModel: SuqiViewModel,
+    modifier: Modifier = Modifier
+) {
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Categories, 1: Shop Types
+    var showAddCategoryDialog by remember { mutableStateOf(false) }
+    var newCategoryName by remember { mutableStateOf("") }
+    var newCategoryAmharic by remember { mutableStateOf("") }
+
+    var categoriesList by remember {
+        mutableStateOf(
+            listOf(
+                Triple("Electronics", "ኤሌክትሮኒክስ", 184),
+                Triple("Fashion & Clothing", "የፋሽን ልብሶች", 312),
+                Triple("Home & Living", "የቤት እቃዎች", 145),
+                Triple("Beauty & Personal Care", "ውበትና የግል እንክብካቤ", 98),
+                Triple("Furniture", "የቤት እቃዎች (ፈርኒቸር)", 64),
+                Triple("Sports & Fitness", "የስፖርት እቃዎች", 72),
+                Triple("Toys & Games", "የህፃናት መጫወቻዎች", 45),
+                Triple("Groceries & Food", "የሸቀጣ ሸቀጥና ምግብ", 210),
+                Triple("Health & Fitness", "ጤናና ደህንነት", 58)
+            )
+        )
+    }
+
+    val shopTypes = remember {
+        listOf(
+            Triple("Retail Store", "Standard merchant with physical or online shop", "2.5% Fee"),
+            Triple("Official Brand Outlet", "Direct verified brand manufacturer or authorized distributor", "1.8% Fee"),
+            Triple("Habesha Artisan & Crafts", "Traditional handmade Ethiopian clothing, crafts and cultural goods", "1.0% Fee"),
+            Triple("Wholesale & Bulk Supplier", "B2B bulk supplier with minimum quantity orders", "1.5% Fee")
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .background(LocalSuqiColors.current.surfaceBackground)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = { viewModel.goBack() },
+                            modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
+                        ) {
+                            Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(text = "Categories & Shop Types", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+                    }
+
+                    if (selectedTab == 0) {
+                        IconButton(
+                            onClick = { showAddCategoryDialog = true },
+                            modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiPrimary)
+                        ) {
+                            Icon(LucideIcons.Plus, contentDescription = "Add", tint = Color.White)
+                        }
+                    }
+                }
+
+                // Tabs
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selectedTab == 0) SuqiPrimary else SuqiSecondaryBackground)
+                            .clickable { selectedTab = 0 }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Categories (${categoriesList.size})", color = if (selectedTab == 0) Color.White else SuqiPrimaryText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selectedTab == 1) SuqiPrimary else SuqiSecondaryBackground)
+                            .clickable { selectedTab = 1 }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Shop Types (${shopTypes.size})", color = if (selectedTab == 1) Color.White else SuqiPrimaryText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+        },
+        containerColor = SuqiBackground,
+        modifier = modifier.fillMaxSize()
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (selectedTab == 0) {
+                items(categoriesList) { (en, am, count) ->
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = SuqiSurface),
+                        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(en, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(am, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = SuqiPrimary)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("$count active products listed", fontSize = 12.sp, color = SuqiSecondaryText)
+                            }
+                            SuqiStatusBadge("Active", StatusType.SUCCESS)
+                        }
+                    }
+                }
+            } else {
+                items(shopTypes) { (title, desc, fee) ->
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = SuqiSurface),
+                        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(title, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(LocalSuqiColors.current.primaryTint)
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(fee, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = SuqiPrimary)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(desc, fontSize = 12.sp, color = SuqiSecondaryText)
+                            }
+                            SuqiStatusBadge("Approved", StatusType.SUCCESS)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddCategoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddCategoryDialog = false },
+            title = { Text("Add New Category", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SuqiTextField(value = newCategoryName, onValueChange = { newCategoryName = it }, label = "Category Name (English)")
+                    SuqiTextField(value = newCategoryAmharic, onValueChange = { newCategoryAmharic = it }, label = "Category Name (Amharic / አማርኛ)")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newCategoryName.isNotBlank()) {
+                            categoriesList = categoriesList + Triple(newCategoryName.trim(), if (newCategoryAmharic.isBlank()) newCategoryName else newCategoryAmharic, 0)
+                            viewModel.showToast("Category \"$newCategoryName\" created!")
+                            showAddCategoryDialog = false
+                            newCategoryName = ""
+                            newCategoryAmharic = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Add Category")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddCategoryDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+// ==========================================
+// ADMIN TOOLS: Promotional Banners (Plan §5.2)
+// ==========================================
+@Composable
+fun AdminBannersScreen(
+    viewModel: SuqiViewModel,
+    modifier: Modifier = Modifier
+) {
+    var banners by remember {
+        mutableStateOf(
+            listOf(
+                Triple("Ethiopian New Year Super Sale", "Up to 50% off on traditional Habesha & electronics", "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=600"),
+                Triple("Tech Week Addis Ababa", "Exclusive launches from certified Bole merchants", "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600"),
+                Triple("Free Nationwide Delivery", "On all orders above ETB 2,500 using Telebirr", "https://images.unsplash.com/photo-1526367790999-0150786686a2?w=600")
+            )
+        )
+    }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var bannerTitle by remember { mutableStateOf("") }
+    var bannerSubtitle by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { viewModel.goBack() },
+                        modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
+                    ) {
+                        Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(text = "Promotional Banners", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+                }
+
+                IconButton(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiPrimary)
+                ) {
+                    Icon(LucideIcons.Plus, contentDescription = "Add Banner", tint = Color.White)
+                }
+            }
+        },
+        containerColor = SuqiBackground,
+        modifier = modifier.fillMaxSize()
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Text(text = "Active Home Carousel Banners (${banners.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+
+            items(banners) { (title, sub, img) ->
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = SuqiSurface),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        Box(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                            AsyncImage(
+                                model = img,
+                                contentDescription = title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.35f))
+                            )
+                            Text(
+                                text = title,
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color.White,
+                                modifier = Modifier.align(Alignment.BottomStart).padding(14.dp)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(sub, fontSize = 12.sp, color = SuqiSecondaryText, modifier = Modifier.weight(1f))
+                            IconButton(
+                                onClick = {
+                                    banners = banners.filter { it.first != title }
+                                    viewModel.showToast("Banner removed from carousel")
+                                }
+                            ) {
+                                Icon(LucideIcons.Trash2, contentDescription = "Delete", tint = SuqiError)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Add Carousel Banner", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SuqiTextField(value = bannerTitle, onValueChange = { bannerTitle = it }, label = "Banner Title")
+                    SuqiTextField(value = bannerSubtitle, onValueChange = { bannerSubtitle = it }, label = "Subtitle / Campaign Details")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (bannerTitle.isNotBlank()) {
+                            banners = banners + Triple(bannerTitle.trim(), bannerSubtitle.trim(), "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=600")
+                            viewModel.showToast("Banner added to homepage!")
+                            showAddDialog = false
+                            bannerTitle = ""
+                            bannerSubtitle = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Add Banner")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+// ==========================================
+// ADMIN TOOLS: Review & Report Moderation (Plan §5.2)
+// ==========================================
+@Composable
+fun AdminModerationScreen(
+    viewModel: SuqiViewModel,
+    modifier: Modifier = Modifier
+) {
+    var flaggedReviews by remember {
+        mutableStateOf(
+            listOf(
+                Triple("Fitsum B.", "Fake review suspected. Competitor spamming negative feedback without purchase.", "Phone arrived damaged and seller refused to answer telegram!"),
+                Triple("Anonymous", "Inappropriate language and spam link in review comments.", "Visit my website www.example.com for 50% cheaper price than this shop!")
+            )
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { viewModel.goBack() },
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
+                ) {
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(text = "Review & Report Moderation", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+            }
+        },
+        containerColor = SuqiBackground,
+        modifier = modifier.fillMaxSize()
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(LucideIcons.ShieldCheck, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Flagged Content Queue (${flaggedReviews.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            }
+
+            if (flaggedReviews.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                        Text("Moderation queue clean! No pending reports.", color = SuqiSecondaryText)
+                    }
+                }
+            } else {
+                items(flaggedReviews) { (author, reason, text) ->
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = SuqiSurface),
+                        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Report by: $author", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                SuqiStatusBadge("Flagged", StatusType.ERROR)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Flag reason: $reason", fontSize = 12.sp, color = SuqiError, fontWeight = FontWeight.Medium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(SuqiSecondaryBackground)
+                                    .padding(10.dp)
+                            ) {
+                                Text("\"$text\"", fontSize = 13.sp, color = SuqiPrimaryText)
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    onClick = {
+                                        flaggedReviews = flaggedReviews.filter { it.first != author }
+                                        viewModel.showToast("Review report dismissed (Kept published)")
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SuqiSecondaryBackground),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1f).height(40.dp)
+                                ) {
+                                    Text("Dismiss Report", color = SuqiPrimaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                Button(
+                                    onClick = {
+                                        flaggedReviews = flaggedReviews.filter { it.first != author }
+                                        viewModel.showToast("Review hidden & removed from platform")
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SuqiError),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1f).height(40.dp)
+                                ) {
+                                    Text("Delete Content", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ==========================================
+// ADMIN TOOLS: Subscription Plans Management (Plan §5.2)
+// ==========================================
+@Composable
+fun AdminSubscriptionPlansScreen(
+    viewModel: SuqiViewModel,
+    modifier: Modifier = Modifier
+) {
+    var plans by remember {
+        mutableStateOf(
+            listOf(
+                Triple("Free Starter Tier", "ETB 0 / mo", listOf("Up to 25 Products", "Standard Search Placement", "Basic Order Messaging", "2.5% Platform Fee")),
+                Triple("Pro Merchant Plan", "ETB 299 / mo", listOf("Unlimited Products", "Featured Search Placement", "Sales Analytics & Charts", "Unlimited Promo Codes", "Priority Support")),
+                Triple("Enterprise Brand Plan", "ETB 799 / mo", listOf("Multi-Branch Storefront", "0% Extra Platform Fee", "Dedicated Account Manager", "Homepage Carousel Banner Spot", "Custom API Access"))
+            )
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { viewModel.goBack() },
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
+                ) {
+                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(text = "Subscription Plans", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+            }
+        },
+        containerColor = SuqiBackground,
+        modifier = modifier.fillMaxSize()
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Text(text = "Monetization Tiers (${plans.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Manage tier pricing and feature bundles for Ethiopian sellers", fontSize = 12.sp, color = SuqiSecondaryText)
+            }
+
+            items(plans) { (name, price, features) ->
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = SuqiSurface),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = SuqiPrimary)
+                            SuqiStatusBadge("Active", StatusType.SUCCESS)
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(price, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        for (feat in features) {
+                            Text("✓ $feat", fontSize = 13.sp, color = SuqiSecondaryText, modifier = Modifier.padding(vertical = 2.dp))
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { viewModel.showToast("Editing $name tier parameters") },
+                            colors = ButtonDefaults.buttonColors(containerColor = SuqiSecondaryBackground),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(38.dp)
+                        ) {
+                            Text("Edit Tier Settings", color = SuqiPrimaryText, fontSize = 12.sp)
+                        }
+                    }
+                }
             }
         }
     }

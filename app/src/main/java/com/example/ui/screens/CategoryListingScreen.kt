@@ -47,9 +47,15 @@ fun CategoryListingScreen(
 
     val subCategories = when (categoryId) {
         "cat_electronics" -> listOf("All", "Laptops", "Phones", "Audio", "Smart Watches", "Accessories")
-        "cat_fashion" -> listOf("All", "Men", "Women", "Shoes", "Bags")
-        "cat_home" -> listOf("All", "Furniture", "Kitchen", "Decor")
-        else -> listOf("All", "Popular", "Featured", "Discounted")
+        "cat_fashion" -> listOf("All", "Men", "Women", "Shoes", "Bags", "Traditional Habesha", "Watches")
+        "cat_home" -> listOf("All", "Kitchen", "Living Room", "Bedding", "Home Decor", "Lighting")
+        "cat_beauty" -> listOf("All", "Skincare", "Fragrance", "Haircare", "Makeup", "Personal Care")
+        "cat_furniture" -> listOf("All", "Sofas", "Desks & Chairs", "Tables", "Beds", "Storage")
+        "cat_sports" -> listOf("All", "Fitness Equipment", "Sportswear", "Football", "Outdoor & Running")
+        "cat_toys" -> listOf("All", "Action Figures", "Board Games", "Educational", "Plush Toys", "Baby")
+        "cat_groceries" -> listOf("All", "Coffee & Tea", "Ethiopian Spices", "Fresh Produce", "Pantry", "Snacks")
+        "cat_health" -> listOf("All", "Supplements", "First Aid", "Wellness", "Personal Hygiene", "Medical Supplies")
+        else -> listOf("All", "Popular", "Featured", "Deals", "New")
     }
 
     fun loadProducts() {
@@ -60,7 +66,23 @@ fun CategoryListingScreen(
                 inStockOnly = inStockOnly,
                 sortBy = sortBy
             )
-            if (res.success && res.data != null) {
+            if (res.success && !res.data.isNullOrEmpty()) {
+                products = res.data
+            } else if (selectedSubCategory != "All") {
+                val catRes = viewModel.repository.getProducts(
+                    categoryId = if (categoryId == "all") null else categoryId,
+                    inStockOnly = inStockOnly,
+                    sortBy = sortBy
+                )
+                if (catRes.success && catRes.data != null) {
+                    val matching = catRes.data.filter {
+                        it.subCategory?.contains(selectedSubCategory, ignoreCase = true) == true ||
+                        it.name.contains(selectedSubCategory, ignoreCase = true) ||
+                        it.description.contains(selectedSubCategory, ignoreCase = true)
+                    }
+                    products = if (matching.isNotEmpty()) matching else catRes.data
+                }
+            } else if (res.success && res.data != null) {
                 products = res.data
             }
         }

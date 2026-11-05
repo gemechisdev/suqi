@@ -507,10 +507,128 @@ fun OrderDetailScreen(
                                 color = SuqiError
                             )
                         }
+
+                        // Audit Trail Info
+                        if (currentOrder.verifiedBy != null || currentOrder.verifiedAt != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SuqiSuccessBg)
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(LucideIcons.ShieldCheck, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Verified by ${currentOrder.verifiedBy ?: "Merchant"} on ${currentOrder.verifiedAt ?: "record"}",
+                                    fontFamily = SuqiFontFamily,
+                                    fontSize = 11.sp,
+                                    color = SuqiSuccess
+                                )
+                            }
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Live Courier Delivery Tracking Card (Plan §5.2)
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = SuqiSurface),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(SuqiPrimary.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(LucideIcons.Truck, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Suqi Express Delivery", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text("Driver: Alemayehu T. (+251 911 234 567)", fontSize = 12.sp, color = SuqiSecondaryText)
+                                }
+                            }
+                            SuqiStatusBadge("In Transit", StatusType.NEUTRAL)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Estimated Arrival: Today by 5:30 PM • Destination: ${currentOrder.deliveryAddress}",
+                            fontSize = 12.sp,
+                            color = SuqiMutedText
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Purchased Items with Write a Review Flow (Plan §5.2)
+            item {
+                Text(
+                    text = "Purchased Items (${currentOrder.items.size})",
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            items(currentOrder.items) { item ->
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp))) {
+                            AsyncImage(
+                                model = item.productImageUrl,
+                                contentDescription = item.productName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(item.productName, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
+                            Text("Qty: ${item.quantity} • ${formatEtb(item.unitPrice)}", fontSize = 12.sp, color = SuqiSecondaryText)
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.navigate(ScreenDestination.Reviews(item.productId, item.productName, "PRODUCT"))
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(LucideIcons.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Write Review", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Order Timeline (Mockup 3)
