@@ -292,7 +292,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(shops) { shop ->
@@ -617,29 +617,36 @@ fun FeaturedShopCard(
     shop: ShopDto,
     onClick: () -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = SuqiSurface),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)
-        ),
+    val isDark = LocalSuqiColors.current.isDark
+    val shape = RoundedCornerShape(SuqiRadius.Card)
+    val tint = if (isDark) SuqiShopTintDark else SuqiShopTintLight
+    val outline = if (isDark) SuqiShopBorderDark else SuqiShopBorderLight
+    Box(
         modifier = Modifier
             .width(170.dp)
+            .suqiWarmShadow(shape, elevation = 8.dp)
+            .clip(shape)
+            .background(tint)
+            .border(1.dp, outline, shape)
             .clickable(onClick = onClick)
+            .testTag("featured_shop_${shop.id}")
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(60.dp)
                     .clip(CircleShape)
-                    .background(SuqiSecondaryBackground)
+                    .background(Color.White)
+                    .padding(3.dp)
+                    .clip(CircleShape)
             ) {
                 AsyncImage(
                     model = shop.logoUrl,
                     contentDescription = shop.name,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             }
