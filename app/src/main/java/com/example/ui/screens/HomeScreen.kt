@@ -61,59 +61,46 @@ fun HomeScreen(
     var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
     var showLocationSheet by remember { mutableStateOf(false) }
 
-    // FitHub-style carousel slides (theme colors applied at render)
-    data class BannerSlide(
-        val id: String,
-        val title: String,
-        val subtitle: String,
-        val buttonText: String,
-        val imageUrl: String,
-        val targetCategory: String,
-        val targetName: String
-    )
-    val slides = remember {
+    // Promo carousel slides (Suqi UI direction)
+    val banners = remember {
         listOf(
-            BannerSlide(
+            PromoBanner(
                 id = "1",
-                title = "Discover\nAmazing Deals",
-                subtitle = "Shop Smart. Shop Suqi — premium products across Ethiopia.",
+                badge = "Hot Deal",
+                badgeIcon = LucideIcons.Flame,
+                title = "Up to 50% Off",
+                highlight = "50%",
+                subtitle = "On Selected Items",
                 buttonText = "Shop Now",
                 imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
                 targetCategory = "cat_electronics",
                 targetName = "Electronics"
             ),
-            BannerSlide(
+            PromoBanner(
                 id = "2",
-                title = "Ethiopian\nFashion Week",
-                subtitle = "Handcrafted styles and modern looks from local sellers.",
+                badge = "New Season",
+                badgeIcon = LucideIcons.Sparkles,
+                title = "Ethiopian Fashion",
+                highlight = "Fashion",
+                subtitle = "Handcrafted & modern",
                 buttonText = "Explore Style",
                 imageUrl = "https://images.unsplash.com/photo-1523381294911-8d3cead13475?w=600",
                 targetCategory = "cat_fashion",
                 targetName = "Fashion"
             ),
-            BannerSlide(
+            PromoBanner(
                 id = "3",
-                title = "Transform\nYour Home",
-                subtitle = "Furniture and living essentials delivered across Ethiopia.",
+                badge = "Home & Living",
+                badgeIcon = LucideIcons.House,
+                title = "Transform Your Home",
+                highlight = "Home",
+                subtitle = "Furniture & decor",
                 buttonText = "View Decor",
                 imageUrl = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600",
                 targetCategory = "cat_home",
                 targetName = "Home & Living"
             )
         )
-    }
-
-        val pagerState = rememberPagerState(pageCount = { slides.size })
-
-    // Auto-advance banner slides smoothly
-    LaunchedEffect(pagerState) {
-        while (true) {
-            kotlinx.coroutines.delay(4500)
-            if (!pagerState.isScrollInProgress) {
-                val next = (pagerState.currentPage + 1) % slides.size
-                pagerState.animateScrollToPage(next)
-            }
-        }
     }
 
     LaunchedEffect(Unit) {
@@ -151,7 +138,7 @@ fun HomeScreen(
                 onLocationClick = { showLocationSheet = true }
             )
         },
-        containerColor = colors.surfaceBackground,
+        containerColor = if (colors.isDark) colors.surfaceBackground else SuqiCream,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
         LazyColumn(
@@ -202,8 +189,9 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(colors.secondaryBackground)
+                        .suqiWarmShadow(RoundedCornerShape(20.dp), elevation = 6.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(colors.cardBackground)
                         .clickable { viewModel.navigate(ScreenDestination.Search) }
                         .padding(horizontal = 16.dp, vertical = 14.dp)
                         .testTag("home_search_bar")
@@ -226,157 +214,16 @@ fun HomeScreen(
                 }
             }
 
-            // Promotional Hero Banner Carousel (FitHub reference styling)
+            // Promotional carousel (full-width, Suqi UI direction)
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(210.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        pageSpacing = 14.dp
-                    ) { page ->
-                        val slide = slides[page]
-                        // 3D page-turn rotation based on scroll offset (FitHub-like depth)
-                        val pageOffset = (
-                            (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                SuqiPromoCarousel(
+                    banners = banners,
+                    onBannerClick = { banner ->
+                        viewModel.navigate(
+                            ScreenDestination.CategoryListing(banner.targetCategory, banner.targetName)
                         )
-                        val rotationY = pageOffset * -25f
-                        val scale = 0.92f + (1f - kotlin.math.abs(pageOffset).coerceIn(0f, 1f)) * 0.08f
-
-                        // Plan §12: warm primary-light surfaces; dark uses theme cards
-                        val themeColors = LocalSuqiColors.current
-                        val gradient = if (effectiveDark) {
-                            listOf(themeColors.secondaryBackground, themeColors.cardBackground)
-                        } else {
-                            listOf(SuqiPrimarySubtle, SuqiPrimaryLight)
-                        }
-                        val titleCol = themeColors.primaryText
-                        val subCol = themeColors.secondaryText
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
-                                    this.rotationY = rotationY
-                                    cameraDistance = 16f * density
-                                    scaleX = scale
-                                    scaleY = scale
-                                    alpha = 0.55f + (1f - kotlin.math.abs(pageOffset).coerceIn(0f, 1f)) * 0.45f
-                                }
-                                .clip(RoundedCornerShape(28.dp))
-                                .background(Brush.horizontalGradient(gradient))
-                                .clickable {
-                                    viewModel.navigate(
-                                        ScreenDestination.CategoryListing(slide.targetCategory, slide.targetName)
-                                    )
-                                }
-                                .testTag("banner_slide_${slide.id}")
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(start = 22.dp, end = 8.dp, top = 22.dp, bottom = 22.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1.15f)
-                                        .fillMaxHeight(),
-                                    verticalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = slide.title,
-                                            fontFamily = SuqiFontFamily,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 24.sp,
-                                            lineHeight = 30.sp,
-                                            color = titleCol
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = slide.subtitle,
-                                            fontFamily = SuqiFontFamily,
-                                            fontSize = 13.sp,
-                                            lineHeight = 18.sp,
-                                            color = subCol,
-                                            maxLines = 2
-                                        )
-                                    }
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .background(SuqiPrimary)
-                                            .clickable {
-                                                viewModel.navigate(
-                                                    ScreenDestination.CategoryListing(
-                                                        slide.targetCategory,
-                                                        slide.targetName
-                                                    )
-                                                )
-                                            }
-                                            .padding(horizontal = 18.dp, vertical = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = slide.buttonText,
-                                            fontFamily = SuqiFontFamily,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp,
-                                            color = Color.White
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Icon(
-                                            imageVector = LucideIcons.ArrowRight,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(slide.imageUrl)
-                                        .crossfade(true)
-                                        .build(),
-                                    contentDescription = slide.title,
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .padding(vertical = 4.dp)
-                                )
-                            }
-                        }
                     }
-
-                    // FitHub-style pill indicators
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        repeat(slides.size) { index ->
-                            val isSelected = pagerState.currentPage == index
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 3.dp)
-                                    .height(6.dp)
-                                    .width(if (isSelected) 20.dp else 6.dp)
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(if (isSelected) SuqiPrimary else colors.border)
-                            )
-                        }
-                    }
-                }
+                )
             }
 
             // Categories Shortcuts Row (consistent line icons)
@@ -507,7 +354,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(products.reversed().take(6)) { prod ->
@@ -515,6 +362,8 @@ fun HomeScreen(
                                 SuqiProductCard(
                                     product = prod,
                                     onClick = { viewModel.navigate(ScreenDestination.ProductDetails(prod.id)) },
+                                    onAddToCart = { viewModel.quickAddToCart(prod) },
+                                    onShopClick = { viewModel.navigate(ScreenDestination.ShopStorefront(prod.shopId)) },
                                     onToggleWishlist = {
                                         coroutineScope.launch {
                                             viewModel.repository.toggleWishlist(prod.id)
@@ -578,6 +427,8 @@ fun HomeScreen(
                             SuqiProductCard(
                                 product = product,
                                 onClick = { viewModel.navigate(ScreenDestination.ProductDetails(product.id)) },
+                                onAddToCart = { viewModel.quickAddToCart(product) },
+                                onShopClick = { viewModel.navigate(ScreenDestination.ShopStorefront(product.shopId)) },
                                 onToggleWishlist = {
                                     coroutineScope.launch {
                                         viewModel.repository.toggleWishlist(product.id)
@@ -622,7 +473,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(products.take(6)) { prod ->
@@ -630,6 +481,8 @@ fun HomeScreen(
                                 SuqiProductCard(
                                     product = prod,
                                     onClick = { viewModel.navigate(ScreenDestination.ProductDetails(prod.id)) },
+                                    onAddToCart = { viewModel.quickAddToCart(prod) },
+                                    onShopClick = { viewModel.navigate(ScreenDestination.ShopStorefront(prod.shopId)) },
                                     onToggleWishlist = {
                                         coroutineScope.launch {
                                             viewModel.repository.toggleWishlist(prod.id)
@@ -673,7 +526,7 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(recentlyViewed) { prod ->
@@ -681,6 +534,8 @@ fun HomeScreen(
                                     SuqiProductCard(
                                         product = prod,
                                         onClick = { viewModel.navigate(ScreenDestination.ProductDetails(prod.id)) },
+                                        onAddToCart = { viewModel.quickAddToCart(prod) },
+                                        onShopClick = { viewModel.navigate(ScreenDestination.ShopStorefront(prod.shopId)) },
                                         onToggleWishlist = {
                                             coroutineScope.launch {
                                                 viewModel.repository.toggleWishlist(prod.id)

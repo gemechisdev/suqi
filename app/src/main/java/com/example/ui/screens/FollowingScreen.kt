@@ -343,6 +343,8 @@ fun FollowingScreen(
                                     SuqiProductCard(
                                         product = product,
                                         onClick = { viewModel.navigate(ScreenDestination.ProductDetails(product.id)) },
+                                        onAddToCart = { viewModel.quickAddToCart(product) },
+                                        onShopClick = { viewModel.navigate(ScreenDestination.ShopStorefront(product.shopId)) },
                                         onToggleWishlist = {
                                             coroutineScope.launch {
                                                 viewModel.repository.toggleWishlist(product.id)
