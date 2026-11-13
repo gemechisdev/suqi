@@ -184,7 +184,7 @@ private fun PromoBannerPage(
             append(banner.title)
         } else {
             append(banner.title.substring(0, index))
-            withStyle(SpanStyle(color = SuqiPrimary, fontSize = 28.sp)) {
+            withStyle(SpanStyle(color = SuqiPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)) {
                 append(banner.highlight)
             }
             append(banner.title.substring(index + banner.highlight.length))
@@ -271,7 +271,7 @@ private fun PromoBannerPage(
                 Text(
                     text = headline,
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     fontSize = 20.sp,
                     lineHeight = 30.sp,
                     color = colors.primaryText,

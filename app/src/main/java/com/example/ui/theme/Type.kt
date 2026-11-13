@@ -9,23 +9,23 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 
 /**
- * Plan §12 typography:
- * - Plus Jakarta Sans primary, Noto Sans Ethiopic fallback
- * - Hierarchy: SemiBold for titles, Medium for labels, Normal for body
- * - Avoid ExtraBold / heavy Bold for UI chrome
+ * Typography:
+ * - Plus Jakarta Sans primary (static weights 400..800), Noto Sans Ethiopic fallback (400..700)
+ * - Hierarchy: ExtraBold for carousel headlines & prices, Bold/SemiBold for titles, Medium for labels, Normal for body
  */
 val SuqiFontFamily = FontFamily(
     Font(R.font.plus_jakarta_sans, FontWeight.Normal),
-    Font(R.font.plus_jakarta_sans, FontWeight.Medium),
-    Font(R.font.plus_jakarta_sans, FontWeight.SemiBold),
-    Font(R.font.plus_jakarta_sans, FontWeight.Bold)
+    Font(R.font.plus_jakarta_sans_medium, FontWeight.Medium),
+    Font(R.font.plus_jakarta_sans_semibold, FontWeight.SemiBold),
+    Font(R.font.plus_jakarta_sans_bold, FontWeight.Bold),
+    Font(R.font.plus_jakarta_sans_extrabold, FontWeight.ExtraBold)
 )
 
 val SuqiEthiopicFontFamily = FontFamily(
     Font(R.font.noto_sans_ethiopic, FontWeight.Normal),
-    Font(R.font.noto_sans_ethiopic, FontWeight.Medium),
-    Font(R.font.noto_sans_ethiopic, FontWeight.SemiBold),
-    Font(R.font.noto_sans_ethiopic, FontWeight.Bold)
+    Font(R.font.noto_sans_ethiopic_medium, FontWeight.Medium),
+    Font(R.font.noto_sans_ethiopic_semibold, FontWeight.SemiBold),
+    Font(R.font.noto_sans_ethiopic_bold, FontWeight.Bold)
 )
 
 val SuqiTypography = Typography(

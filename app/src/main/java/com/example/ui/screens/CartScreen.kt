@@ -588,7 +588,7 @@ fun CartItemRow(
             Text(
                 text = formatEtb(item.unitPrice),
                 fontFamily = SuqiFontFamily,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 fontSize = 14.sp,
                 color = SuqiPrimary
             )

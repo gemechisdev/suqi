@@ -305,7 +305,7 @@ fun CheckoutDeliveryScreen(
                             Text(
                                 formatEtb(totalAmount),
                                 fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.ExtraBold,
                                 fontSize = 20.sp,
                                 color = SuqiPrimary
                             )
@@ -991,7 +991,7 @@ fun OrderSubmittedScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("Total Amount", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
-                            Text(formatEtb(totalAmount), fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = SuqiPrimary)
+                            Text(formatEtb(totalAmount), fontFamily = SuqiFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = SuqiPrimary)
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))

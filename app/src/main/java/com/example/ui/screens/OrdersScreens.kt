@@ -290,7 +290,7 @@ fun CustomerOrderCard(
                     Text(
                         text = formatEtb(order.totalAmount),
                         fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
                         color = SuqiPrimary
                     )

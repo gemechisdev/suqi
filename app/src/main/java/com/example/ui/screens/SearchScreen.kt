@@ -519,7 +519,7 @@ fun SearchResultProductRow(
                     Text(
                         text = formatEtb(product.price),
                         fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         fontSize = 15.sp,
                         color = SuqiPrimary
                     )

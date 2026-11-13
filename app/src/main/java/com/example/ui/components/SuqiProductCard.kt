@@ -239,7 +239,7 @@ fun SuqiProductCard(
                 Text(
                     text = formatEtb(product.price),
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     fontSize = 16.sp,
                     color = SuqiPrimary,
                     maxLines = 1,

@@ -516,7 +516,7 @@ fun ProductDetailsScreen(
                         Text(
                             text = formatEtb(currentProd.price),
                             fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.ExtraBold,
                             fontSize = 22.sp,
                             color = SuqiPrimary
                         )
