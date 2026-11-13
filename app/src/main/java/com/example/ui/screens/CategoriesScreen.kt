@@ -131,6 +131,7 @@ fun CategoriesScreen(
     }
 
     val colors = LocalSuqiColors.current
+    val pageBg = if (colors.isDark) colors.surfaceBackground else SuqiCream
 
     Scaffold(
         topBar = {
@@ -139,7 +140,7 @@ fun CategoriesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(colors.surfaceBackground)
+                    .background(pageBg)
             ) {
                 Row(
                     modifier = Modifier
@@ -165,7 +166,10 @@ fun CategoriesScreen(
                         IconButton(
                             onClick = { viewModel.navigate(ScreenDestination.Search) },
                             modifier = Modifier
-                                .size(36.dp)
+                                .suqiWarmShadow(CircleShape, elevation = 6.dp)
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(colors.cardBackground)
                                 .testTag("categories_search_btn")
                         ) {
                             Icon(
@@ -179,8 +183,11 @@ fun CategoriesScreen(
                         // Cart icon with orange circle badge
                         Box(
                             modifier = Modifier
+                                .suqiWarmShadow(CircleShape, elevation = 6.dp)
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(colors.cardBackground)
                                 .clickable { viewModel.navigate(ScreenDestination.Cart) }
-                                .padding(4.dp)
                                 .testTag("categories_cart_btn"),
                             contentAlignment = Alignment.Center
                         ) {
@@ -194,7 +201,7 @@ fun CategoriesScreen(
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
-                                        .offset(x = 8.dp, y = (-6).dp)
+                                        .offset(x = 2.dp, y = (-2).dp)
                                         .size(18.dp)
                                         .clip(CircleShape)
                                         .background(SuqiPrimary),
@@ -214,7 +221,7 @@ fun CategoriesScreen(
                 }
             }
         },
-        containerColor = colors.surfaceBackground,
+        containerColor = pageBg,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
         LazyColumn(
@@ -229,7 +236,7 @@ fun CategoriesScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 7.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     CategoryCardItem(
@@ -258,31 +265,46 @@ fun CategoriesScreen(
     }
 }
 
+private fun categorySubtitle(id: String): String = when (id) {
+    "cat_electronics" -> "Phones, laptops & more"
+    "cat_fashion" -> "Clothes, shoes & bags"
+    "cat_home" -> "Kitchen, decor & bedding"
+    "cat_beauty" -> "Skincare & fragrance"
+    "cat_furniture" -> "Sofas, beds & tables"
+    "cat_sports" -> "Fitness & activewear"
+    "cat_toys" -> "Toys, games & kids"
+    "cat_groceries" -> "Coffee, spices & snacks"
+    "cat_health" -> "Wellness & fitness"
+    else -> "Browse all"
+}
+
 @Composable
 private fun CategoryCardItem(
     item: CategoryCardSpec,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(LocalSuqiColors.current.border.copy(alpha = 0.5f))
-        ),
+    val colors = LocalSuqiColors.current
+    val cardShape = RoundedCornerShape(SuqiRadius.Card)
+    val label = if (item.cleanName == "Beauty & Personal Care") "Beauty & Care" else item.cleanName
+
+    Column(
         modifier = modifier
-            .height(152.dp)
+            .suqiWarmShadow(cardShape, elevation = 10.dp)
+            .clip(cardShape)
+            .background(colors.cardBackground)
             .clickable(onClick = onClick)
+            .padding(8.dp)
             .testTag("category_card_${item.id}")
     ) {
+        // Large image tile
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(5.dp) // small 5dp padding between card border and image
-                .clip(RoundedCornerShape(17.dp))
+                .fillMaxWidth()
+                .aspectRatio(1.25f)
+                .clip(RoundedCornerShape(18.dp))
+                .background(if (colors.isDark) colors.secondaryBackground else SuqiImageBackdrop)
         ) {
-            // Full background image
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(item.imageUrl)
@@ -292,34 +314,50 @@ private fun CategoryCardItem(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+        }
 
-            // Category gradient overlay maintaining rich category colors
+        // Name + hint + orange arrow
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 2.dp, top = 10.dp, bottom = 2.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = colors.primaryText,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = categorySubtitle(item.id),
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 11.sp,
+                    color = colors.secondaryText,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                item.gradientColors.first().copy(alpha = 0.88f),
-                                item.gradientColors.getOrElse(1) { item.gradientColors.first() }.copy(alpha = 0.65f),
-                                Color.Black.copy(alpha = 0.35f)
-                            )
-                        )
-                    )
-            )
-
-            // Category title at top-left in crisp white font
-            Text(
-                text = item.name,
-                fontFamily = SuqiFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                lineHeight = 22.sp,
-                color = Color.White,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(14.dp)
-            )
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(SuqiPrimary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = LucideIcons.ArrowRight,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
