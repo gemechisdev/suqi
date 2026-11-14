@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import com.example.data.model.ProductTemplates
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +28,7 @@ import kotlinx.coroutines.launch
         CategoryEntity::class,
         AdminSettingsEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -46,6 +48,19 @@ abstract class SuqiDatabase : RoomDatabase() {
     abstract fun adminSettingsDao(): AdminSettingsDao
 
     companion object {
+        /** v2: products.detailsJson (media, dynamic attributes, variants) + new item-type categories. */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN detailsJson TEXT NOT NULL DEFAULT ''")
+                ProductTemplates.extraCategories.forEach { c ->
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO categories (id, name, nameAmharic, nameAfaanOromo, icon, subCategoriesCsv) VALUES (?, ?, ?, ?, ?, ?)",
+                        arrayOf<Any?>(c[0], c[1], c[2], c[3], c[4], c[5])
+                    )
+                }
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -55,7 +70,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     context.applicationContext,
                     SuqiDatabase::class.java,
                     "suqi_marketplace.db"
-                ).addCallback(object : Callback() {
+                ).addMigrations(MIGRATION_1_2).addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
                         CoroutineScope(Dispatchers.IO).launch {

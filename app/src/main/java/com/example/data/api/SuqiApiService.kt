@@ -98,6 +98,9 @@ interface SuqiApiService {
     @POST(SuqiEndpoints.SELLER_PRODUCTS)
     suspend fun createProduct(@Body productData: Map<String, Any>): ApiResponse<ProductDto>
 
+    @PUT(SuqiEndpoints.SELLER_PRODUCT_UPDATE)
+    suspend fun updateProduct(@Query("id") id: String, @Body productData: Map<String, Any>): ApiResponse<ProductDto>
+
     @PUT(SuqiEndpoints.SELLER_PRODUCTS)
     suspend fun updateProductStatus(@Query("id") id: String, @Query("status") status: String): ApiResponse<Boolean>
 

@@ -126,6 +126,30 @@ fun CategoriesScreen(
                 imageUrl = "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=600",
                 gradientColors = listOf(Color(0xFF00758F), Color(0xFF0596B2), Color(0xFF1CB7D6)),
                 filterTag = "Health & Fitness"
+            ),
+            CategoryCardSpec(
+                id = "cat_vehicles",
+                name = "Vehicles",
+                cleanName = "Vehicles",
+                imageUrl = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600",
+                gradientColors = listOf(Color(0xFF334155), Color(0xFF475569), Color(0xFF64748B)),
+                filterTag = "Vehicles"
+            ),
+            CategoryCardSpec(
+                id = "cat_kids",
+                name = "Kids & Toys",
+                cleanName = "Kids & Toys",
+                imageUrl = "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=600",
+                gradientColors = listOf(Color(0xFFB45309), Color(0xFFD97706), Color(0xFFF59E0B)),
+                filterTag = "Kids & Toys"
+            ),
+            CategoryCardSpec(
+                id = "cat_books",
+                name = "Books & Media",
+                cleanName = "Books & Media",
+                imageUrl = "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600",
+                gradientColors = listOf(Color(0xFF7C2D12), Color(0xFF9A3412), Color(0xFFC2410C)),
+                filterTag = "Books & Media"
             )
         )
     }
@@ -275,6 +299,9 @@ private fun categorySubtitle(id: String): String = when (id) {
     "cat_toys" -> "Toys, games & kids"
     "cat_groceries" -> "Coffee, spices & snacks"
     "cat_health" -> "Wellness & fitness"
+    "cat_vehicles" -> "Cars, bikes & parts"
+    "cat_kids" -> "Toys & baby items"
+    "cat_books" -> "Books & instruments"
     else -> "Browse all"
 }
 

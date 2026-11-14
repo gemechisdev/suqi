@@ -23,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,7 +36,10 @@ import coil.request.ImageRequest
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import android.os.Build
+import com.example.data.model.AttrType
 import com.example.data.model.CartItemDto
+import com.example.data.model.ColorSwatches
+import com.example.data.model.ProductDetails
 import com.example.data.model.ProductDto
 import com.example.data.model.ReviewDto
 import com.example.ui.ScreenDestination
@@ -43,15 +47,6 @@ import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
-
-private fun mediaTypeOf(url: String): String {
-    val u = url.lowercase().substringBefore("?")
-    return when {
-        u.endsWith(".gif") -> "gif"
-        u.endsWith(".mp4") || u.endsWith(".webm") || u.endsWith(".m3u8") -> "video"
-        else -> "image"
-    }
-}
 
 @Composable
 fun ProductDetailsScreen(
@@ -64,9 +59,8 @@ fun ProductDetailsScreen(
 
     var product by remember { mutableStateOf<ProductDto?>(null) }
     var reviews by remember { mutableStateOf<List<ReviewDto>>(emptyList()) }
-    var selectedColor by remember { mutableStateOf("") }
-    var selectedSpec by remember { mutableStateOf("") }
-    var selectedImageIndex by remember { mutableIntStateOf(0) }
+    // attribute key -> value the buyer picked (size, color, storage…)
+    val chosen = remember { mutableStateMapOf<String, String>() }
 
     LaunchedEffect(productId) {
         val res = viewModel.repository.getProductDetails(productId)
@@ -74,8 +68,10 @@ fun ProductDetailsScreen(
             val p = res.data
             product = p
             viewModel.recordProductView(p)
-            if (p.colors.isNotEmpty()) selectedColor = p.colors.first()
-            if (p.sizesOrSpecs.isNotEmpty()) selectedSpec = p.sizesOrSpecs.first()
+            chosen.clear()
+            p.details.buyerOptions.forEach { opt ->
+                p.details.valuesOf(opt.key).firstOrNull()?.let { chosen[opt.key] = it }
+            }
         }
         val revRes = viewModel.repository.getReviews(productId)
         if (revRes.success && revRes.data != null) {
@@ -88,9 +84,13 @@ fun ProductDetailsScreen(
         contentAlignment = Alignment.Center
     ) { CircularProgressIndicator(color = SuqiPrimary) }
 
-    val allImages = remember(currentProd) {
-        listOf(currentProd.primaryImageUrl) + currentProd.extraImages
-    }
+    val details = currentProd.details
+    val buyerOptions = details.buyerOptions
+    val selectedVariant = details.variantFor(chosen.toMap())
+    val variationLabel = ProductDetails.variantLabel(buyerOptions, chosen)
+    val hasVariantPrice = selectedVariant?.price != null
+    val displayPrice = selectedVariant?.price ?: currentProd.price
+    val displayStock = selectedVariant?.stock ?: currentProd.stockQuantity
 
     Scaffold(
         topBar = {
@@ -198,7 +198,7 @@ fun ProductDetailsScreen(
                 ) {
                     OutlinedButton(
                         onClick = {
-                            val variation = listOfNotNull(selectedColor.takeIf { it.isNotBlank() }, selectedSpec.takeIf { it.isNotBlank() }).joinToString(" • ")
+                            val variation = variationLabel
                             coroutineScope.launch {
                                 val res = viewModel.repository.addToCart(currentProd.id, 1, variation)
                                 if (res.success) {
@@ -226,7 +226,7 @@ fun ProductDetailsScreen(
 
                     Button(
                         onClick = {
-                            val variation = listOfNotNull(selectedColor.takeIf { it.isNotBlank() }, selectedSpec.takeIf { it.isNotBlank() }).joinToString(" • ")
+                            val variation = variationLabel
                             // Buy Now directly enters checkout flow
                             viewModel.activeCheckoutShopId.value = currentProd.shopId
                             viewModel.activeCheckoutShopName.value = currentProd.shopName
@@ -239,11 +239,11 @@ fun ProductDetailsScreen(
                                     shopName = currentProd.shopName,
                                     shopVerified = currentProd.shopVerified,
                                     productName = currentProd.name,
-                                    productImageUrl = currentProd.primaryImageUrl,
-                                    unitPrice = currentProd.price,
+                                    productImageUrl = selectedVariant?.imageUrl?.takeIf { it.isNotBlank() } ?: currentProd.primaryImageUrl,
+                                    unitPrice = displayPrice,
                                     quantity = 1,
                                     selectedVariation = variation,
-                                    stockAvailable = currentProd.stockQuantity
+                                    stockAvailable = displayStock
                                 )
                             )
                             viewModel.navigate(ScreenDestination.CheckoutDelivery(currentProd.shopId))
@@ -275,191 +275,21 @@ fun ProductDetailsScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // Main Gallery View — rounded corners, image / GIF / video
+            // Unified gallery: images, GIFs and videos (swipe, thumbnails, fullscreen)
             item {
-                val activeUrl = allImages.getOrElse(selectedImageIndex) { currentProd.primaryImageUrl }
-                val mediaType = mediaTypeOf(activeUrl)
-                val context = LocalContext.current
-                val gifLoader = remember {
-                    ImageLoader.Builder(context)
-                        .components {
-                            if (Build.VERSION.SDK_INT >= 28) {
-                                add(ImageDecoderDecoder.Factory())
-                            } else {
-                                add(GifDecoder.Factory())
-                            }
-                        }
-                        .build()
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .height(300.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SuqiSecondaryBackground)
-                ) {
-                    when (mediaType) {
-                        "video" -> {
-                            AndroidView(
-                                factory = { ctx ->
-                                    VideoView(ctx).apply {
-                                        setVideoURI(Uri.parse(activeUrl))
-                                        setOnPreparedListener { mp ->
-                                            mp.isLooping = true
-                                            start()
-                                        }
-                                    }
-                                },
-                                update = { vv ->
-                                    vv.setVideoURI(Uri.parse(activeUrl))
-                                    vv.start()
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            // Play indicator overlay
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.35f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    LucideIcons.Zap,
-                                    contentDescription = "Video",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
-                        else -> {
-                            // image + gif via Coil (GifDecoder)
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(activeUrl)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = currentProd.name,
-                                contentScale = ContentScale.Crop,
-                                imageLoader = gifLoader,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            if (mediaType == "gif") {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopStart)
-                                        .padding(12.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.Black.copy(alpha = 0.55f))
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                                ) {
-                                    Text(
-                                        "GIF",
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 11.sp,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Page indicator
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(12.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(Color.Black.copy(alpha = 0.55f))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "${selectedImageIndex + 1}/${allImages.size}",
-                            fontFamily = SuqiFontFamily,
-                            fontSize = 12.sp,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
-
-            // Image Thumbnails Gallery
-            if (allImages.size > 1) {
-                item {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(allImages.indices.toList()) { index ->
-                            val isSel = index == selectedImageIndex
-                            val thumbType = mediaTypeOf(allImages[index])
-                            Box(
-                                modifier = Modifier
-                                    .size(60.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(
-                                        2.dp,
-                                        if (isSel) SuqiPrimary else Color.Transparent,
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable { selectedImageIndex = index }
-                            ) {
-                                AsyncImage(
-                                    model = allImages[index],
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-
-                                if (thumbType == "gif") {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .padding(3.dp)
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Color.Black.copy(alpha = 0.65f))
-                                            .padding(horizontal = 4.dp, vertical = 1.dp)
-                                    ) {
-                                        Text(
-                                            "GIF",
-                                            fontFamily = SuqiFontFamily,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 9.sp,
-                                            color = Color.White
-                                        )
-                                    }
-                                } else if (thumbType == "video") {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.Center)
-                                            .size(22.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.Black.copy(alpha = 0.6f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            LucideIcons.Zap,
-                                            contentDescription = "Video",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                SuqiMediaGallery(
+                    media = details.media,
+                    contentDescription = currentProd.name,
+                    jumpToUrl = selectedVariant?.imageUrl?.takeIf { it.isNotBlank() },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
 
             // Product Title, Rating, Stock Status
             item {
                 Column(modifier = Modifier.padding(16.dp)) {
                     // Stock Warning Badge
-                    if (currentProd.stockQuantity <= 3) {
+                    if (displayStock in 1..3) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -470,7 +300,7 @@ fun ProductDetailsScreen(
                             Icon(LucideIcons.Flame, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Low Stock – Only ${currentProd.stockQuantity} left",
+                                text = "Low Stock – Only $displayStock left",
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
@@ -514,14 +344,14 @@ fun ProductDetailsScreen(
                     // Price Block
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = formatEtb(currentProd.price),
+                            text = formatEtb(displayPrice),
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 22.sp,
                             color = SuqiPrimary
                         )
 
-                        if (currentProd.discountPercent > 0) {
+                        if (!hasVariantPrice && currentProd.discountPercent > 0) {
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = formatEtb(currentProd.originalPrice),
@@ -550,78 +380,56 @@ fun ProductDetailsScreen(
                 }
             }
 
-            // Variations Selectors (Colors & Sizes)
-            if (currentProd.colors.isNotEmpty()) {
-                item {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                        Text(
-                            text = "Color: $selectedColor",
-                            fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(currentProd.colors) { color ->
-                                val isSel = color == selectedColor
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
-                                        .border(
-                                            1.5.dp,
-                                            if (isSel) SuqiPrimary else SuqiBorder,
-                                            RoundedCornerShape(12.dp)
-                                        )
-                                        .clickable { selectedColor = color }
-                                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        text = color,
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = 13.sp,
-                                        color = if (isSel) SuqiPrimary else SuqiPrimaryText
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (currentProd.sizesOrSpecs.isNotEmpty()) {
-                item {
+            // Buyer options (size, color, storage…): fully data-driven
+            buyerOptions.forEach { option ->
+                item(key = "option_${option.key}") {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         Text(
-                            text = "Specification / Size: $selectedSpec",
+                            text = "${option.label}: ${chosen[option.key].orEmpty()}",
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(currentProd.sizesOrSpecs) { spec ->
-                                val isSel = spec == selectedSpec
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
-                                        .border(
-                                            1.5.dp,
-                                            if (isSel) SuqiPrimary else SuqiBorder,
-                                            RoundedCornerShape(12.dp)
-                                        )
-                                        .clickable { selectedSpec = spec }
-                                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        text = spec,
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = 13.sp,
-                                        color = if (isSel) SuqiPrimary else SuqiPrimaryText
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            items(details.valuesOf(option.key)) { value ->
+                                val isSel = chosen[option.key] == value
+                                val swatch = if (option.type == AttrType.COLOR) ColorSwatches.argbOf(value) else null
+                                if (swatch != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .border(if (isSel) 2.5.dp else 1.dp, if (isSel) SuqiPrimary else SuqiBorder, CircleShape)
+                                            .padding(4.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(swatch))
+                                            .clickable { chosen[option.key] = value }
                                     )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
+                                            .border(
+                                                1.5.dp,
+                                                if (isSel) SuqiPrimary else SuqiBorder,
+                                                RoundedCornerShape(12.dp)
+                                            )
+                                            .clickable { chosen[option.key] = value }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = value,
+                                            fontFamily = SuqiFontFamily,
+                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 13.sp,
+                                            color = if (isSel) SuqiPrimary else SuqiPrimaryText
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -700,7 +508,7 @@ fun ProductDetailsScreen(
                                         ScreenDestination.ChatThread(
                                             shopId = currentProd.shopId,
                                             productContextName = currentProd.name,
-                                            productContextPrice = formatEtb(currentProd.price),
+                                            productContextPrice = formatEtb(displayPrice),
                                             productContextImage = currentProd.primaryImageUrl
                                         )
                                     )
@@ -772,15 +580,11 @@ fun ProductDetailsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             SpecRowItem(label = "Category", value = currentProd.categoryId.replace("cat_", "").replaceFirstChar { it.uppercase() })
-                            SpecRowItem(label = "Condition", value = "Brand New • Authentic")
-                            SpecRowItem(label = "Stock Availability", value = "${currentProd.stockQuantity} in stock")
-                            SpecRowItem(label = "Merchant Guarantee", value = "7-day return guarantee")
-                            if (currentProd.colors.isNotEmpty()) {
-                                SpecRowItem(label = "Available Colors", value = currentProd.colors.joinToString(", "))
+                            SpecRowItem(label = "Stock Availability", value = "$displayStock in stock")
+                            selectedVariant?.sku?.takeIf { it.isNotBlank() }?.let {
+                                SpecRowItem(label = "SKU", value = it)
                             }
-                            if (currentProd.sizesOrSpecs.isNotEmpty()) {
-                                SpecRowItem(label = "Available Options", value = currentProd.sizesOrSpecs.joinToString(", "))
-                            }
+                            DynamicSpecGroups(details)
                         }
                     }
                 }
@@ -882,21 +686,46 @@ fun ProductDetailsScreen(
 private fun SpecRowItem(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
     ) {
         Text(
             text = label,
             fontFamily = SuqiFontFamily,
             fontSize = 13.sp,
-            color = SuqiSecondaryText
+            color = SuqiSecondaryText,
+            modifier = Modifier.weight(0.42f)
         )
         Text(
             text = value,
             fontFamily = SuqiFontFamily,
             fontWeight = FontWeight.Medium,
             fontSize = 13.sp,
-            color = SuqiPrimaryText
+            color = SuqiPrimaryText,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(0.58f)
         )
+    }
+}
+
+/** Enabled, non-empty specifications of any product type, grouped by their section. */
+@Composable
+private fun DynamicSpecGroups(details: ProductDetails) {
+    val groups = details.specifications.groupBy { it.group }
+    val showHeadings = groups.size > 1 || (groups.keys.firstOrNull() ?: "General") != "General"
+    groups.forEach { (group, defs) ->
+        HorizontalDivider(color = SuqiBorder)
+        if (showHeadings) {
+            Text(
+                text = group,
+                fontFamily = SuqiFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                color = SuqiPrimary
+            )
+        }
+        defs.forEach { def ->
+            SpecRowItem(label = def.label, value = details.displayValue(def))
+        }
     }
 }

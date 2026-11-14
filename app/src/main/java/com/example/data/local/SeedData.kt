@@ -1,5 +1,11 @@
 package com.example.data.local
 
+import com.example.data.model.ProductDetails
+import com.example.data.model.ProductTemplates
+import com.example.data.model.ProductVariant
+import com.example.data.model.legacyProductDetails
+import com.example.data.model.toJson
+
 object SeedData {
     suspend fun seedDatabase(db: SuqiDatabase) {
         // Admin Settings
@@ -71,7 +77,9 @@ object SeedData {
             CategoryEntity("cat_beauty", "Beauty & Care", "ውበትና የግል እንክብካቤ", "Bareedina", "sparkles", "Skincare,Fragrance,Haircare,Makeup"),
             CategoryEntity("cat_sports", "Sports & Fitness", "ስፖርትና አካል ብቃት", "Ispoortii", "sports", "Fitness Equipment,Activewear,Footwear"),
             CategoryEntity("cat_groceries", "Groceries", "ምግብና ሸቀጣ ሸቀጥ", "Nyaata & Gabaa", "groceries", "Spices,Coffee,Fresh Produce,Snacks")
-        )
+        ) + ProductTemplates.extraCategories.map { c ->
+            CategoryEntity(c[0], c[1], c[2], c[3], c[4], c[5])
+        }
         db.categoryDao().insertAll(categories)
 
         // Shops
@@ -468,7 +476,7 @@ object SeedData {
                 isWishlisted = false
             )
         )
-        db.productDao().insertAll(products)
+        db.productDao().insertAll(products.map { withDemoDetails(it) })
 
         // Shop Payment Methods
         val paymentMethods = listOf(
@@ -823,5 +831,58 @@ object SeedData {
                 )
             )
         )
+    }
+
+    /**
+     * Showcases the dynamic product system on a few seeded products (laptop with configurable
+     * storage/color variants, sneakers, t-shirt). Other products use the legacy mapping.
+     */
+    private fun withDemoDetails(p: ProductEntity): ProductEntity {
+        val extra = p.extraImagesCsv.split(",").filter { it.isNotBlank() }
+        val colors = p.colorsCsv.split(",").filter { it.isNotBlank() }
+        val base = legacyProductDetails(p.primaryImageUrl, extra, colors, emptyList())
+        return when (p.id) {
+            "prod_laptop_hp" -> {
+                val attrs = ProductTemplates.byId("laptop").attributes.map {
+                    if (it.key == "storage") it.copy(selectable = true) else it
+                }
+                val values = mapOf(
+                    "brand" to listOf("HP"), "model" to listOf("15-fd0000"),
+                    "cpu" to listOf("Intel Core i5"), "ram" to listOf("8 GB"),
+                    "storage" to listOf("512 GB", "1 TB"), "storage_type" to listOf("SSD"),
+                    "screen_size" to listOf("15.6 inch"), "resolution" to listOf("Full HD"),
+                    "os" to listOf("Windows 11"), "color" to colors,
+                    "condition" to listOf("New"), "warranty" to listOf("1 year")
+                )
+                val variants = listOf("512 GB", "1 TB").flatMap { storage ->
+                    colors.map { color ->
+                        ProductVariant(
+                            id = "$storage • $color",
+                            options = linkedMapOf("storage" to storage, "color" to color),
+                            price = if (storage == "1 TB") 28999.0 else null,
+                            stock = if (storage == "1 TB") 2 else null
+                        )
+                    }
+                }
+                p.copy(detailsJson = ProductDetails("laptop", base.media, attrs, values, variants).toJson())
+            }
+            "prod_nike_af1" -> {
+                val values = mapOf(
+                    "brand" to listOf("Nike"), "gender" to listOf("Men"), "shoe_type" to listOf("Sneakers"),
+                    "size" to listOf("40", "41", "42", "43", "44"), "color" to colors.ifEmpty { listOf("White", "Black") },
+                    "material" to listOf("Leather"), "condition" to listOf("New")
+                )
+                p.copy(detailsJson = ProductDetails("shoes", base.media, ProductTemplates.byId("shoes").attributes, values).toJson())
+            }
+            "prod_tshirt_mens" -> {
+                val values = mapOf(
+                    "brand" to listOf("Habesha Cotton Co."), "gender" to listOf("Men"),
+                    "size" to listOf("S", "M", "L", "XL"), "color" to colors.ifEmpty { listOf("White", "Black") },
+                    "material" to listOf("Cotton"), "fit" to listOf("Regular"), "condition" to listOf("New")
+                )
+                p.copy(detailsJson = ProductDetails("clothing", base.media, ProductTemplates.byId("clothing").attributes, values).toJson())
+            }
+            else -> p
+        }
     }
 }

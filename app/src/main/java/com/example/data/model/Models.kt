@@ -74,7 +74,9 @@ data class ProductDto(
     val colors: List<String> = emptyList(),
     val sizesOrSpecs: List<String> = emptyList(),
     val status: String = "ACTIVE", // "ACTIVE", "PAUSED", "ARCHIVED"
-    val isWishlisted: Boolean = false
+    val isWishlisted: Boolean = false,
+    /** Media gallery, dynamic attributes and variants (always populated; legacy products are mapped). */
+    val details: ProductDetails = ProductDetails()
 )
 
 @JsonClass(generateAdapter = true)

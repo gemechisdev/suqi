@@ -2996,4 +2996,58 @@ object LucideIcons {
             )
         }.build()
     }
+
+    // ───────── Extra icons (product media & attribute editors) ─────────
+    private fun stroked(name: String, vararg paths: String, filled: Boolean = false): ImageVector =
+        ImageVector.Builder(
+            name = "Lucide.$name",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            paths.forEach { d ->
+                addPath(
+                    pathData = PathParser().parsePathString(d).toNodes(),
+                    stroke = SolidColor(Color.Black),
+                    strokeLineWidth = 2f,
+                    strokeLineCap = StrokeCap.Round,
+                    strokeLineJoin = StrokeJoin.Round,
+                    fill = if (filled) SolidColor(Color.Black) else SolidColor(Color.Transparent)
+                )
+            }
+        }.build()
+
+    val Play: ImageVector by lazy { stroked("Play", "M6 3l14 9-14 9V3z", filled = true) }
+    val ChevronUp: ImageVector by lazy { stroked("ChevronUp", "m18 15-6-6-6 6") }
+    val Pencil: ImageVector by lazy {
+        stroked("Pencil", "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z", "m15 5 4 4")
+    }
+    val Calendar: ImageVector by lazy {
+        stroked(
+            "Calendar", "M8 2v4", "M16 2v4",
+            "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M3 10h18"
+        )
+    }
+    val RefreshCw: ImageVector by lazy {
+        stroked(
+            "RefreshCw",
+            "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8", "M21 3v5h-5",
+            "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16", "M8 16H3v5"
+        )
+    }
+    val Video: ImageVector by lazy {
+        stroked(
+            "Video",
+            "m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5",
+            "M4 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"
+        )
+    }
+    val Link: ImageVector by lazy {
+        stroked(
+            "Link",
+            "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71",
+            "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+        )
+    }
 }

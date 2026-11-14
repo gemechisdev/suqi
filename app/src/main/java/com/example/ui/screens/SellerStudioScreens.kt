@@ -423,49 +423,26 @@ fun AddEditProductScreen(
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
-    var name by remember { mutableStateOf("Wireless Headphones Pro") }
+    var name by remember { mutableStateOf("") }
     var categoryId by remember { mutableStateOf("cat_electronics") }
-    var priceStr by remember { mutableStateOf("4999") }
-    var discountStr by remember { mutableStateOf("10") }
-    var stockStr by remember { mutableStateOf("100") }
+    var priceStr by remember { mutableStateOf("") }
+    var discountStr by remember { mutableStateOf("0") }
+    var stockStr by remember { mutableStateOf("10") }
     var stockHold by remember { mutableStateOf(true) }
-    var description by remember { mutableStateOf("High quality premium product with standard warranty.") }
+    var description by remember { mutableStateOf("") }
 
     // Tax handling (Plan §5.2)
     var selectedTax by remember { mutableStateOf("15% Standard VAT Included") }
     val taxOptions = remember { listOf("15% Standard VAT Included", "0% Exempt / Turn-Over Tax (TOT)", "Custom (5%)") }
 
-    // Real Media Picker with Photo & Video support
-    val selectedImages = remember {
-        mutableStateListOf(
-            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500",
-            "https://images.unsplash.com/photo-1484704849700-f032a568e944?w=500"
-        )
-    }
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10)
-    ) { uris: List<Uri> ->
-        if (uris.isNotEmpty()) {
-            uris.forEach { selectedImages.add(it.toString()) }
-            viewModel.showToast("${uris.size} media file(s) added")
-        }
-    }
+    // Media gallery (images, GIFs, videos) — ordered; first photo is the cover
+    val media = remember { mutableStateListOf<MediaItem>() }
 
-    // Variations Builder
-    val availableColors = remember { listOf("Black", "White", "Navy Blue", "Space Grey", "Habesha Gold", "Crimson Red") }
-    val selectedColors = remember { mutableStateListOf("Black", "White") }
-    var customColorInput by remember { mutableStateOf("") }
-
-    val availableSizes = remember { listOf("S", "M", "L", "XL", "Free Size", "64GB", "128GB", "256GB") }
-    val selectedSizes = remember { mutableStateListOf("128GB", "256GB") }
-    var customSizeInput by remember { mutableStateOf("") }
+    // Item type, configurable parameters, buyer options and variants
+    val form = remember { ProductFormState() }
 
     // Publish Gate Dialog
     var showMissingPaymentDialog by remember { mutableStateOf(false) }
-
-    // Dynamic attributes by category (Plan §5.2)
-    var attr1 by remember { mutableStateOf("") } // Brand / Material / Dimensions
-    var attr2 by remember { mutableStateOf("") } // Warranty / Gender / Expiry
 
     // Multilingual names and descriptions (Plan §5.2)
     var showMultilingual by remember { mutableStateOf(false) }
@@ -474,13 +451,40 @@ fun AddEditProductScreen(
     var nameOromo by remember { mutableStateOf("") }
     var descOromo by remember { mutableStateOf("") }
 
+    // Edit mode: load the existing product (media, parameters and variants included)
+    LaunchedEffect(productId) {
+        if (productId != null) {
+            val res = viewModel.repository.getProductDetails(productId)
+            val p = res.data
+            if (res.success && p != null) {
+                name = p.name
+                categoryId = p.categoryId
+                priceStr = if (p.price % 1.0 == 0.0) p.price.toLong().toString() else p.price.toString()
+                discountStr = p.discountPercent.toString()
+                stockStr = p.stockQuantity.toString()
+                stockHold = p.stockHoldEnabled
+                description = p.description
+                nameAmharic = p.nameAmharic
+                nameOromo = p.nameAfaanOromo
+                descAmharic = p.descriptionAmharic
+                descOromo = p.descriptionAfaanOromo
+                media.clear()
+                media.addAll(p.details.media)
+                form.load(p.details)
+            }
+        }
+    }
+
     val categories = listOf(
         "cat_electronics" to "Electronics",
         "cat_fashion" to "Fashion",
         "cat_home" to "Home & Living",
         "cat_beauty" to "Beauty & Care",
         "cat_groceries" to "Groceries",
-        "cat_sports" to "Sports"
+        "cat_sports" to "Sports",
+        "cat_vehicles" to "Vehicles",
+        "cat_kids" to "Kids & Toys",
+        "cat_books" to "Books & Media"
     )
 
     Scaffold(
@@ -520,43 +524,59 @@ fun AddEditProductScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     SuqiButton(
-                        text = "Save Product",
+                        text = if (productId == null) "Save Product" else "Save Changes",
                         onClick = {
                             coroutineScope.launch {
                                 // Publish Gate: Shop must have at least 1 active payment method
-                                val payRes = viewModel.repository.getShopPaymentMethods("shop_techhub")
-                                if (payRes.success && payRes.data.isNullOrEmpty()) {
-                                    showMissingPaymentDialog = true
+                                if (productId == null) {
+                                    val payRes = viewModel.repository.getShopPaymentMethods("shop_techhub")
+                                    if (payRes.success && payRes.data.isNullOrEmpty()) {
+                                        showMissingPaymentDialog = true
+                                        return@launch
+                                    }
+                                }
+
+                                // Validation (the backend validates again)
+                                val p = priceStr.toDoubleOrNull() ?: 0.0
+                                val d = discountStr.toIntOrNull() ?: 0
+                                val s = stockStr.toIntOrNull() ?: 0
+                                when {
+                                    media.none { !it.isVideo } -> { viewModel.showToast("Add at least one photo or GIF for the cover"); return@launch }
+                                    name.isBlank() -> { viewModel.showToast("Enter a product name"); return@launch }
+                                    p <= 0.0 -> { viewModel.showToast("Enter a valid price"); return@launch }
+                                    d !in 0..90 -> { viewModel.showToast("Discount must be between 0 and 90%"); return@launch }
+                                    description.isBlank() -> { viewModel.showToast("Enter a description"); return@launch }
+                                }
+                                form.missingRequired()?.let {
+                                    viewModel.showToast("${it.label} is required")
                                     return@launch
                                 }
 
-                                val p = (priceStr.toDoubleOrNull() ?: 4999.0)
-                                val d = (discountStr.toIntOrNull() ?: 0)
-                                val s = (stockStr.toIntOrNull() ?: 10)
-                                val res = viewModel.repository.createProduct(
-                                    mapOf(
-                                        "name" to name,
-                                        "nameAmharic" to nameAmharic,
-                                        "nameAfaanOromo" to nameOromo,
-                                        "price" to p,
-                                        "discountPercent" to d,
-                                        "stockQuantity" to s,
-                                        "stockHoldEnabled" to stockHold,
-                                        "categoryId" to categoryId,
-                                        "tax" to selectedTax,
-                                        "colors" to selectedColors.joinToString(", "),
-                                        "sizes" to selectedSizes.joinToString(", "),
-                                        "images" to selectedImages.toList(),
-                                        "description" to description,
-                                        "descriptionAmharic" to descAmharic,
-                                        "descriptionAfaanOromo" to descOromo,
-                                        "attribute1" to attr1,
-                                        "attribute2" to attr2
-                                    )
+                                val payload = mapOf<String, Any>(
+                                    "name" to name.trim(),
+                                    "nameAmharic" to nameAmharic,
+                                    "nameAfaanOromo" to nameOromo,
+                                    "price" to p,
+                                    "discountPercent" to d,
+                                    "stockQuantity" to s,
+                                    "stockHoldEnabled" to stockHold,
+                                    "categoryId" to categoryId,
+                                    "tax" to selectedTax,
+                                    "description" to description,
+                                    "descriptionAmharic" to descAmharic,
+                                    "descriptionAfaanOromo" to descOromo,
+                                    "detailsJson" to form.toDetails(media.toList()).toJson()
                                 )
+                                val res = if (productId == null) {
+                                    viewModel.repository.createProduct(payload)
+                                } else {
+                                    viewModel.repository.updateProduct(productId, payload)
+                                }
                                 if (res.success) {
-                                    viewModel.showToast("Product saved successfully!")
+                                    viewModel.showToast(if (productId == null) "Product saved successfully!" else "Product updated!")
                                     viewModel.goBack()
+                                } else {
+                                    viewModel.showToast(res.message ?: "Could not save the product")
                                 }
                             }
                         },
@@ -574,99 +594,25 @@ fun AddEditProductScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(16.dp)
         ) {
-            // Photos & Media Upload Box with Real Photo Picker (Checklist 18 & Mockup 3)
+            // Photos, GIFs & videos (reorder / replace / remove / cover)
             item {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(SuqiPrimary.copy(alpha = 0.4f))
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
-                            )
-                        }
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(SuqiPrimary.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(LucideIcons.ImagePlus, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(28.dp))
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Add Photos & Videos (${selectedImages.size}/10)",
-                            fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp,
-                            color = SuqiPrimaryText
-                        )
-                        Text(
-                            text = "Tap to choose images, GIFs or videos from device",
-                            fontFamily = SuqiFontFamily,
-                            fontSize = 12.sp,
-                            color = SuqiMutedText
-                        )
-                    }
-                }
+                SuqiMediaEditor(
+                    media = media,
+                    onMessage = { viewModel.showToast(it) }
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+            }
 
-                // Selected Media Preview Strip with Remove Badge
-                if (selectedImages.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(selectedImages) { mediaUrl ->
-                            Box(
-                                modifier = Modifier
-                                    .size(76.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(SuqiSecondaryBackground)
-                                    .border(1.dp, SuqiBorder, RoundedCornerShape(14.dp))
-                            ) {
-                                AsyncImage(
-                                    model = mediaUrl,
-                                    contentDescription = "Uploaded media",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                // Delete Badge (X)
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp)
-                                        .size(20.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Black.copy(alpha = 0.7f))
-                                        .clickable { selectedImages.remove(mediaUrl) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = LucideIcons.X,
-                                        contentDescription = "Remove",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                }
-                            }
-                        }
+            // Item type → predefined, fully editable parameters
+            item {
+                ItemTypeSelector(
+                    state = form,
+                    onTypeChosen = { type ->
+                        form.applyItemType(type)
+                        if (type.categoryId.isNotBlank()) categoryId = type.categoryId
                     }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
+                )
+                Spacer(modifier = Modifier.height(18.dp))
             }
 
             // Category Selector Chips (Plan §5.2)
@@ -801,176 +747,13 @@ fun AddEditProductScreen(
                         singleLine = false
                     )
 
-                    // Product Variations Builder: Colors & Sizes (Plan §5.2)
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(
-                                text = "Product Variations Builder",
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
-                            )
-
-                            // Color Variations
-                            Column {
-                                Text("Colors Available", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiSecondaryText)
-                                Spacer(modifier = Modifier.height(6.dp))
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    for (color in availableColors) {
-                                        val isSel = color in selectedColors
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(999.dp))
-                                                .background(if (isSel) SuqiPrimary else LocalSuqiColors.current.cardBackground)
-                                                .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
-                                                .clickable {
-                                                    if (isSel) selectedColors.remove(color) else selectedColors.add(color)
-                                                }
-                                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                                        ) {
-                                            Text(
-                                                text = color,
-                                                fontFamily = SuqiFontFamily,
-                                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                                fontSize = 12.sp,
-                                                color = if (isSel) Color.White else SuqiPrimaryText
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedTextField(
-                                        value = customColorInput,
-                                        onValueChange = { customColorInput = it },
-                                        placeholder = { Text("Add custom color...", fontSize = 12.sp) },
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f).height(48.dp),
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    Button(
-                                        onClick = {
-                                            if (customColorInput.isNotBlank()) {
-                                                selectedColors.add(customColorInput.trim())
-                                                customColorInput = ""
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.height(48.dp)
-                                    ) {
-                                        Text("+ Add", fontSize = 12.sp)
-                                    }
-                                }
-                            }
-
-                            HorizontalDivider(color = SuqiBorder)
-
-                            // Size / Spec Variations
-                            Column {
-                                Text("Sizes / Capacity", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiSecondaryText)
-                                Spacer(modifier = Modifier.height(6.dp))
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    for (sz in availableSizes) {
-                                        val isSel = sz in selectedSizes
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(999.dp))
-                                                .background(if (isSel) SuqiPrimary else LocalSuqiColors.current.cardBackground)
-                                                .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
-                                                .clickable {
-                                                    if (isSel) selectedSizes.remove(sz) else selectedSizes.add(sz)
-                                                }
-                                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                                        ) {
-                                            Text(
-                                                text = sz,
-                                                fontFamily = SuqiFontFamily,
-                                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                                fontSize = 12.sp,
-                                                color = if (isSel) Color.White else SuqiPrimaryText
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedTextField(
-                                        value = customSizeInput,
-                                        onValueChange = { customSizeInput = it },
-                                        placeholder = { Text("Add custom size / spec...", fontSize = 12.sp) },
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f).height(48.dp),
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    Button(
-                                        onClick = {
-                                            if (customSizeInput.isNotBlank()) {
-                                                selectedSizes.add(customSizeInput.trim())
-                                                customSizeInput = ""
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.height(48.dp)
-                                    ) {
-                                        Text("+ Add", fontSize = 12.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Dynamic Category Attributes (Plan §5.2)
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = SuqiSecondaryBackground),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(
-                                text = "Category-Specific Attributes",
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
-                            )
-                            when (categoryId) {
-                                "cat_electronics" -> {
-                                    SuqiTextField(value = attr1, onValueChange = { attr1 = it }, label = "Brand / Manufacturer", placeholder = "e.g., Apple, Samsung, Sony")
-                                    SuqiTextField(value = attr2, onValueChange = { attr2 = it }, label = "Warranty Period", placeholder = "e.g., 6 Months, 1 Year")
-                                }
-                                "cat_fashion" -> {
-                                    SuqiTextField(value = attr1, onValueChange = { attr1 = it }, label = "Material / Fabric", placeholder = "e.g., 100% Cotton, Ethiopian Shemma")
-                                    SuqiTextField(value = attr2, onValueChange = { attr2 = it }, label = "Gender & Fit", placeholder = "e.g., Unisex, Slim Fit")
-                                }
-                                "cat_home" -> {
-                                    SuqiTextField(value = attr1, onValueChange = { attr1 = it }, label = "Dimensions & Weight", placeholder = "e.g., 120 x 60 x 75 cm")
-                                    SuqiTextField(value = attr2, onValueChange = { attr2 = it }, label = "Material", placeholder = "e.g., Solid Wood, Metal")
-                                }
-                                else -> {
-                                    SuqiTextField(value = attr1, onValueChange = { attr1 = it }, label = "Product Origin / Brand", placeholder = "e.g., Made in Ethiopia")
-                                    SuqiTextField(value = attr2, onValueChange = { attr2 = it }, label = "Shelf Life / Packaging", placeholder = "e.g., 12 Months")
-                                }
-                            }
-                        }
-                    }
-
+                    // Configurable parameters (specs, sizes, colors…) + optional variants
+                    ParametersEditor(state = form)
+                    VariantsEditor(
+                        state = form,
+                        media = media,
+                        onMessage = { viewModel.showToast(it) }
+                    )
                     // Multilingual Accordion (Plan §5.2: Amharic & Afaan Oromo)
                     Card(
                         shape = RoundedCornerShape(16.dp),
@@ -1241,8 +1024,8 @@ fun ProductManagementScreen(
                             }
                         }
 
-                        IconButton(onClick = { viewModel.showToast("Product options") }) {
-                            Icon(LucideIcons.MoreVertical, contentDescription = "Options", tint = SuqiSecondaryText)
+                        IconButton(onClick = { viewModel.navigate(ScreenDestination.AddEditProduct(prod.id)) }) {
+                            Icon(LucideIcons.Pencil, contentDescription = "Edit product", tint = SuqiPrimary)
                         }
                     }
                 }

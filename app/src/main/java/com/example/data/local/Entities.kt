@@ -75,7 +75,9 @@ data class ProductEntity(
     val colorsCsv: String = "",
     val specsCsv: String = "",
     val status: String = "ACTIVE",
-    val isWishlisted: Boolean = false
+    val isWishlisted: Boolean = false,
+    /** JSON document: item type, media, attributes, values, variants (see ProductDetails). */
+    val detailsJson: String = ""
 )
 
 @Entity(tableName = "cart_items")

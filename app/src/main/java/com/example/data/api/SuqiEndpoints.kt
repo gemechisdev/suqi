@@ -34,6 +34,7 @@ object SuqiEndpoints {
     // Seller Studio
     const val SELLER_DASHBOARD = "seller/dashboard"
     const val SELLER_PRODUCTS = "seller/products"
+    const val SELLER_PRODUCT_UPDATE = "seller/products/update"
     const val SELLER_ORDERS = "seller/orders"
     const val SELLER_ORDER_STATUS = "seller/orders/{orderId}/status"
     const val SELLER_VERIFICATION_QUEUE = "seller/verification-queue"

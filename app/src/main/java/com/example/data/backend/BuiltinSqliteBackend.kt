@@ -274,11 +274,16 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val product = db.productDao().getProductById(productId)
             ?: return@withContext ApiResponse(success = false, message = "Product not found")
 
+        // Variant-specific price / stock / image when the buyer picked a configured variant
+        val variant = product.variantForLabel(variation)
+        val available = variant?.stock ?: product.stockQuantity
+        val unitPrice = variant?.price ?: product.price
+
         // Validate inventory
-        if (product.stockQuantity < quantity) {
+        if (available < quantity) {
             return@withContext ApiResponse(
                 success = false,
-                message = "Only ${product.stockQuantity} items in stock!"
+                message = "Only $available items in stock!"
             )
         }
 
@@ -289,11 +294,11 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             shopName = product.shopName,
             shopVerified = product.shopVerified,
             productName = product.name,
-            productImageUrl = product.primaryImageUrl,
-            unitPrice = product.price,
+            productImageUrl = variant?.imageUrl?.takeIf { it.isNotBlank() } ?: product.primaryImageUrl,
+            unitPrice = unitPrice,
             quantity = quantity,
             selectedVariation = variation,
-            stockAvailable = product.stockQuantity
+            stockAvailable = available
         )
         val id = db.cartDao().insertCartItem(cartEntity)
         ApiResponse(success = true, data = cartEntity.copy(id = id).toDto())
@@ -370,14 +375,24 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 val qty = obj.getInt("quantity")
                 val prod = db.productDao().getProductById(pId)
                 if (prod != null) {
-                    if (prod.stockQuantity < qty) {
+                    val variant = prod.variantForLabel(obj.optString("variation"))
+                    val variantStock = variant?.stock
+                    if (prod.stockQuantity < qty || (variantStock != null && variantStock < qty)) {
                         return@withContext ApiResponse(
                             success = false,
-                            message = "Insufficient stock for ${prod.name}! Only ${prod.stockQuantity} left."
+                            message = "Insufficient stock for ${prod.name}! Only ${variantStock ?: prod.stockQuantity} left."
                         )
                     }
                     if (prod.stockHoldEnabled) {
                         db.productDao().decrementStock(pId, qty)
+                        if (variant != null && variantStock != null) {
+                            parseProductDetails(prod.detailsJson)?.let { d ->
+                                val updated = d.copy(variants = d.variants.map {
+                                    if (it.id == variant.id) it.copy(stock = variantStock - qty) else it
+                                })
+                                db.productDao().updateDetailsJson(pId, updated.toJson())
+                            }
+                        }
                     }
                 }
             }
@@ -543,40 +558,129 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val shopId = currentUser?.shopId ?: "shop_techhub"
         val shop = db.shopDao().getShopById(shopId)
 
-        val prodId = "prod_${System.currentTimeMillis()}"
-        val name = productData["name"] as String
-        val price = (productData["price"] as Number).toDouble()
-        val discount = (productData["discountPercent"] as? Number)?.toInt() ?: 0
-        val stock = (productData["stockQuantity"] as? Number)?.toInt() ?: 10
-        val stockHold = productData["stockHoldEnabled"] as? Boolean ?: true
-        val colors = productData["colors"] as? String ?: "Black,White"
-        val specs = productData["specs"] as? String ?: "Standard"
-        val categoryId = productData["categoryId"] as? String ?: "cat_electronics"
+        validateProductInput(productData)?.let { return@withContext ApiResponse(success = false, message = it) }
 
-        val product = ProductEntity(
-            id = prodId,
+        val product = buildProductEntity(
+            id = "prod_${System.currentTimeMillis()}",
             shopId = shopId,
-            shopName = shop?.name ?: "Tech Hub",
-            shopVerified = shop?.isVerified ?: true,
-            name = name,
-            description = productData["description"] as? String ?: "New product listed on Suqi.",
-            primaryImageUrl = productData["imageUrl"] as? String ?: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
-            categoryId = categoryId,
-            subCategory = productData["subCategory"] as? String ?: "General",
+            shop = shop,
+            data = productData,
+            existing = null
+        )
+        db.productDao().insertProduct(product)
+        ApiResponse(success = true, data = product.toDto())
+    }
+
+    override suspend fun updateProduct(id: String, productData: Map<String, Any>): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
+        val existing = db.productDao().getProductById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Product not found")
+
+        validateProductInput(productData)?.let { return@withContext ApiResponse(success = false, message = it) }
+
+        val product = buildProductEntity(id, existing.shopId, null, productData, existing)
+        db.productDao().updateProduct(product)
+        ApiResponse(success = true, data = product.toDto())
+    }
+
+    /** Backend-side validation (mirrors the form): name, price, discount, stock, required attributes, media count. */
+    private fun validateProductInput(data: Map<String, Any>): String? {
+        val name = (data["name"] as? String)?.trim().orEmpty()
+        if (name.isBlank()) return "Product name is required"
+        val price = (data["price"] as? Number)?.toDouble() ?: return "A valid price is required"
+        if (price <= 0.0) return "Price must be greater than 0"
+        val discount = (data["discountPercent"] as? Number)?.toInt() ?: 0
+        if (discount !in 0..90) return "Discount must be between 0 and 90%"
+        val stock = (data["stockQuantity"] as? Number)?.toInt() ?: 0
+        if (stock < 0) return "Stock cannot be negative"
+        val details = (data["detailsJson"] as? String)?.let { parseProductDetails(it) }
+        if (details != null) {
+            if (details.media.size > 12) return "You can add up to 12 media files"
+            details.attributes
+                .firstOrNull { it.enabled && it.required && details.valuesOf(it.key).isEmpty() }
+                ?.let { return "${it.label} is required" }
+        }
+        return null
+    }
+
+    private fun buildProductEntity(
+        id: String,
+        shopId: String,
+        shop: ShopEntity?,
+        data: Map<String, Any>,
+        existing: ProductEntity?
+    ): ProductEntity {
+        val details = (data["detailsJson"] as? String)?.let { parseProductDetails(it) }
+        val price = (data["price"] as? Number)?.toDouble() ?: existing?.price ?: 0.0
+        val discount = (data["discountPercent"] as? Number)?.toInt() ?: existing?.discountPercent ?: 0
+
+        var stock = (data["stockQuantity"] as? Number)?.toInt() ?: existing?.stockQuantity ?: 10
+        // When every variant tracks its own stock, the product total is their sum.
+        if (details != null && details.variants.isNotEmpty() && details.variants.all { it.stock != null }) {
+            stock = details.variants.sumOf { it.stock ?: 0 }
+        }
+
+        val cover = details?.coverImageUrl().orEmpty().ifBlank {
+            data["imageUrl"] as? String
+                ?: existing?.primaryImageUrl
+                ?: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600"
+        }
+        val extraImages = details?.media.orEmpty().map { it.url }.filter { it != cover }
+
+        // Legacy colour / option CSVs stay populated for older screens.
+        val colorAttr = details?.buyerOptions?.firstOrNull { it.type == AttrType.COLOR }
+        val otherOption = details?.buyerOptions?.firstOrNull { it.type != AttrType.COLOR }
+        val colorsCsv = if (details != null) {
+            colorAttr?.let { details.valuesOf(it.key).joinToString(",") }.orEmpty()
+        } else {
+            data["colors"] as? String ?: existing?.colorsCsv ?: ""
+        }
+        val specsCsv = if (details != null) {
+            otherOption?.let { details.valuesOf(it.key).joinToString(",") }.orEmpty()
+        } else {
+            data["specs"] as? String ?: existing?.specsCsv ?: ""
+        }
+
+        val typeLabel = details?.itemType?.takeIf { it.isNotBlank() && it != "custom" }
+            ?.let { ProductTemplates.byId(it).label }
+
+        return ProductEntity(
+            id = id,
+            shopId = shopId,
+            shopName = shop?.name ?: existing?.shopName ?: "Tech Hub",
+            shopVerified = shop?.isVerified ?: existing?.shopVerified ?: true,
+            name = (data["name"] as? String)?.trim() ?: existing?.name ?: "",
+            nameAmharic = data["nameAmharic"] as? String ?: existing?.nameAmharic ?: "",
+            nameAfaanOromo = data["nameAfaanOromo"] as? String ?: existing?.nameAfaanOromo ?: "",
+            description = data["description"] as? String ?: existing?.description ?: "New product listed on Suqi.",
+            descriptionAmharic = data["descriptionAmharic"] as? String ?: existing?.descriptionAmharic ?: "",
+            descriptionAfaanOromo = data["descriptionAfaanOromo"] as? String ?: existing?.descriptionAfaanOromo ?: "",
+            primaryImageUrl = cover,
+            extraImagesCsv = extraImages.joinToString(","),
+            categoryId = data["categoryId"] as? String ?: existing?.categoryId ?: "cat_electronics",
+            subCategory = data["subCategory"] as? String ?: typeLabel ?: existing?.subCategory ?: "General",
             price = price,
             originalPrice = if (discount > 0) price / (1 - (discount / 100.0)) else price,
             discountPercent = discount,
             stockQuantity = stock,
-            stockHoldEnabled = stockHold,
-            rating = 5.0,
-            reviewCount = 0,
-            soldCount = "New",
-            colorsCsv = colors,
-            specsCsv = specs,
-            status = "ACTIVE"
+            stockHoldEnabled = data["stockHoldEnabled"] as? Boolean ?: existing?.stockHoldEnabled ?: true,
+            rating = existing?.rating ?: 5.0,
+            reviewCount = existing?.reviewCount ?: 0,
+            soldCount = existing?.soldCount ?: "New",
+            colorsCsv = colorsCsv,
+            specsCsv = specsCsv,
+            status = existing?.status ?: "ACTIVE",
+            isWishlisted = existing?.isWishlisted ?: false,
+            detailsJson = details?.toJson() ?: existing?.detailsJson ?: ""
         )
-        db.productDao().insertProduct(product)
-        ApiResponse(success = true, data = product.toDto())
+    }
+
+    /** Variant chosen by the buyer, matched by its label ("Black • 256 GB"). */
+    private fun ProductEntity.variantForLabel(label: String): ProductVariant? {
+        if (label.isBlank()) return null
+        val d = parseProductDetails(detailsJson) ?: return null
+        if (d.variants.isEmpty()) return null
+        val opts = d.buyerOptions
+        return d.variants.firstOrNull { v -> ProductDetails.variantLabel(opts, v.options) == label }
     }
 
     override suspend fun updateProductStatus(id: String, status: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
@@ -934,7 +1038,13 @@ fun ProductEntity.toDto() = ProductDto(
     rating = rating, reviewCount = reviewCount, soldCount = soldCount,
     colors = if (colorsCsv.isBlank()) emptyList() else colorsCsv.split(","),
     sizesOrSpecs = if (specsCsv.isBlank()) emptyList() else specsCsv.split(","),
-    status = status, isWishlisted = isWishlisted
+    status = status, isWishlisted = isWishlisted,
+    details = parseProductDetails(detailsJson) ?: legacyProductDetails(
+        primaryImageUrl = primaryImageUrl,
+        extraImages = if (extraImagesCsv.isBlank()) emptyList() else extraImagesCsv.split(","),
+        colors = if (colorsCsv.isBlank()) emptyList() else colorsCsv.split(","),
+        sizesOrSpecs = if (specsCsv.isBlank()) emptyList() else specsCsv.split(",")
+    )
 )
 
 fun CartItemEntity.toDto() = CartItemDto(

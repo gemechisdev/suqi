@@ -113,6 +113,7 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun getSellerDashboard() = api.getSellerDashboard()
     suspend fun getSellerProducts() = api.getSellerProducts()
     suspend fun createProduct(data: Map<String, Any>) = api.createProduct(data)
+    suspend fun updateProduct(id: String, data: Map<String, Any>) = api.updateProduct(id, data)
     suspend fun updateProductStatus(id: String, status: String) = api.updateProductStatus(id, status)
     suspend fun getSellerOrders() = api.getSellerOrders()
     suspend fun updateSellerOrderStatus(orderId: String, status: String) = api.updateSellerOrderStatus(orderId, status)

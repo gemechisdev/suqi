@@ -71,6 +71,9 @@ interface ProductDao {
     @Update
     suspend fun updateProduct(product: ProductEntity)
 
+    @Query("UPDATE products SET detailsJson = :json WHERE id = :id")
+    suspend fun updateDetailsJson(id: String, json: String)
+
     @Query("UPDATE products SET isWishlisted = :isWishlisted WHERE id = :id")
     suspend fun updateWishlist(id: String, isWishlisted: Boolean)
 
