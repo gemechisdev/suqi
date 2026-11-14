@@ -48,8 +48,7 @@ fun CategoriesScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
-    val rawCartCount by viewModel.cartCount.collectAsState(initial = 0)
-    val cartCount = if (rawCartCount <= 0) 2 else rawCartCount
+    val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isDark by viewModel.isDarkMode.collectAsState()
     val effectiveDark = isDark ?: isSystemInDarkTheme()
     // 9 Categories precisely matching the user's reference design

@@ -8,11 +8,23 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
     suspend fun getUserById(id: String): UserEntity?
 
+    @Query("SELECT * FROM users WHERE isActiveSession = 1 LIMIT 1")
+    suspend fun getActiveSessionUser(): UserEntity?
+
     @Query("SELECT * FROM users LIMIT 1")
     suspend fun getFirstUser(): UserEntity?
 
-    @Query("SELECT * FROM users LIMIT 1")
+    @Query("SELECT * FROM users")
+    suspend fun getAllUsers(): List<UserEntity>
+
+    @Query("SELECT * FROM users WHERE isActiveSession = 1 LIMIT 1")
     fun observeCurrentUser(): Flow<UserEntity?>
+
+    @Query("UPDATE users SET isActiveSession = 0")
+    suspend fun clearActiveSessions()
+
+    @Query("UPDATE users SET isActiveSession = 1 WHERE id = :userId")
+    suspend fun setActiveSession(userId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
@@ -82,6 +94,9 @@ interface ProductDao {
 
     @Query("UPDATE products SET stockQuantity = stockQuantity + :qty WHERE id = :id")
     suspend fun incrementStock(id: String, qty: Int)
+
+    @Query("DELETE FROM products WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
 
 @Dao
@@ -158,6 +173,9 @@ interface ShopPaymentMethodDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(methods: List<ShopPaymentMethodEntity>)
 
+    @Query("DELETE FROM shop_payment_methods WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Delete
     suspend fun delete(method: ShopPaymentMethodEntity)
 }
@@ -172,12 +190,18 @@ interface ShopDeliveryOptionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(options: List<ShopDeliveryOptionEntity>)
+
+    @Query("DELETE FROM shop_delivery_options WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
 
 @Dao
 interface PromoCodeDao {
     @Query("SELECT * FROM promo_codes WHERE shopId = :shopId AND isActive = 1")
     suspend fun getActivePromosForShop(shopId: String): List<PromoCodeEntity>
+
+    @Query("SELECT * FROM promo_codes WHERE shopId = :shopId")
+    suspend fun getAllPromosForShop(shopId: String): List<PromoCodeEntity>
 
     @Query("SELECT * FROM promo_codes WHERE shopId = :shopId AND code = :code LIMIT 1")
     suspend fun getPromoByCode(shopId: String, code: String): PromoCodeEntity?
@@ -187,6 +211,9 @@ interface PromoCodeDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(promos: List<PromoCodeEntity>)
+
+    @Query("DELETE FROM promo_codes WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
 
 @Dao
@@ -205,6 +232,9 @@ interface ReviewDao {
 interface ChatDao {
     @Query("SELECT * FROM chat_messages WHERE conversationId = :convId ORDER BY timestamp ASC")
     suspend fun getMessages(convId: String): List<ChatMessageEntity>
+
+    @Query("SELECT * FROM chat_messages WHERE shopId = :shopId ORDER BY timestamp ASC")
+    suspend fun getMessagesForShop(shopId: String): List<ChatMessageEntity>
 
     @Query("SELECT * FROM chat_messages ORDER BY timestamp DESC")
     suspend fun getAllMessages(): List<ChatMessageEntity>
@@ -226,6 +256,15 @@ interface NotificationDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(notifications: List<NotificationEntity>)
+
+    @Query("UPDATE notifications SET isRead = :isRead WHERE id = :id")
+    suspend fun setRead(id: String, isRead: Boolean)
+
+    @Query("UPDATE notifications SET isRead = 1 WHERE userId = :userId")
+    suspend fun markAllRead(userId: String)
+
+    @Query("DELETE FROM notifications WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
 
 @Dao
@@ -241,15 +280,27 @@ interface SavedAddressDao {
 
     @Update
     suspend fun update(address: SavedAddressEntity)
+
+    @Query("UPDATE saved_addresses SET isDefault = 0 WHERE userId = :userId")
+    suspend fun clearDefaultForUser(userId: String)
+
+    @Query("DELETE FROM saved_addresses WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
 
 @Dao
 interface CategoryDao {
-    @Query("SELECT * FROM categories")
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC")
     suspend fun getAllCategories(): List<CategoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(category: CategoryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(categories: List<CategoryEntity>)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
 
 @Dao
@@ -265,4 +316,79 @@ interface AdminSettingsDao {
 
     @Update
     suspend fun update(settings: AdminSettingsEntity)
+}
+
+@Dao
+interface PromoBannerDao {
+    @Query("SELECT * FROM promo_banners ORDER BY sortOrder ASC")
+    suspend fun getAllBanners(): List<PromoBannerEntity>
+
+    @Query("SELECT * FROM promo_banners WHERE isActive = 1 ORDER BY sortOrder ASC")
+    suspend fun getActiveBanners(): List<PromoBannerEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(banner: PromoBannerEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(banners: List<PromoBannerEntity>)
+
+    @Query("DELETE FROM promo_banners WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface FlaggedReviewDao {
+    @Query("SELECT * FROM flagged_reviews ORDER BY createdAt DESC")
+    suspend fun getAllFlagged(): List<FlaggedReviewEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(item: FlaggedReviewEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<FlaggedReviewEntity>)
+
+    @Query("UPDATE flagged_reviews SET status = :status WHERE id = :id")
+    suspend fun updateStatus(id: String, status: String)
+}
+
+@Dao
+interface ProductQuestionDao {
+    @Query("SELECT * FROM product_questions WHERE productId = :productId ORDER BY createdAt DESC")
+    suspend fun getQuestionsForProduct(productId: String): List<ProductQuestionEntity>
+
+    @Query("SELECT * FROM product_questions WHERE shopId = :shopId ORDER BY createdAt DESC")
+    suspend fun getQuestionsForShop(shopId: String): List<ProductQuestionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(question: ProductQuestionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(questions: List<ProductQuestionEntity>)
+}
+
+@Dao
+interface SubscriptionPlanDao {
+    @Query("SELECT * FROM subscription_plans ORDER BY monthlyPrice ASC")
+    suspend fun getAllPlans(): List<SubscriptionPlanEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(plan: SubscriptionPlanEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(plans: List<SubscriptionPlanEntity>)
+
+    @Query("DELETE FROM subscription_plans WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface SupportTicketDao {
+    @Query("SELECT * FROM support_tickets WHERE userId = :userId ORDER BY createdAt DESC")
+    suspend fun getTicketsForUser(userId: String): List<SupportTicketEntity>
+
+    @Query("SELECT * FROM support_tickets ORDER BY createdAt DESC")
+    suspend fun getAllTickets(): List<SupportTicketEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(ticket: SupportTicketEntity)
 }

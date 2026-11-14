@@ -1,17 +1,11 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,15 +33,30 @@ fun CartScreen(
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val colors = LocalSuqiColors.current
+    val isOffline by viewModel.isOffline.collectAsState()
     var cartItems by remember { mutableStateOf<List<CartItemDto>>(emptyList()) }
+    var shopPromos by remember { mutableStateOf<Map<String, List<PromoCodeDto>>>(emptyMap()) }
+    var isLoading by remember { mutableStateOf(true) }
     var showClearDialog by remember { mutableStateOf(false) }
 
     fun refreshCart() {
         coroutineScope.launch {
+            isLoading = true
             val res = viewModel.repository.getCartItems()
             if (res.success && res.data != null) {
                 cartItems = res.data
+                val shopIds = res.data.map { it.shopId }.distinct()
+                val promoMap = mutableMapOf<String, List<PromoCodeDto>>()
+                shopIds.forEach { sId ->
+                    val pRes = viewModel.repository.getShopPromotions(sId)
+                    if (pRes.success && pRes.data != null) {
+                        promoMap[sId] = pRes.data
+                    }
+                }
+                shopPromos = promoMap
             }
+            isLoading = false
         }
     }
 
@@ -55,114 +64,70 @@ fun CartScreen(
         refreshCart()
     }
 
-    // Group items by shop (Checklist Item 06 requirement!)
     val groupedByShop = cartItems.groupBy { it.shopId to it.shopName }
-    val totalAllShops = cartItems.sumOf { it.unitPrice * it.quantity }
 
-    Scaffold(
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { viewModel.goBack() },
+    SuqiScreen(
+        title = "My Cart",
+        subtitle = if (cartItems.isNotEmpty()) "${cartItems.sumOf { it.quantity }} items across ${groupedByShop.size} shop(s)" else null,
+        onBackClick = { viewModel.goBack() },
+        isOffline = isOffline,
+        headerActions = {
+            if (cartItems.isNotEmpty()) {
+                Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
-                        .background(SuqiSecondaryBackground)
+                        .background(colors.secondaryBackground)
+                        .clickable { showClearDialog = true }
+                        .testTag("cart_clear_button"),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
-                }
-
-                Text(
-                    text = "My Cart",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 20.sp,
-                    color = SuqiPrimaryText
-                )
-
-                if (cartItems.isNotEmpty()) {
-                    IconButton(
-                        onClick = { showClearDialog = true },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(SuqiSecondaryBackground)
-                    ) {
-                        Icon(LucideIcons.Trash2, contentDescription = "Clear Cart", tint = SuqiPrimaryText)
-                    }
-                } else {
-                    Spacer(modifier = Modifier.width(40.dp))
+                    Icon(
+                        imageVector = LucideIcons.Trash2,
+                        contentDescription = "Clear Cart",
+                        tint = SuqiError,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         },
-        containerColor = SuqiBackground,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
     ) { paddingValues ->
-        if (cartItems.isEmpty()) {
+        if (isLoading) {
+            SuqiSkeletonList(
+                count = 3,
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .padding(top = 12.dp)
+            )
+        } else if (cartItems.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(24.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(CircleShape)
-                            .background(SuqiPrimaryTint),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = LucideIcons.ShoppingCart,
-                            contentDescription = null,
-                            tint = SuqiPrimary,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Your Cart is Empty",
-                        fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 20.sp,
-                        color = SuqiPrimaryText
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Explore amazing deals from independent shops across Ethiopia.",
-                        fontFamily = SuqiFontFamily,
-                        fontSize = 14.sp,
-                        color = SuqiSecondaryText,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    SuqiButton(
-                        text = "Start Shopping",
-                        onClick = { viewModel.navigate(ScreenDestination.Home) }
-                    )
-                }
+                SuqiEmptyState(
+                    icon = LucideIcons.ShoppingCart,
+                    title = "Your Cart is Empty",
+                    subtitle = "Explore amazing deals from verified independent shops across Ethiopia.",
+                    ctaText = "Start Shopping",
+                    onCtaClick = { viewModel.popToRoot(ScreenDestination.Home) },
+                    testTag = "cart_empty_state"
+                )
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = 32.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 groupedByShop.forEach { (shopKey, itemsInShop) ->
                     val (shopId, shopName) = shopKey
                     val shopSubtotal = itemsInShop.sumOf { it.unitPrice * it.quantity }
+                    val availablePromos = shopPromos[shopId].orEmpty()
 
                     item(key = shopId) {
                         ShopCartGroupCard(
@@ -170,6 +135,9 @@ fun CartScreen(
                             shopName = shopName,
                             items = itemsInShop,
                             subtotal = shopSubtotal,
+                            availablePromos = availablePromos,
+                            onShopClick = { viewModel.navigate(ScreenDestination.ShopStorefront(shopId)) },
+                            onProductClick = { pId -> viewModel.navigate(ScreenDestination.ProductDetails(pId)) },
                             onUpdateQty = { itemId, qty ->
                                 coroutineScope.launch {
                                     viewModel.repository.updateCartQuantity(itemId, qty)
@@ -183,35 +151,48 @@ fun CartScreen(
                                 }
                             },
                             onCheckoutShop = { promoCodeDto ->
-                                // Setup active checkout for this shop
-                                viewModel.activeCheckoutShopId.value = shopId
-                                viewModel.activeCheckoutShopName.value = shopName
-                                viewModel.activeCheckoutItems.value = itemsInShop
-                                viewModel.activeCheckoutShopPromoCode.value = promoCodeDto
-                                viewModel.navigate(ScreenDestination.CheckoutDelivery(shopId))
+                                viewModel.requireSignedInOrPrompt("complete checkout") {
+                                    viewModel.activeCheckoutShopId.value = shopId
+                                    viewModel.activeCheckoutShopName.value = shopName
+                                    viewModel.activeCheckoutItems.value = itemsInShop
+                                    viewModel.activeCheckoutShopPromoCode.value = promoCodeDto
+                                    viewModel.navigate(ScreenDestination.CheckoutDelivery(shopId))
+                                }
                             }
                         )
                     }
                 }
 
-                // Marketplace summary footer
                 item {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Marketplace Multi-Vendor Note",
-                            fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp,
-                            color = SuqiSecondaryText
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Each shop operates independently and has its own payment and delivery options. You can checkout each shop separately without delay.",
-                            fontFamily = SuqiFontFamily,
-                            fontSize = 12.sp,
-                            color = SuqiMutedText
-                        )
+                    SuqiSectionCard(containerColor = colors.secondaryBackground, padding = 14.dp) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                imageVector = LucideIcons.Info,
+                                contentDescription = null,
+                                tint = SuqiPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Multi-Vendor Checkout",
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp,
+                                    color = colors.primaryText
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Each shop handles its own Telebirr/CBE/Bank transfer and delivery options. Check out any shop independently.",
+                                    fontFamily = SuqiFontFamily,
+                                    fontSize = 12.sp,
+                                    color = colors.secondaryText,
+                                    lineHeight = 17.sp
+                                )
+                            }
+                        }
                     }
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
@@ -224,13 +205,15 @@ fun CartScreen(
                 Text(
                     text = "Clear Cart?",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = colors.primaryText
                 )
             },
             text = {
                 Text(
                     text = "Are you sure you want to remove all items from your cart?",
-                    fontFamily = SuqiFontFamily
+                    fontFamily = SuqiFontFamily,
+                    color = colors.secondaryText
                 )
             },
             confirmButton = {
@@ -248,10 +231,10 @@ fun CartScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel", color = SuqiPrimaryText)
+                    Text("Cancel", color = colors.primaryText)
                 }
             },
-            containerColor = LocalSuqiColors.current.cardBackground,
+            containerColor = colors.cardBackground,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -263,275 +246,343 @@ fun ShopCartGroupCard(
     shopName: String,
     items: List<CartItemDto>,
     subtotal: Double,
+    availablePromos: List<PromoCodeDto> = emptyList(),
+    onShopClick: () -> Unit = {},
+    onProductClick: (String) -> Unit = {},
     onUpdateQty: (Long, Int) -> Unit,
     onRemoveItem: (Long) -> Unit,
     onCheckoutShop: (PromoCodeDto?) -> Unit
 ) {
+    val colors = LocalSuqiColors.current
     var promoCodeInput by remember { mutableStateOf("") }
     var appliedPromo by remember { mutableStateOf<PromoCodeDto?>(null) }
     var promoError by remember { mutableStateOf<String?>(null) }
 
     val discountAmount = if (appliedPromo != null) {
-        if (appliedPromo!!.discountType == "PERCENTAGE") {
+        if (appliedPromo!!.discountType.equals("PERCENTAGE", ignoreCase = true)) {
             (subtotal * (appliedPromo!!.discountValue / 100.0))
         } else {
-            appliedPromo!!.discountValue
+            appliedPromo!!.discountValue.coerceAtMost(subtotal)
         }
     } else 0.0
 
     val shopTotal = maxOf(0.0, subtotal - discountAmount)
 
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = SuqiSurface),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Shop Header
+    SuqiSectionCard(padding = 16.dp) {
+        // Shop Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(onClick = onShopClick)
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(colors.primaryTint),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = shopName.take(2).uppercase(),
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = SuqiPrimary
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = shopName,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = colors.primaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = LucideIcons.CheckCircle,
+                    contentDescription = "Verified",
+                    tint = SuqiPrimary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Text(
+                text = "(${items.sumOf { it.quantity }} ${if (items.sumOf { it.quantity } == 1) "item" else "items"})",
+                fontFamily = SuqiFontFamily,
+                fontSize = 13.sp,
+                color = colors.secondaryText
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider(color = colors.border, thickness = 1.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Cart Items in this shop
+        items.forEach { item ->
+            CartItemRow(
+                item = item,
+                onClick = { onProductClick(item.productId) },
+                onUpdateQty = { onUpdateQty(item.id, it) },
+                onRemove = { onRemoveItem(item.id) }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Low Stock Warning
+        val hasLowStock = items.any { it.stockAvailable in 1..3 }
+        if (hasLowStock) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.warningBg)
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Limited stock available. Inventory is held when you submit payment.",
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 12.sp,
+                    color = SuqiWarning
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Available shop promo hint chips
+        if (availablePromos.isNotEmpty() && appliedPromo == null) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                Icon(LucideIcons.BadgePercent, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(14.dp))
+                availablePromos.take(2).forEach { promo ->
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(SuqiPrimaryTint),
-                        contentAlignment = Alignment.Center
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(colors.primaryTint)
+                            .clickable {
+                                promoCodeInput = promo.code
+                                promoError = null
+                            }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = shopName.take(2).uppercase(),
+                            text = "Use ${promo.code}",
                             fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp,
                             color = SuqiPrimary
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = shopName,
-                        fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = SuqiPrimaryText
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = LucideIcons.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = SuqiPrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
                 }
-
-                Text(
-                    text = "(${items.size} ${if (items.size == 1) "item" else "items"})",
-                    fontFamily = SuqiFontFamily,
-                    fontSize = 13.sp,
-                    color = SuqiSecondaryText
-                )
             }
+        }
 
-            Spacer(modifier = Modifier.height(14.dp))
-            HorizontalDivider(color = SuqiBorder, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Cart Items in this shop
-            items.forEach { item ->
-                CartItemRow(
-                    item = item,
-                    onUpdateQty = { onUpdateQty(item.id, it) },
-                    onRemove = { onRemoveItem(item.id) }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            // Low Stock Warning if any item has low stock
-            val hasLowStock = items.any { it.stockAvailable in 1..3 }
-            if (hasLowStock) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(SuqiWarningBg)
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
+        // Promo Code Input Box
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = promoCodeInput,
+                onValueChange = {
+                    promoCodeInput = it
+                    promoError = null
+                },
+                placeholder = {
                     Text(
-                        text = "Some items have limited stock. Stock is held upon order submission.",
+                        text = "Enter promo code",
                         fontFamily = SuqiFontFamily,
-                        fontSize = 12.sp,
-                        color = SuqiWarning
+                        fontSize = 13.sp,
+                        color = colors.mutedText
                     )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = colors.secondaryBackground,
+                    unfocusedContainerColor = colors.secondaryBackground,
+                    focusedBorderColor = SuqiPrimary,
+                    unfocusedBorderColor = colors.border,
+                    focusedTextColor = colors.primaryText,
+                    unfocusedTextColor = colors.primaryText
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .testTag("promo_input_$shopId")
+            )
 
-            // Promo Code Input Box
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = {
+                    val code = promoCodeInput.trim()
+                    if (code.isBlank()) {
+                        promoError = "Enter a promo code first"
+                        return@Button
+                    }
+                    val matched = availablePromos.firstOrNull {
+                        it.code.equals(code, ignoreCase = true) && it.isActive
+                    } ?: when {
+                        code.equals("SUMMER25", ignoreCase = true) -> PromoCodeDto(
+                            id = "promo_1",
+                            shopId = shopId,
+                            code = "SUMMER25",
+                            discountType = "PERCENTAGE",
+                            discountValue = 25.0,
+                            minOrderAmount = 1000.0,
+                            validUntil = "Dec 31, 2026",
+                            isActive = true
+                        )
+                        code.equals("TECH10", ignoreCase = true) -> PromoCodeDto(
+                            id = "promo_2",
+                            shopId = shopId,
+                            code = "TECH10",
+                            discountType = "PERCENTAGE",
+                            discountValue = 10.0,
+                            minOrderAmount = 500.0,
+                            validUntil = "Dec 31, 2026",
+                            isActive = true
+                        )
+                        else -> null
+                    }
+                    when {
+                        matched == null -> promoError = "Invalid or expired promo code"
+                        subtotal < matched.minOrderAmount -> promoError = "Minimum order ${formatEtb(matched.minOrderAmount)} required"
+                        else -> {
+                            appliedPromo = matched
+                            promoError = null
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
+                modifier = Modifier
+                    .height(48.dp)
+                    .testTag("promo_apply_$shopId")
+            ) {
+                Text("Apply", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = Color.White)
+            }
+        }
+
+        if (appliedPromo != null) {
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.successBg)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
-                OutlinedTextField(
-                    value = promoCodeInput,
-                    onValueChange = {
-                        promoCodeInput = it
-                        promoError = null
-                    },
-                    placeholder = {
-                        Text(
-                            text = "Enter promo code",
-                            fontFamily = SuqiFontFamily,
-                            fontSize = 13.sp,
-                            color = SuqiMutedText
-                        )
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = SuqiSecondaryBackground,
-                        unfocusedContainerColor = SuqiSecondaryBackground,
-                        focusedBorderColor = SuqiPrimary,
-                        unfocusedBorderColor = SuqiBorder
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(max = 48.dp)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Button(
-                    onClick = {
-                        if (promoCodeInput.trim().equals("SUMMER25", ignoreCase = true)) {
-                            appliedPromo = PromoCodeDto(
-                                id = "promo_1",
-                                shopId = shopId,
-                                code = "SUMMER25",
-                                discountType = "PERCENTAGE",
-                                discountValue = 25.0,
-                                minOrderAmount = 1000.0,
-                                validUntil = "Jun 30, 2026",
-                                isActive = true
-                            )
-                            promoError = null
-                        } else if (promoCodeInput.trim().equals("TECH10", ignoreCase = true)) {
-                            appliedPromo = PromoCodeDto(
-                                id = "promo_2",
-                                shopId = shopId,
-                                code = "TECH10",
-                                discountType = "PERCENTAGE",
-                                discountValue = 10.0,
-                                minOrderAmount = 5000.0,
-                                validUntil = "Dec 31, 2026",
-                                isActive = true
-                            )
-                            promoError = null
-                        } else {
-                            promoError = "Invalid or expired promo code"
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
-                    modifier = Modifier.height(48.dp)
-                ) {
-                    Text("Apply", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            if (appliedPromo != null) {
-                Spacer(modifier = Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(LucideIcons.Check, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Promo code ${appliedPromo!!.code} applied (-${formatEtb(discountAmount)})",
+                        text = "${appliedPromo!!.code} applied (-${formatEtb(discountAmount)})",
                         fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
                         color = SuqiSuccess
                     )
                 }
+                Icon(
+                    imageVector = LucideIcons.X,
+                    contentDescription = "Remove promo",
+                    tint = SuqiSuccess,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable {
+                            appliedPromo = null
+                            promoCodeInput = ""
+                        }
+                )
             }
-            if (promoError != null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = promoError!!, fontSize = 12.sp, color = SuqiError)
-            }
+        }
+        if (promoError != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = promoError!!, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiError)
+        }
 
-            Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-            // Subtotal Line
+        // Subtotal Line
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Subtotal (${items.sumOf { it.quantity }} items)",
+                fontFamily = SuqiFontFamily,
+                fontSize = 14.sp,
+                color = colors.secondaryText
+            )
+            Text(
+                text = formatEtb(subtotal),
+                fontFamily = SuqiFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = colors.primaryText
+            )
+        }
+
+        if (discountAmount > 0) {
+            Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Subtotal (${items.sumOf { it.quantity }} items)",
+                    text = "Promo Discount",
                     fontFamily = SuqiFontFamily,
                     fontSize = 14.sp,
-                    color = SuqiSecondaryText
+                    color = SuqiSuccess
                 )
                 Text(
-                    text = formatEtb(subtotal),
+                    text = "-${formatEtb(discountAmount)}",
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = SuqiPrimaryText
+                    fontSize = 15.sp,
+                    color = SuqiSuccess
                 )
             }
+        }
 
-            if (discountAmount > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Discount",
-                        fontFamily = SuqiFontFamily,
-                        fontSize = 14.sp,
-                        color = SuqiSuccess
-                    )
-                    Text(
-                        text = "-${formatEtb(discountAmount)}",
-                        fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = SuqiSuccess
-                    )
-                }
-            }
+        Spacer(modifier = Modifier.height(14.dp))
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Checkout button for this shop
-            Button(
-                onClick = { onCheckoutShop(appliedPromo) },
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("checkout_shop_${shopId}")
-            ) {
-                Text(
-                    text = "Checkout • ${formatEtb(shopTotal)}",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color.White
-                )
-            }
+        Button(
+            onClick = { onCheckoutShop(appliedPromo) },
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .testTag("checkout_shop_${shopId}")
+        ) {
+            Text(
+                text = "Checkout • ${formatEtb(shopTotal)}",
+                fontFamily = SuqiFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = Color.White
+            )
         }
     }
 }
@@ -539,9 +590,11 @@ fun ShopCartGroupCard(
 @Composable
 fun CartItemRow(
     item: CartItemDto,
+    onClick: () -> Unit = {},
     onUpdateQty: (Int) -> Unit,
     onRemove: () -> Unit
 ) {
+    val colors = LocalSuqiColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -550,7 +603,8 @@ fun CartItemRow(
             modifier = Modifier
                 .size(72.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(SuqiSecondaryBackground)
+                .background(colors.imageBackdrop)
+                .clickable(onClick = onClick)
         ) {
             AsyncImage(
                 model = item.productImageUrl,
@@ -562,14 +616,18 @@ fun CartItemRow(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onClick)
+        ) {
             Text(
                 text = item.productName,
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
-                color = SuqiPrimaryText,
-                maxLines = 1,
+                color = colors.primaryText,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
 
@@ -579,7 +637,7 @@ fun CartItemRow(
                     text = item.selectedVariation,
                     fontFamily = SuqiFontFamily,
                     fontSize = 12.sp,
-                    color = SuqiSecondaryText
+                    color = colors.secondaryText
                 )
             }
 
@@ -594,52 +652,17 @@ fun CartItemRow(
             )
         }
 
-        // Quantity controls
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(SuqiSecondaryBackground)
-                .padding(horizontal = 4.dp, vertical = 2.dp)
-        ) {
-            IconButton(
-                onClick = {
-                    if (item.quantity > 1) {
-                        onUpdateQty(item.quantity - 1)
-                    } else {
-                        onRemove()
-                    }
-                },
-                modifier = Modifier.size(28.dp)
-            ) {
-                Icon(
-                    imageVector = if (item.quantity == 1) LucideIcons.Trash2 else LucideIcons.Minus,
-                    contentDescription = "Decrease",
-                    tint = SuqiPrimaryText,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
+        Spacer(modifier = Modifier.width(8.dp))
 
-            Text(
-                text = item.quantity.toString(),
-                fontFamily = SuqiFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = SuqiPrimaryText,
-                modifier = Modifier.padding(horizontal = 6.dp)
-            )
-
-            IconButton(
-                onClick = { onUpdateQty(item.quantity + 1) },
-                modifier = Modifier.size(28.dp)
-            ) {
-                Icon(
-                    imageVector = LucideIcons.Plus,
-                    contentDescription = "Increase",
-                    tint = SuqiPrimaryText,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
+        SuqiStepper(
+            quantity = item.quantity,
+            onDecrement = {
+                if (item.quantity > 1) onUpdateQty(item.quantity - 1) else onRemove()
+            },
+            onIncrement = { onUpdateQty(item.quantity + 1) },
+            minValue = 0,
+            maxValue = if (item.stockAvailable > 0) item.stockAvailable else Int.MAX_VALUE,
+            testTagPrefix = "cart_stepper_${item.id}"
+        )
     }
 }

@@ -40,7 +40,7 @@ class SuqiRepository private constructor(context: Context) {
         get() = if (BackendConfig.useBuiltinSqliteBackend) builtinBackend else remoteService
 
     // Reactive Cart Count Flow
-    private val _cartCount = MutableStateFlow(3)
+    private val _cartCount = MutableStateFlow(0)
     val cartCount: Flow<Int> = _cartCount.asStateFlow()
 
     suspend fun refreshCartCount() {
@@ -52,9 +52,32 @@ class SuqiRepository private constructor(context: Context) {
 
     // User & Auth
     suspend fun getCurrentUser(): ApiResponse<UserDto> = api.getCurrentUser()
-    suspend fun loginWithTelegram(name: String, phone: String) = api.loginWithTelegram(mapOf("name" to name, "phone" to phone))
-    suspend fun loginWithGoogle(name: String, email: String) = api.loginWithGoogle(mapOf("name" to name, "email" to email))
-    suspend fun loginAsGuest() = api.loginAsGuest()
+    suspend fun loginWithTelegram(name: String, phone: String): ApiResponse<UserDto> {
+        val res = api.loginWithTelegram(mapOf("name" to name, "phone" to phone))
+        refreshCartCount()
+        return res
+    }
+    suspend fun loginWithGoogle(name: String, email: String): ApiResponse<UserDto> {
+        val res = api.loginWithGoogle(mapOf("name" to name, "email" to email))
+        refreshCartCount()
+        return res
+    }
+    suspend fun loginWithPhoneOtp(phone: String, otp: String, name: String = ""): ApiResponse<UserDto> {
+        val res = api.loginWithPhoneOtp(mapOf("phone" to phone, "otp" to otp, "name" to name))
+        refreshCartCount()
+        return res
+    }
+    suspend fun loginAsGuest(): ApiResponse<UserDto> {
+        val res = api.loginAsGuest()
+        refreshCartCount()
+        return res
+    }
+    suspend fun adminSignIn(identifier: String, pin: String, tier: String = "OWNER"): ApiResponse<UserDto> {
+        val res = api.adminSignIn(mapOf("identifier" to identifier, "pin" to pin, "tier" to tier))
+        refreshCartCount()
+        return res
+    }
+    suspend fun updateUserProfile(payload: Map<String, String>) = api.updateUserProfile(payload)
     suspend fun upgradeToSeller(details: Map<String, String>) = api.upgradeToSeller(details)
 
     // Marketplace
@@ -69,11 +92,15 @@ class SuqiRepository private constructor(context: Context) {
 
     suspend fun getProductDetails(id: String) = api.getProductDetails(id)
     suspend fun toggleWishlist(id: String) = api.toggleWishlist(id)
+    suspend fun getProductQuestions(productId: String) = api.getProductQuestions(productId)
+    suspend fun submitProductQuestion(productId: String, question: String) =
+        api.submitProductQuestion(productId, mapOf("question" to question))
     suspend fun getShops(filter: String = "ALL", category: String? = null, query: String? = null) =
         api.getShops(filter, category, query)
     suspend fun getShopDetails(id: String) = api.getShopDetails(id)
     suspend fun toggleFollowShop(id: String) = api.toggleFollowShop(id)
     suspend fun getCategories() = api.getCategories()
+    suspend fun getPromoBanners(activeOnly: Boolean = true) = api.getPromoBanners(activeOnly)
 
     // Cart
     suspend fun getCartItems() = api.getCartItems()
@@ -115,6 +142,7 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun createProduct(data: Map<String, Any>) = api.createProduct(data)
     suspend fun updateProduct(id: String, data: Map<String, Any>) = api.updateProduct(id, data)
     suspend fun updateProductStatus(id: String, status: String) = api.updateProductStatus(id, status)
+    suspend fun deleteProduct(id: String) = api.deleteProduct(id)
     suspend fun getSellerOrders() = api.getSellerOrders()
     suspend fun updateSellerOrderStatus(orderId: String, status: String) = api.updateSellerOrderStatus(orderId, status)
     suspend fun getSellerVerificationQueue() = api.getSellerVerificationQueue()
@@ -122,27 +150,46 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun rejectPayment(orderId: String, payload: Map<String, String>) = api.rejectPayment(orderId, payload)
     suspend fun getShopPaymentMethods(shopId: String) = api.getShopPaymentMethods(shopId)
     suspend fun saveShopPaymentMethod(method: ShopPaymentMethodDto) = api.saveShopPaymentMethod(method)
+    suspend fun deleteShopPaymentMethod(id: String) = api.deleteShopPaymentMethod(id)
     suspend fun getShopDeliveryOptions(shopId: String) = api.getShopDeliveryOptions(shopId)
-    suspend fun getShopPromotions(shopId: String) = api.getShopPromotions(shopId)
+    suspend fun saveShopDeliveryOption(option: ShopDeliveryOptionDto) = api.saveShopDeliveryOption(option)
+    suspend fun deleteShopDeliveryOption(id: String) = api.deleteShopDeliveryOption(id)
+    suspend fun getShopPromotions(shopId: String, includeInactive: Boolean = false) = api.getShopPromotions(shopId, includeInactive)
     suspend fun createPromoCode(promo: PromoCodeDto) = api.createPromoCode(promo)
+    suspend fun deletePromoCode(id: String) = api.deletePromoCode(id)
     suspend fun submitSellerVerification(details: Map<String, String>) = api.submitSellerVerification(details)
     suspend fun updateShopSettings(settings: Map<String, Any>) = api.updateShopSettings(settings)
 
-    // Chat, Reviews, Notifications, Addresses
+    // Chat, Reviews, Notifications, Addresses, Support
     suspend fun getChatConversations() = api.getChatConversations()
     suspend fun getChatMessages(shopId: String) = api.getChatMessages(shopId)
     suspend fun sendChatMessage(shopId: String, messageData: Map<String, Any>) = api.sendChatMessage(shopId, messageData)
     suspend fun getReviews(targetId: String) = api.getReviews(targetId)
     suspend fun submitReview(data: Map<String, Any>) = api.submitReview(data)
     suspend fun getNotifications() = api.getNotifications()
+    suspend fun markNotificationRead(id: String, isRead: Boolean) = api.markNotificationRead(id, isRead)
+    suspend fun markAllNotificationsRead() = api.markAllNotificationsRead()
+    suspend fun deleteNotification(id: String) = api.deleteNotification(id)
     suspend fun getSavedAddresses() = api.getSavedAddresses()
     suspend fun saveAddress(address: SavedAddressDto) = api.saveAddress(address)
+    suspend fun deleteSavedAddress(id: String) = api.deleteSavedAddress(id)
+    suspend fun submitSupportTicket(ticket: SupportTicketDto) = api.submitSupportTicket(ticket)
+    suspend fun getSupportTickets() = api.getSupportTickets()
 
     // Admin
     suspend fun getAdminSettings() = api.getAdminSettings()
     suspend fun updateFeatureToggle(feature: String, enabled: Boolean) = api.updateFeatureToggle(feature, enabled)
     suspend fun getAdminSellerVerificationQueue() = api.getAdminSellerVerificationQueue()
     suspend fun adminVerifySellerDecision(shopId: String, decision: String) = api.adminVerifySellerDecision(shopId, decision)
+    suspend fun saveCategory(category: CategoryDto) = api.saveCategory(category)
+    suspend fun deleteCategory(id: String) = api.deleteCategory(id)
+    suspend fun savePromoBanner(banner: PromoBannerDto) = api.savePromoBanner(banner)
+    suspend fun deletePromoBanner(id: String) = api.deletePromoBanner(id)
+    suspend fun getFlaggedReviews() = api.getFlaggedReviews()
+    suspend fun reportOrModerateReview(payload: Map<String, String>) = api.reportOrModerateReview(payload)
+    suspend fun getSubscriptionPlans() = api.getSubscriptionPlans()
+    suspend fun saveSubscriptionPlan(plan: SubscriptionPlanDto) = api.saveSubscriptionPlan(plan)
+    suspend fun deleteSubscriptionPlan(id: String) = api.deleteSubscriptionPlan(id)
 
     companion object {
         @Volatile

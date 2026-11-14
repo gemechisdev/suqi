@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,11 +10,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,15 +18,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.example.R
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
 import com.example.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -37,154 +37,375 @@ fun AuthScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
+    val colors = LocalSuqiColors.current
     val coroutineScope = rememberCoroutineScope()
 
+    var phoneInput by remember { mutableStateOf("") }
+    var fullNameInput by remember { mutableStateOf("") }
+    var otpInput by remember { mutableStateOf("") }
+    var otpSent by remember { mutableStateOf(false) }
+    var resendSeconds by remember { mutableIntStateOf(0) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    var showSocialSheet by remember { mutableStateOf<String?>(null) } // "TELEGRAM" or "GOOGLE"
+    var socialName by remember { mutableStateOf("") }
+    var socialHandle by remember { mutableStateOf("") }
+
+    LaunchedEffect(otpSent, resendSeconds) {
+        if (otpSent && resendSeconds > 0) {
+            delay(1000)
+            resendSeconds -= 1
+        }
+    }
+
     Scaffold(
-        containerColor = SuqiBackground,
+        topBar = {
+            SuqiHeader(
+                title = "Welcome to Suqi",
+                onBackClick = {
+                    if (!viewModel.goBack()) viewModel.popToRoot(ScreenDestination.Home)
+                }
+            )
+        },
+        containerColor = colors.surfaceBackground,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
-        Box(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
+                .padding(paddingValues),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Suqi Logo Bag Icon
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SuqiPrimary),
-                    contentAlignment = Alignment.Center
+            item {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = LucideIcons.ShoppingBag,
+                    Image(
+                        painter = painterResource(id = R.drawable.suqi_logo),
                         contentDescription = "Suqi Logo",
-                        tint = Color.White,
-                        modifier = Modifier.size(46.dp)
+                        modifier = Modifier
+                            .size(72.dp)
+                            .suqiWarmShadow(RoundedCornerShape(20.dp), elevation = 10.dp)
+                            .clip(RoundedCornerShape(20.dp))
                     )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Suqi",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 28.sp,
-                    color = SuqiPrimary
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "Every Shop. Every Product.\nOne Marketplace.",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
-                    color = SuqiSecondaryText,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(40.dp))
-
-                // Continue with Telegram (Primary orange button)
-                Button(
-                    onClick = {
-                        coroutineScope.launch {
-                            viewModel.repository.loginWithTelegram("Telegram User", "+251 912 345 678")
-                            viewModel.showToast("Signed in with Telegram!")
-                            viewModel.popToRoot(ScreenDestination.Home)
-                        }
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("auth_telegram")
-                ) {
-                    Icon(LucideIcons.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Continue with Telegram",
+                        text = "Every Shop. Every Product.",
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 20.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Sign in with your Ethiopian phone number or preferred account",
+                        fontFamily = SuqiFontFamily,
+                        fontSize = 13.sp,
+                        color = colors.secondaryText,
+                        textAlign = TextAlign.Center
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Continue with Google (Clean white bordered button)
-                OutlinedButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            viewModel.repository.loginWithGoogle("Fitsum Gebre", "fitsum.gebre@gmail.com")
-                            viewModel.showToast("Signed in with Google!")
-                            viewModel.popToRoot(ScreenDestination.Home)
-                        }
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SuqiBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = LocalSuqiColors.current.cardBackground),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("auth_google")
-                ) {
-                    Icon(LucideIcons.CircleUser, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
+            // B-01 Phone + OTP Card
+            item {
+                SuqiSectionCard(padding = 18.dp) {
                     Text(
+                        text = if (!otpSent) "Sign in with Phone" else "Enter 6-Digit SMS Code",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (!otpSent) "We'll send a one-time verification SMS to your +251 number."
+                        else "Sent to +251 ${phoneInput.removePrefix("0").removePrefix("+251").trim()} (Use demo code 123456)",
+                        fontFamily = SuqiFontFamily,
+                        fontSize = 12.sp,
+                        color = colors.secondaryText
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    if (!otpSent) {
+                        SuqiTextField(
+                            value = fullNameInput,
+                            onValueChange = { fullNameInput = it },
+                            label = "Your Name (for new accounts)",
+                            placeholder = "e.g. Dawit Bekele",
+                            leadingIcon = LucideIcons.User,
+                            testTag = "auth_name_input"
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .height(54.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(colors.primaryTint)
+                                    .border(1.dp, SuqiPrimary.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 14.dp)
+                            ) {
+                                Text(
+                                    text = "+251",
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = SuqiPrimary
+                                )
+                            }
+                            OutlinedTextField(
+                                value = phoneInput,
+                                onValueChange = {
+                                    phoneInput = it.filter { ch -> ch.isDigit() || ch == ' ' }.take(12)
+                                    errorMsg = null
+                                },
+                                placeholder = { Text("912 345 678", color = colors.mutedText) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = colors.secondaryBackground,
+                                    unfocusedContainerColor = colors.secondaryBackground,
+                                    focusedBorderColor = SuqiPrimary,
+                                    unfocusedBorderColor = colors.border,
+                                    focusedTextColor = colors.primaryText,
+                                    unfocusedTextColor = colors.primaryText
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("auth_phone_input")
+                            )
+                        }
+                        if (!errorMsg.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = errorMsg!!,
+                                fontFamily = SuqiFontFamily,
+                                fontSize = 12.sp,
+                                color = SuqiError
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        SuqiButton(
+                            text = "Send Verification Code",
+                            onClick = {
+                                val digits = phoneInput.filter { it.isDigit() }
+                                if (digits.length < 9) {
+                                    errorMsg = "Enter a valid 9-digit Ethiopian mobile number"
+                                } else {
+                                    otpSent = true
+                                    resendSeconds = 30
+                                    errorMsg = null
+                                    viewModel.showToast("SMS code sent (demo: 123456)")
+                                }
+                            },
+                            isPill = true,
+                            icon = LucideIcons.Phone,
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = "auth_send_otp"
+                        )
+                    } else {
+                        OutlinedTextField(
+                            value = otpInput,
+                            onValueChange = {
+                                otpInput = it.filter { ch -> ch.isDigit() }.take(6)
+                                errorMsg = null
+                            },
+                            label = { Text("6-digit code") },
+                            placeholder = { Text("123456") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("auth_otp_input")
+                        )
+                        if (!errorMsg.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = errorMsg!!,
+                                fontFamily = SuqiFontFamily,
+                                fontSize = 12.sp,
+                                color = SuqiError
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            TextButton(onClick = { otpSent = false; otpInput = "" }) {
+                                Text("Change number", color = colors.secondaryText)
+                            }
+                            TextButton(
+                                enabled = resendSeconds == 0,
+                                onClick = {
+                                    resendSeconds = 30
+                                    viewModel.showToast("Code resent (123456)")
+                                }
+                            ) {
+                                Text(
+                                    text = if (resendSeconds > 0) "Resend in ${resendSeconds}s" else "Resend code",
+                                    color = if (resendSeconds > 0) colors.mutedText else SuqiPrimary
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SuqiButton(
+                            text = "Verify & Sign In",
+                            onClick = {
+                                coroutineScope.launch {
+                                    val digits = phoneInput.filter { it.isDigit() }.removePrefix("0")
+                                    val res = viewModel.repository.loginWithPhoneOtp("+251 $digits", otpInput, fullNameInput)
+                                    if (res.success) {
+                                        viewModel.refreshSession()
+                                        viewModel.showToast("Welcome ${res.data?.name ?: "to Suqi"}!")
+                                        viewModel.popToRoot(ScreenDestination.Home)
+                                    } else {
+                                        errorMsg = res.message ?: "Verification failed"
+                                    }
+                                }
+                            },
+                            isPill = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = "auth_verify_otp"
+                        )
+                    }
+                }
+            }
+
+            // Other providers + Guest
+            item {
+                SuqiSectionCard(padding = 16.dp) {
+                    Text(
+                        text = "Quick Sign-In Options",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    SuqiButton(
+                        text = "Continue with Telegram",
+                        onClick = {
+                            socialName = ""
+                            socialHandle = ""
+                            showSocialSheet = "TELEGRAM"
+                        },
+                        isPill = true,
+                        icon = LucideIcons.Send,
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "auth_telegram"
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    SuqiButton(
                         text = "Continue with Google",
-                        fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        color = SuqiPrimaryText
+                        onClick = {
+                            socialName = ""
+                            socialHandle = ""
+                            showSocialSheet = "GOOGLE"
+                        },
+                        isPrimary = false,
+                        isPill = true,
+                        icon = LucideIcons.CircleUser,
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "auth_google"
                     )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    TextButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                viewModel.repository.loginAsGuest()
+                                viewModel.refreshSession()
+                                viewModel.showToast("Browsing as Guest")
+                                viewModel.popToRoot(ScreenDestination.Home)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .testTag("auth_guest")
+                    ) {
+                        Text(
+                            text = "Browse as Guest",
+                            fontFamily = SuqiFontFamily,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = colors.secondaryText
+                        )
+                    }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Continue as Guest
-                Button(
-                    onClick = {
-                        coroutineScope.launch {
-                            viewModel.repository.loginAsGuest()
-                            viewModel.popToRoot(ScreenDestination.Home)
-                        }
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SuqiSecondaryBackground),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("auth_guest")
-                ) {
-                    Text(
-                        text = "Continue as Guest",
-                        fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        color = SuqiPrimaryText
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
+            item {
                 Text(
-                    text = "By continuing, you agree to our\nTerms of Service and Privacy Policy",
+                    text = "By continuing, you agree to Suqi's Terms of Service & Privacy Policy.",
                     fontFamily = SuqiFontFamily,
                     fontSize = 12.sp,
-                    color = SuqiMutedText,
-                    textAlign = TextAlign.Center
+                    color = colors.mutedText,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
+    }
+
+    val provider = showSocialSheet
+    if (provider != null) {
+        val isTg = provider == "TELEGRAM"
+        SuqiBottomSheet(
+            onDismissRequest = { showSocialSheet = null },
+            title = if (isTg) "Connect Telegram Account" else "Connect Google Account"
+        ) {
+            SuqiTextField(
+                value = socialName,
+                onValueChange = { socialName = it },
+                label = "Display Name",
+                placeholder = "e.g. Meron Tadesse"
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            SuqiTextField(
+                value = socialHandle,
+                onValueChange = { socialHandle = it },
+                label = if (isTg) "Phone Number (+251)" else "Email Address",
+                placeholder = if (isTg) "+251 911 234 567" else "name@gmail.com"
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            SuqiButton(
+                text = if (isTg) "Authorize & Sign In" else "Sign In with Google",
+                onClick = {
+                    coroutineScope.launch {
+                        val finalName = socialName.trim().ifBlank { if (isTg) "Telegram User" else "Google Shopper" }
+                        val res = if (isTg) {
+                            viewModel.repository.loginWithTelegram(finalName, socialHandle.trim().ifBlank { "+251 911 234 567" })
+                        } else {
+                            viewModel.repository.loginWithGoogle(finalName, socialHandle.trim().ifBlank { "shopper@gmail.com" })
+                        }
+                        showSocialSheet = null
+                        if (res.success) {
+                            viewModel.refreshSession()
+                            viewModel.showToast("Signed in as $finalName!")
+                            viewModel.popToRoot(ScreenDestination.Home)
+                        }
+                    }
+                },
+                isPill = true,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -194,6 +415,8 @@ fun OnboardingScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
+    val colors = LocalSuqiColors.current
+    val coroutineScope = rememberCoroutineScope()
     var selectedLanguage by remember { mutableStateOf(viewModel.selectedLanguage.value) }
     var selectedRegion by remember { mutableStateOf(viewModel.selectedRegion.value) }
     var selectedCity by remember { mutableStateOf(viewModel.selectedCity.value) }
@@ -201,184 +424,196 @@ fun OnboardingScreen(
 
     val languages = listOf("English", "Amharic", "Afaan Oromo")
     val regions = listOf("Addis Ababa", "Oromia", "Amhara", "Dire Dawa", "Sidama")
-    val subCities = listOf("Bole", "Kirkos", "Yeka", "Arada", "Lideta")
+    val subCities = listOf("Bole", "Kirkos", "Yeka", "Arada", "Lideta", "Nifas Silk")
 
     Scaffold(
-        containerColor = SuqiBackground,
+        containerColor = colors.surfaceBackground,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(24.dp)
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Skip",
                         fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
-                        color = SuqiSecondaryText,
-                        modifier = Modifier.clickable { viewModel.popToRoot(ScreenDestination.Home) }
+                        color = colors.secondaryText,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .clickable { viewModel.popToRoot(ScreenDestination.Home) }
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
                     )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SuqiPrimary))
-                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SuqiBorder))
-                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SuqiBorder))
-                    }
-
                     Text(
                         text = selectedLanguage,
                         fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = SuqiPrimary
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "Welcome to Suqi!",
                     fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 24.sp,
-                    color = SuqiPrimaryText,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 26.sp,
+                    color = colors.primaryText
                 )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Let's set up your location to show\nyou the best deals near you.",
+                    text = "Choose your preferred language and delivery sub-city for accurate local shipping estimates.",
                     fontFamily = SuqiFontFamily,
                     fontSize = 14.sp,
-                    color = SuqiSecondaryText,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    color = colors.secondaryText
                 )
+            }
 
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // Choose Language
-                Text(
-                    text = "Choose Language",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    languages.forEach { lang ->
-                        val isSel = lang == selectedLanguage
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(if (isSel) SuqiPrimary else SuqiSecondaryBackground)
-                                .clickable {
-                                    selectedLanguage = lang
-                                    viewModel.selectedLanguage.value = lang
-                                }
-                                .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = lang,
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 13.sp,
-                                color = if (isSel) Color.White else SuqiPrimaryText
-                            )
+            item {
+                SuqiSectionCard(padding = 16.dp) {
+                    Text(
+                        text = "Language",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        languages.forEach { lang ->
+                            val isSel = lang == selectedLanguage
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(if (isSel) SuqiPrimary else colors.secondaryBackground)
+                                    .clickable {
+                                        selectedLanguage = lang
+                                        viewModel.selectedLanguage.value = lang
+                                    }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = lang,
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 12.sp,
+                                    color = if (isSel) Color.White else colors.primaryText
+                                )
+                            }
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(24.dp))
+            item {
+                SuqiSectionCard(padding = 16.dp) {
+                    Text(
+                        text = "Region",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(regions) { reg ->
+                            val isSel = reg == selectedRegion
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(if (isSel) SuqiPrimary else colors.secondaryBackground)
+                                    .clickable {
+                                        selectedRegion = reg
+                                        selectedCity = reg
+                                        viewModel.selectedRegion.value = reg
+                                        viewModel.selectedCity.value = reg
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                            ) {
+                                Text(
+                                    text = reg,
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    color = if (isSel) Color.White else colors.primaryText
+                                )
+                            }
+                        }
+                    }
 
-                // Select Region
-                Text(
-                    text = "Select Your Region",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(regions) { reg ->
-                        val isSel = reg == selectedRegion
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
-                                .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(14.dp))
-                                .clickable {
-                                    selectedRegion = reg
-                                    viewModel.selectedRegion.value = reg
-                                }
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                        ) {
-                            Text(
-                                text = reg,
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 13.sp,
-                                color = if (isSel) SuqiPrimary else SuqiPrimaryText
-                            )
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(
+                        text = "Sub-City",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(subCities) { sc ->
+                            val isSel = sc == selectedSubCity
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(if (isSel) colors.primaryTint else colors.secondaryBackground)
+                                    .border(1.dp, if (isSel) SuqiPrimary else colors.border, RoundedCornerShape(999.dp))
+                                    .clickable {
+                                        selectedSubCity = sc
+                                        viewModel.selectedSubCity.value = sc
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                            ) {
+                                Text(
+                                    text = sc,
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    color = if (isSel) SuqiPrimary else colors.primaryText
+                                )
+                            }
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Select Sub-City
-                Text(
-                    text = "Select Sub-City",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(subCities) { sc ->
-                        val isSel = sc == selectedSubCity
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
-                                .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(14.dp))
-                                .clickable {
-                                    selectedSubCity = sc
-                                    viewModel.selectedSubCity.value = sc
-                                }
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                        ) {
-                            Text(
-                                text = sc,
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 13.sp,
-                                color = if (isSel) SuqiPrimary else SuqiPrimaryText
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(40.dp))
-
+            item {
                 SuqiButton(
-                    text = "Continue",
-                    onClick = { viewModel.popToRoot(ScreenDestination.Home) },
-                    modifier = Modifier.fillMaxWidth()
+                    text = "Save & Explore Suqi",
+                    onClick = {
+                        coroutineScope.launch {
+                            viewModel.repository.updateUserProfile(
+                                mapOf(
+                                    "preferredLanguage" to selectedLanguage,
+                                    "region" to selectedRegion,
+                                    "city" to selectedCity,
+                                    "subCity" to selectedSubCity
+                                )
+                            )
+                            viewModel.refreshSession()
+                            viewModel.popToRoot(ScreenDestination.Home)
+                        }
+                    },
+                    isPill = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "onboarding_continue"
                 )
             }
         }
@@ -390,182 +625,175 @@ fun BecomeSellerScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
+    val colors = LocalSuqiColors.current
     val coroutineScope = rememberCoroutineScope()
-    var step by remember { mutableIntStateOf(1) } // 1: Shop Info, 2: Details, 3: Contact
+    val currentUser by viewModel.currentUser.collectAsState()
+    var step by remember { mutableIntStateOf(1) }
 
-    var shopName by remember { mutableStateOf("Tech World") }
+    var shopName by remember { mutableStateOf("") }
     var shopType by remember { mutableStateOf("Retail Shop") }
     var category by remember { mutableStateOf("Electronics") }
-    var description by remember { mutableStateOf("Your trusted electronics store in Ethiopia...") }
+    var description by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("Bole, Addis Ababa") }
-    var phone by remember { mutableStateOf("+251 912 345 678") }
-    var telegram by remember { mutableStateOf("https://t.me/techworld") }
+    var city by remember { mutableStateOf("Addis Ababa") }
+    var subCity by remember { mutableStateOf("Bole") }
+    var phone by remember { mutableStateOf(currentUser?.phone?.ifBlank { "+251 9" } ?: "+251 9") }
+    var telegram by remember { mutableStateOf("") }
 
-    Scaffold(
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = {
-                        if (step > 1) step -= 1 else viewModel.goBack()
-                    },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(SuqiSecondaryBackground)
-                ) {
-                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Become a Seller",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 20.sp,
-                    color = SuqiPrimaryText
-                )
-            }
-        },
-        containerColor = SuqiBackground,
-        modifier = modifier.fillMaxSize()
+    SuqiScreen(
+        title = "Become a Seller",
+        subtitle = "Step $step of 3",
+        onBackClick = { if (step > 1) step -= 1 else viewModel.goBack() },
+        modifier = modifier
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(20.dp)
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Text(
-                    text = "Join thousands of successful sellers\non Suqi Marketplace.",
-                    fontFamily = SuqiFontFamily,
-                    fontSize = 14.sp,
-                    color = SuqiSecondaryText
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // 3-Step Guided Progress Indicator (Mockup 3)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    GuidedStepItem(stepNum = 1, label = "Shop Info", isActive = step >= 1)
-                    Box(modifier = Modifier.weight(1f).height(2.dp).background(if (step >= 2) SuqiPrimary else SuqiBorder))
-                    GuidedStepItem(stepNum = 2, label = "Details", isActive = step >= 2)
-                    Box(modifier = Modifier.weight(1f).height(2.dp).background(if (step >= 3) SuqiPrimary else SuqiBorder))
-                    GuidedStepItem(stepNum = 3, label = "Contact", isActive = step >= 3)
+                SuqiSectionCard(padding = 16.dp) {
+                    Text(
+                        text = "Launch your Ethiopian storefront on Suqi in minutes.",
+                        fontFamily = SuqiFontFamily,
+                        fontSize = 13.sp,
+                        color = colors.secondaryText
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        GuidedStepItem(stepNum = 1, label = "Shop Info", isActive = step >= 1)
+                        Box(modifier = Modifier.weight(1f).height(2.dp).background(if (step >= 2) SuqiPrimary else colors.border))
+                        GuidedStepItem(stepNum = 2, label = "Location", isActive = step >= 2)
+                        Box(modifier = Modifier.weight(1f).height(2.dp).background(if (step >= 3) SuqiPrimary else colors.border))
+                        GuidedStepItem(stepNum = 3, label = "Contact", isActive = step >= 3)
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
             }
 
             if (step == 1) {
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        SuqiTextField(
-                            value = shopName,
-                            onValueChange = { shopName = it },
-                            label = "Shop Name *"
-                        )
-                        SuqiTextField(
-                            value = shopType,
-                            onValueChange = { shopType = it },
-                            label = "Shop Type *"
-                        )
-                        SuqiTextField(
-                            value = category,
-                            onValueChange = { category = it },
-                            label = "Business Category *"
-                        )
-                        SuqiTextField(
-                            value = description,
-                            onValueChange = { description = it },
-                            label = "Short Description *"
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        SuqiButton(
-                            text = "Continue",
-                            onClick = { step = 2 },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    SuqiSectionCard(padding = 18.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            SuqiTextField(
+                                value = shopName,
+                                onValueChange = { shopName = it },
+                                label = "Shop Name *",
+                                placeholder = "e.g. Addis Gadgets Hub"
+                            )
+                            SuqiTextField(
+                                value = shopType,
+                                onValueChange = { shopType = it },
+                                label = "Shop Type *",
+                                placeholder = "Retail Shop, Wholesaler, Boutique"
+                            )
+                            SuqiTextField(
+                                value = category,
+                                onValueChange = { category = it },
+                                label = "Primary Category *",
+                                placeholder = "Electronics, Fashion, Home & Living"
+                            )
+                            SuqiTextField(
+                                value = description,
+                                onValueChange = { description = it },
+                                label = "Short Bio *",
+                                placeholder = "Tell buyers what you specialize in...",
+                                singleLine = false
+                            )
+                            SuqiButton(
+                                text = "Continue",
+                                onClick = {
+                                    if (shopName.isBlank()) {
+                                        viewModel.showToast("Please enter a shop name")
+                                    } else {
+                                        step = 2
+                                    }
+                                },
+                                isPill = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             } else if (step == 2) {
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        SuqiTextField(
-                            value = address,
-                            onValueChange = { address = it },
-                            label = "Street Address / Landmark *"
-                        )
-                        SuqiTextField(
-                            value = "Addis Ababa",
-                            onValueChange = {},
-                            label = "City *"
-                        )
-                        SuqiTextField(
-                            value = "Bole",
-                            onValueChange = {},
-                            label = "Sub-City *"
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        SuqiButton(
-                            text = "Continue",
-                            onClick = { step = 3 },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    SuqiSectionCard(padding = 18.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            SuqiTextField(
+                                value = address,
+                                onValueChange = { address = it },
+                                label = "Street Address / Building *",
+                                placeholder = "e.g. Edna Mall Ground Floor #12"
+                            )
+                            SuqiTextField(
+                                value = city,
+                                onValueChange = { city = it },
+                                label = "City *"
+                            )
+                            SuqiTextField(
+                                value = subCity,
+                                onValueChange = { subCity = it },
+                                label = "Sub-City *"
+                            )
+                            SuqiButton(
+                                text = "Continue",
+                                onClick = { step = 3 },
+                                isPill = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             } else {
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        SuqiTextField(
-                            value = phone,
-                            onValueChange = { phone = it },
-                            label = "Contact Phone (+251) *"
-                        )
-                        SuqiTextField(
-                            value = telegram,
-                            onValueChange = { telegram = it },
-                            label = "Telegram Link (Optional)"
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        SuqiButton(
-                            text = "Create Shop & Open Studio",
-                            onClick = {
-                                coroutineScope.launch {
-                                    val payload = mapOf(
-                                        "shopName" to shopName,
-                                        "shopType" to shopType,
-                                        "category" to category,
-                                        "description" to description,
-                                        "address" to address,
-                                        "phone" to phone,
-                                        "telegram" to telegram
-                                    )
-                                    val res = viewModel.repository.upgradeToSeller(payload)
-                                    if (res.success) {
-                                        viewModel.showToast("Shop created! Welcome to Seller Studio.")
-                                        viewModel.navigate(ScreenDestination.SellerStudio)
+                    SuqiSectionCard(padding = 18.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            SuqiTextField(
+                                value = phone,
+                                onValueChange = { phone = it },
+                                label = "Business Phone (+251) *"
+                            )
+                            SuqiTextField(
+                                value = telegram,
+                                onValueChange = { telegram = it },
+                                label = "Telegram Link (Optional)",
+                                placeholder = "https://t.me/yourshop"
+                            )
+                            SuqiButton(
+                                text = "Create Shop & Open Studio",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        val payload = mapOf(
+                                            "shopName" to shopName.trim(),
+                                            "shopType" to shopType.trim(),
+                                            "category" to category.trim(),
+                                            "description" to description.trim().ifBlank { "Welcome to ${shopName.trim()} on Suqi!" },
+                                            "address" to address.trim(),
+                                            "city" to city.trim(),
+                                            "subCity" to subCity.trim(),
+                                            "phone" to phone.trim(),
+                                            "telegram" to telegram.trim()
+                                        )
+                                        val res = viewModel.repository.upgradeToSeller(payload)
+                                        if (res.success) {
+                                            viewModel.refreshSession()
+                                            viewModel.showToast("Shop created! Welcome to Seller Studio.")
+                                            viewModel.navigate(ScreenDestination.SellerStudio)
+                                        } else {
+                                            viewModel.showToast(res.message ?: "Unable to create shop")
+                                        }
                                     }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            testTag = "btn_create_shop"
-                        )
+                                },
+                                isPill = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                testTag = "btn_create_shop"
+                            )
+                        }
                     }
                 }
             }
@@ -579,13 +807,14 @@ fun GuidedStepItem(
     label: String,
     isActive: Boolean
 ) {
+    val colors = LocalSuqiColors.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .size(28.dp)
                 .clip(CircleShape)
-                .background(if (isActive) SuqiPrimary else SuqiSecondaryBackground)
-                .border(1.dp, if (isActive) SuqiPrimary else SuqiBorder, CircleShape),
+                .background(if (isActive) SuqiPrimary else colors.secondaryBackground)
+                .border(1.dp, if (isActive) SuqiPrimary else colors.border, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -593,7 +822,7 @@ fun GuidedStepItem(
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
-                color = if (isActive) Color.White else SuqiSecondaryText
+                color = if (isActive) Color.White else colors.secondaryText
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -601,7 +830,7 @@ fun GuidedStepItem(
             text = label,
             fontFamily = SuqiFontFamily,
             fontSize = 11.sp,
-            color = if (isActive) SuqiPrimaryText else SuqiMutedText
+            color = if (isActive) colors.primaryText else colors.mutedText
         )
     }
 }

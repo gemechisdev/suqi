@@ -25,6 +25,7 @@ sealed class ScreenDestination {
     data object MyOrders : ScreenDestination()
     data class OrderDetails(val orderId: String) : ScreenDestination()
     data object Account : ScreenDestination()
+    data object ProfileEdit : ScreenDestination()
     data object Auth : ScreenDestination()
     data object Onboarding : ScreenDestination()
     data object BecomeSeller : ScreenDestination()
@@ -35,23 +36,33 @@ sealed class ScreenDestination {
     data object DeliverySetup : ScreenDestination()
     data object VerificationQueue : ScreenDestination()
     data object SellerOrders : ScreenDestination()
+    data class SellerOrderDetail(val orderId: String) : ScreenDestination()
+    data object SellerInbox : ScreenDestination()
+    data object SellerMore : ScreenDestination()
     data object SellerVerification : ScreenDestination()
     data object Promotions : ScreenDestination()
     data object ShopSettings : ScreenDestination()
     data object ChatList : ScreenDestination()
-    data class ChatThread(val shopId: String, val productContextName: String? = null, val productContextPrice: String? = null, val productContextImage: String? = null) : ScreenDestination()
+    data class ChatThread(
+        val shopId: String,
+        val productContextName: String? = null,
+        val productContextPrice: String? = null,
+        val productContextImage: String? = null
+    ) : ScreenDestination()
     data object Notifications : ScreenDestination()
     data object SavedAddresses : ScreenDestination()
     data object Wishlist : ScreenDestination()
     data object Following : ScreenDestination()
     data class Reviews(val targetId: String, val targetName: String, val targetType: String) : ScreenDestination()
     data object SellerSubscription : ScreenDestination()
+    data object AdminSignIn : ScreenDestination()
     data object AdminConsole : ScreenDestination()
     data object AdminFeatures : ScreenDestination()
     data object AdminCategories : ScreenDestination()
     data object AdminBanners : ScreenDestination()
     data object AdminModeration : ScreenDestination()
     data object AdminSubscriptionPlans : ScreenDestination()
+    data object AdminDevTools : ScreenDestination()
     data object AppSettings : ScreenDestination()
     data object HelpLegal : ScreenDestination()
 }
@@ -62,8 +73,6 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
 
     // Navigation Stack
     private val _navStack = MutableStateFlow<List<ScreenDestination>>(listOf(ScreenDestination.Home))
-    val currentScreen: StateFlow<ScreenDestination> = MutableStateFlow(ScreenDestination.Home)
-
     private val _currentScreenState = MutableStateFlow<ScreenDestination>(ScreenDestination.Home)
     val screen: StateFlow<ScreenDestination> = _currentScreenState.asStateFlow()
 
@@ -71,6 +80,12 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         val currentList = _navStack.value.toMutableList()
         currentList.add(destination)
         _navStack.value = currentList
+        _currentScreenState.value = destination
+    }
+
+    fun switchSellerTab(destination: ScreenDestination) {
+        // Keeps Home on the bottom of stack so user can back out to Buyer Hub cleanly
+        _navStack.value = listOf(ScreenDestination.Home, ScreenDestination.Account, destination)
         _currentScreenState.value = destination
     }
 
@@ -90,6 +105,52 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         _currentScreenState.value = destination
     }
 
+    // Session & Role State (F-02, B-16, A-01)
+    private val _currentUser = MutableStateFlow<UserDto?>(null)
+    val currentUser: StateFlow<UserDto?> = _currentUser.asStateFlow()
+
+    private val _activeRole = MutableStateFlow("CUSTOMER") // "GUEST", "CUSTOMER", "SELLER", "ADMIN"
+    val activeRole: StateFlow<String> = _activeRole.asStateFlow()
+
+    private val _adminTier = MutableStateFlow("NONE") // "OWNER", "ADMIN", "DEVELOPER", "NONE"
+    val adminTier: StateFlow<String> = _adminTier.asStateFlow()
+
+    private val _isDeveloperUnlocked = MutableStateFlow(false)
+    val isDeveloperUnlocked: StateFlow<Boolean> = _isDeveloperUnlocked.asStateFlow()
+
+    fun unlockDeveloperTools() {
+        _isDeveloperUnlocked.value = true
+    }
+
+    private val _guestGateAction = MutableStateFlow<String?>(null)
+    val guestGateAction: StateFlow<String?> = _guestGateAction.asStateFlow()
+
+    fun requireSignedInOrPrompt(actionLabel: String, onAllowed: () -> Unit) {
+        if (_activeRole.value == "GUEST" || _currentUser.value?.role == "GUEST") {
+            _guestGateAction.value = actionLabel
+        } else {
+            onAllowed()
+        }
+    }
+
+    fun dismissGuestGate() {
+        _guestGateAction.value = null
+    }
+
+    fun setActiveRole(role: String) {
+        _activeRole.value = role
+        viewModelScope.launch {
+            repository.updateUserProfile(mapOf("activeRole" to role))
+        }
+    }
+
+    // Connectivity / Offline mode banner toggle (F-05)
+    private val _isOffline = MutableStateFlow(false)
+    val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
+    fun setOfflineMode(offline: Boolean) {
+        _isOffline.value = offline
+    }
+
     // Cart Count
     val cartCount = repository.cartCount
 
@@ -99,10 +160,23 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         isDarkMode.value = dark
     }
 
-    // Unread notification badge count (default 3 matching FitHub / Suqi designs)
-    val unreadNotificationCount = MutableStateFlow(3)
+    // Unread notification badge count (dynamically loaded from DB, initialized at 0)
+    val unreadNotificationCount = MutableStateFlow(0)
+
+    fun refreshUnreadNotifications() {
+        viewModelScope.launch {
+            val res = repository.getNotifications()
+            if (res.success && res.data != null) {
+                unreadNotificationCount.value = res.data.count { !it.isRead }
+            }
+        }
+    }
+
     fun clearNotificationCount() {
         unreadNotificationCount.value = 0
+        viewModelScope.launch {
+            repository.markAllNotificationsRead()
+        }
     }
 
     // Location State
@@ -111,14 +185,15 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     val selectedSubCity = MutableStateFlow("Bole")
     val selectedLanguage = MutableStateFlow("English")
 
-    // Active Checkout State for current shop checkout
-    val activeCheckoutDeliveryAddress = MutableStateFlow("Bole, Addis Ababa, Ethiopia")
-    val activeCheckoutRecipientName = MutableStateFlow("Fitsum Gebre")
-    val activeCheckoutRecipientPhone = MutableStateFlow("+251 912 345 678")
+    // Active Checkout State for current shop checkout (populated from active user & default address)
+    val activeCheckoutDeliveryAddress = MutableStateFlow("")
+    val activeCheckoutRecipientName = MutableStateFlow("")
+    val activeCheckoutRecipientPhone = MutableStateFlow("")
     val activeCheckoutDeliveryOption = MutableStateFlow<ShopDeliveryOptionDto?>(null)
     val activeCheckoutPaymentMethod = MutableStateFlow<ShopPaymentMethodDto?>(null)
     val activeCheckoutTransactionRef = MutableStateFlow("")
     val activeCheckoutPayerIdentifier = MutableStateFlow("")
+    val activeCheckoutReceiptUri = MutableStateFlow("")
     val activeCheckoutTotalAmount = MutableStateFlow(0.0)
     val activeCheckoutShopPromoCode = MutableStateFlow<PromoCodeDto?>(null)
     val activeCheckoutItems = MutableStateFlow<List<CartItemDto>>(emptyList())
@@ -140,6 +215,7 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     fun showToast(message: String) {
         toastMessage.value = message
     }
+
     fun clearToast() {
         toastMessage.value = null
     }
@@ -152,9 +228,44 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    init {
+    fun refreshSession() {
         viewModelScope.launch {
             repository.refreshCartCount()
+            val userRes = repository.getCurrentUser()
+            if (userRes.success && userRes.data != null) {
+                val u = userRes.data
+                _currentUser.value = u
+                _activeRole.value = u.activeRole.ifBlank { u.role }
+                _adminTier.value = u.adminTier
+                if (u.city.isNotBlank()) selectedCity.value = u.city
+                if (u.subCity.isNotBlank()) selectedSubCity.value = u.subCity
+                if (u.region.isNotBlank()) selectedRegion.value = u.region
+                if (u.preferredLanguage.isNotBlank()) selectedLanguage.value = u.preferredLanguage
+
+                val addrRes = repository.getSavedAddresses()
+                val defAddr = addrRes.data?.firstOrNull { it.isDefault } ?: addrRes.data?.firstOrNull()
+                if (defAddr != null) {
+                    activeCheckoutRecipientName.value = defAddr.fullName
+                    activeCheckoutRecipientPhone.value = defAddr.phone
+                    activeCheckoutDeliveryAddress.value = listOfNotNull(
+                        defAddr.streetOrLandmark.takeIf { it.isNotBlank() },
+                        defAddr.subCity.takeIf { it.isNotBlank() },
+                        defAddr.city.takeIf { it.isNotBlank() }
+                    ).joinToString(", ")
+                } else {
+                    activeCheckoutRecipientName.value = if (u.role == "GUEST") "" else u.name
+                    activeCheckoutRecipientPhone.value = u.phone
+                    activeCheckoutDeliveryAddress.value = listOfNotNull(
+                        u.subCity.takeIf { it.isNotBlank() },
+                        u.city.takeIf { it.isNotBlank() }
+                    ).joinToString(", ")
+                }
+            }
+            refreshUnreadNotifications()
         }
+    }
+
+    init {
+        refreshSession()
     }
 }

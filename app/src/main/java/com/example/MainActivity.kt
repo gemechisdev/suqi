@@ -6,22 +6,27 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.SuqiFloatingBottomNav
+import com.example.ui.components.SuqiGuestGateSheet
+import com.example.ui.components.SuqiOfflineBanner
+import com.example.ui.components.SuqiRestrictedState
+import com.example.ui.components.SuqiSellerFloatingBottomNav
 import com.example.ui.screens.*
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.SuqiBackground
 import com.example.ui.theme.SuqiPrimary
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -49,7 +54,29 @@ fun SuqiAppRoot(
 ) {
     val currentScreen by viewModel.screen.collectAsState()
     val toastMessage by viewModel.toastMessage.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val activeRole by viewModel.activeRole.collectAsState()
+    val isOffline by viewModel.isOffline.collectAsState()
+    val guestGateAction by viewModel.guestGateAction.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    var sellerPendingCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(currentScreen, currentUser?.id) {
+        if (currentScreen in listOf(
+                ScreenDestination.SellerStudio,
+                ScreenDestination.SellerOrders,
+                ScreenDestination.ProductManagement,
+                ScreenDestination.SellerInbox,
+                ScreenDestination.SellerMore
+            )
+        ) {
+            val qRes = viewModel.repository.getSellerVerificationQueue()
+            if (qRes.success && qRes.data != null) {
+                sellerPendingCount = qRes.data.size
+            }
+        }
+    }
 
     // Intercept hardware and gesture back button
     BackHandler(enabled = true) {
@@ -67,9 +94,7 @@ fun SuqiAppRoot(
         }
     }
 
-    // Determine whether to display the floating liquid bottom navigation bar
-    // Bottom nav is shown ONLY on root destinations, and hidden on sub-screens like Checkout, ProductDetails, Cart, etc.
-    val isRootNavScreen = currentScreen in listOf(
+    val isBuyerRootNav = currentScreen in listOf(
         ScreenDestination.Home,
         ScreenDestination.Categories,
         ScreenDestination.Search,
@@ -77,7 +102,15 @@ fun SuqiAppRoot(
         ScreenDestination.Account
     )
 
-    val currentRouteKey = when (currentScreen) {
+    val isSellerRootNav = currentScreen in listOf(
+        ScreenDestination.SellerStudio,
+        ScreenDestination.SellerOrders,
+        ScreenDestination.ProductManagement,
+        ScreenDestination.SellerInbox,
+        ScreenDestination.SellerMore
+    )
+
+    val currentBuyerRouteKey = when (currentScreen) {
         ScreenDestination.Home -> "home"
         ScreenDestination.Categories -> "categories"
         ScreenDestination.Search -> "search"
@@ -86,19 +119,32 @@ fun SuqiAppRoot(
         else -> ""
     }
 
+    val currentSellerRouteKey = when (currentScreen) {
+        ScreenDestination.SellerStudio -> "seller_dashboard"
+        ScreenDestination.SellerOrders -> "seller_orders"
+        ScreenDestination.ProductManagement -> "seller_products"
+        ScreenDestination.SellerInbox -> "seller_inbox"
+        ScreenDestination.SellerMore -> "seller_more"
+        else -> ""
+    }
+
+    val hasSellerAccess = (currentUser?.role == "SELLER" || !currentUser?.shopId.isNullOrBlank()) ||
+        (activeRole == "ADMIN")
+    val hasAdminAccess = currentUser?.role == "ADMIN" || activeRole == "ADMIN"
+
     Scaffold(
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier
-                    .padding(bottom = if (isRootNavScreen) 80.dp else 16.dp)
+                    .padding(bottom = if (isBuyerRootNav || isSellerRootNav) 80.dp else 16.dp)
                     .navigationBarsPadding()
             ) { data ->
                 Snackbar(
                     snackbarData = data,
                     containerColor = SuqiPrimary,
-                    contentColor = androidx.compose.ui.graphics.Color.White,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(14.dp)
                 )
             }
         },
@@ -110,94 +156,151 @@ fun SuqiAppRoot(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Render active screen
-            when (val dest = currentScreen) {
-                is ScreenDestination.Home -> HomeScreen(viewModel = viewModel)
-                is ScreenDestination.Categories -> CategoriesScreen(viewModel = viewModel)
-                is ScreenDestination.CategoryListing -> CategoryListingScreen(
-                    categoryId = dest.categoryId,
-                    categoryTitle = dest.categoryName,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.Search -> SearchScreen(viewModel = viewModel)
-                is ScreenDestination.Shops -> ShopsScreen(viewModel = viewModel)
-                is ScreenDestination.ShopStorefront -> ShopStorefrontScreen(
-                    shopId = dest.shopId,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.ProductDetails -> ProductDetailsScreen(
-                    productId = dest.productId,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.Cart -> CartScreen(viewModel = viewModel)
-                is ScreenDestination.CheckoutDelivery -> CheckoutDeliveryScreen(
-                    shopId = dest.shopId,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.CheckoutPayment -> CheckoutPaymentScreen(
-                    shopId = dest.shopId,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.OrderSubmitted -> OrderSubmittedScreen(
-                    orderReference = dest.orderReference,
-                    orderId = dest.orderId,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.MyOrders -> MyOrdersScreen(viewModel = viewModel)
-                is ScreenDestination.OrderDetails -> OrderDetailScreen(
-                    orderId = dest.orderId,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.Account -> AccountHubScreen(viewModel = viewModel)
-                is ScreenDestination.Auth -> AuthScreen(viewModel = viewModel)
-                is ScreenDestination.Onboarding -> OnboardingScreen(viewModel = viewModel)
-                is ScreenDestination.BecomeSeller -> BecomeSellerScreen(viewModel = viewModel)
-                is ScreenDestination.SellerStudio -> SellerStudioScreen(viewModel = viewModel)
-                is ScreenDestination.AddEditProduct -> AddEditProductScreen(
-                    productId = dest.productId,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.ProductManagement -> ProductManagementScreen(viewModel = viewModel)
-                is ScreenDestination.PaymentMethodsSetup -> PaymentMethodsSetupScreen(viewModel = viewModel)
-                is ScreenDestination.DeliverySetup -> DeliverySetupScreen(viewModel = viewModel)
-                is ScreenDestination.VerificationQueue -> VerificationQueueScreen(viewModel = viewModel)
-                is ScreenDestination.SellerOrders -> SellerOrdersScreen(viewModel = viewModel)
-                is ScreenDestination.SellerVerification -> SellerVerificationScreen(viewModel = viewModel)
-                is ScreenDestination.Promotions -> PromotionsScreen(viewModel = viewModel)
-                is ScreenDestination.ShopSettings -> ShopSettingsScreen(viewModel = viewModel)
-                is ScreenDestination.Following -> FollowingScreen(viewModel = viewModel)
-                is ScreenDestination.ChatList -> ChatListScreen(viewModel = viewModel)
-                is ScreenDestination.ChatThread -> ChatThreadScreen(
-                    shopId = dest.shopId,
-                    productContextName = dest.productContextName,
-                    productContextPrice = dest.productContextPrice,
-                    productContextImage = dest.productContextImage,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.Notifications -> NotificationsScreen(viewModel = viewModel)
-                is ScreenDestination.SavedAddresses -> SavedAddressesScreen(viewModel = viewModel)
-                is ScreenDestination.Wishlist -> WishlistScreen(viewModel = viewModel)
-                is ScreenDestination.Reviews -> ReviewsScreen(
-                    targetId = dest.targetId,
-                    targetName = dest.targetName,
-                    targetType = dest.targetType,
-                    viewModel = viewModel
-                )
-                is ScreenDestination.SellerSubscription -> SellerSubscriptionScreen(viewModel = viewModel)
-                is ScreenDestination.AdminConsole -> AdminConsoleScreen(viewModel = viewModel)
-                is ScreenDestination.AdminFeatures -> AdminFeaturesScreen(viewModel = viewModel)
-                is ScreenDestination.AdminCategories -> AdminCategoriesScreen(viewModel = viewModel)
-                is ScreenDestination.AdminBanners -> AdminBannersScreen(viewModel = viewModel)
-                is ScreenDestination.AdminModeration -> AdminModerationScreen(viewModel = viewModel)
-                is ScreenDestination.AdminSubscriptionPlans -> AdminSubscriptionPlansScreen(viewModel = viewModel)
-                is ScreenDestination.AppSettings -> AppSettingsScreen(viewModel = viewModel)
-                is ScreenDestination.HelpLegal -> HelpLegalScreen(viewModel = viewModel)
+            Column(modifier = Modifier.fillMaxSize()) {
+                AnimatedVisibility(visible = isOffline) {
+                    SuqiOfflineBanner(
+                        onRetry = {
+                            coroutineScope.launch {
+                                viewModel.setOfflineMode(false)
+                                viewModel.refreshSession()
+                                viewModel.showToast("Back online — synced marketplace data")
+                            }
+                        }
+                    )
+                }
+
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    when (val dest = currentScreen) {
+                        is ScreenDestination.Home -> HomeScreen(viewModel = viewModel)
+                        is ScreenDestination.Categories -> CategoriesScreen(viewModel = viewModel)
+                        is ScreenDestination.CategoryListing -> CategoryListingScreen(
+                            categoryId = dest.categoryId,
+                            categoryTitle = dest.categoryName,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.Search -> SearchScreen(viewModel = viewModel)
+                        is ScreenDestination.Shops -> ShopsScreen(viewModel = viewModel)
+                        is ScreenDestination.ShopStorefront -> ShopStorefrontScreen(
+                            shopId = dest.shopId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.ProductDetails -> ProductDetailsScreen(
+                            productId = dest.productId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.Cart -> CartScreen(viewModel = viewModel)
+                        is ScreenDestination.CheckoutDelivery -> CheckoutDeliveryScreen(
+                            shopId = dest.shopId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.CheckoutPayment -> CheckoutPaymentScreen(
+                            shopId = dest.shopId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.OrderSubmitted -> OrderSubmittedScreen(
+                            orderReference = dest.orderReference,
+                            orderId = dest.orderId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.MyOrders -> MyOrdersScreen(viewModel = viewModel)
+                        is ScreenDestination.OrderDetails -> OrderDetailScreen(
+                            orderId = dest.orderId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.Account -> AccountHubScreen(viewModel = viewModel)
+                        is ScreenDestination.ProfileEdit -> ProfileEditScreen(viewModel = viewModel)
+                        is ScreenDestination.Auth -> AuthScreen(viewModel = viewModel)
+                        is ScreenDestination.Onboarding -> OnboardingScreen(viewModel = viewModel)
+                        is ScreenDestination.BecomeSeller -> BecomeSellerScreen(viewModel = viewModel)
+
+                        // Seller Studio (Role-Gated)
+                        is ScreenDestination.SellerStudio -> {
+                            if (!hasSellerAccess) {
+                                SuqiRestrictedState(
+                                    title = "Seller Studio Requires a Shop",
+                                    subtitle = "Open a shop or sign in to a seller account to manage products, verify receipts, and view analytics.",
+                                    primaryButtonText = if (activeRole == "GUEST") "Sign In" else "Become a Seller",
+                                    onPrimaryClick = {
+                                        viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
+                                    },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "seller_restricted"
+                                )
+                            } else {
+                                SellerStudioScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AddEditProduct -> AddEditProductScreen(
+                            productId = dest.productId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.ProductManagement -> ProductManagementScreen(viewModel = viewModel)
+                        is ScreenDestination.PaymentMethodsSetup -> PaymentMethodsSetupScreen(viewModel = viewModel)
+                        is ScreenDestination.DeliverySetup -> DeliverySetupScreen(viewModel = viewModel)
+                        is ScreenDestination.VerificationQueue -> VerificationQueueScreen(viewModel = viewModel)
+                        is ScreenDestination.SellerOrders -> SellerOrdersScreen(viewModel = viewModel)
+                        is ScreenDestination.SellerOrderDetail -> SellerOrderDetailScreen(
+                            orderId = dest.orderId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.SellerInbox -> SellerInboxScreen(viewModel = viewModel)
+                        is ScreenDestination.SellerMore -> SellerMoreScreen(viewModel = viewModel)
+                        is ScreenDestination.SellerVerification -> SellerVerificationScreen(viewModel = viewModel)
+                        is ScreenDestination.Promotions -> PromotionsScreen(viewModel = viewModel)
+                        is ScreenDestination.ShopSettings -> ShopSettingsScreen(viewModel = viewModel)
+
+                        is ScreenDestination.Following -> FollowingScreen(viewModel = viewModel)
+                        is ScreenDestination.ChatList -> ChatListScreen(viewModel = viewModel)
+                        is ScreenDestination.ChatThread -> ChatThreadScreen(
+                            shopId = dest.shopId,
+                            productContextName = dest.productContextName,
+                            productContextPrice = dest.productContextPrice,
+                            productContextImage = dest.productContextImage,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.Notifications -> NotificationsScreen(viewModel = viewModel)
+                        is ScreenDestination.SavedAddresses -> SavedAddressesScreen(viewModel = viewModel)
+                        is ScreenDestination.Wishlist -> WishlistScreen(viewModel = viewModel)
+                        is ScreenDestination.Reviews -> ReviewsScreen(
+                            targetId = dest.targetId,
+                            targetName = dest.targetName,
+                            targetType = dest.targetType,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.SellerSubscription -> SellerSubscriptionScreen(viewModel = viewModel)
+
+                        // Admin Console (Role-Gated A-01)
+                        is ScreenDestination.AdminSignIn -> AdminSignInScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminConsole -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = "Admin Access Required",
+                                    subtitle = "Sign in with an Owner, Admin, or Developer staff account to open platform governance tools.",
+                                    primaryButtonText = "Admin Sign In",
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminConsoleScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminFeatures -> AdminFeaturesScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminCategories -> AdminCategoriesScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminBanners -> AdminBannersScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminModeration -> AdminModerationScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminSubscriptionPlans -> AdminSubscriptionPlansScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminDevTools -> AdminDevToolsScreen(viewModel = viewModel)
+                        is ScreenDestination.AppSettings -> AppSettingsScreen(viewModel = viewModel)
+                        is ScreenDestination.HelpLegal -> HelpLegalScreen(viewModel = viewModel)
+                    }
+                }
             }
 
-            // Floating Liquid Bottom Navigation
-            if (isRootNavScreen) {
+            // Buyer Floating Liquid Bottom Navigation
+            if (isBuyerRootNav) {
                 SuqiFloatingBottomNav(
-                    currentRoute = currentRouteKey,
+                    currentRoute = currentBuyerRouteKey,
                     onNavigate = { route ->
                         when (route) {
                             "home" -> viewModel.popToRoot(ScreenDestination.Home)
@@ -208,6 +311,37 @@ fun SuqiAppRoot(
                         }
                     },
                     modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
+
+            // Seller 5-Tab Floating Bottom Navigation (F-02)
+            if (isSellerRootNav && hasSellerAccess) {
+                SuqiSellerFloatingBottomNav(
+                    currentRoute = currentSellerRouteKey,
+                    pendingOrdersCount = sellerPendingCount,
+                    onNavigate = { route ->
+                        when (route) {
+                            "seller_dashboard" -> viewModel.switchSellerTab(ScreenDestination.SellerStudio)
+                            "seller_orders" -> viewModel.switchSellerTab(ScreenDestination.SellerOrders)
+                            "seller_products" -> viewModel.switchSellerTab(ScreenDestination.ProductManagement)
+                            "seller_inbox" -> viewModel.switchSellerTab(ScreenDestination.SellerInbox)
+                            "seller_more" -> viewModel.switchSellerTab(ScreenDestination.SellerMore)
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
+
+            // B-16 Guest Gate Bottom Sheet
+            val gateAction = guestGateAction
+            if (gateAction != null) {
+                SuqiGuestGateSheet(
+                    actionLabel = gateAction,
+                    onSignInClick = {
+                        viewModel.dismissGuestGate()
+                        viewModel.navigate(ScreenDestination.Auth)
+                    },
+                    onDismiss = { viewModel.dismissGuestGate() }
                 )
             }
         }

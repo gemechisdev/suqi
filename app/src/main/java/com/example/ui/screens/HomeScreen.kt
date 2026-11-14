@@ -55,14 +55,16 @@ fun HomeScreen(
     val selectedSubCity by viewModel.selectedSubCity.collectAsState()
     val recentlyViewed by viewModel.recentlyViewed.collectAsState()
     val colors = LocalSuqiColors.current
+    val isOffline by viewModel.isOffline.collectAsState()
 
     var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
     var shops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
     var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
+    var liveBanners by remember { mutableStateOf<List<PromoBanner>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     var showLocationSheet by remember { mutableStateOf(false) }
 
-    // Promo carousel slides (Suqi UI direction)
-    val banners = remember {
+    val fallbackBanners = remember {
         listOf(
             PromoBanner(
                 id = "1",
@@ -75,47 +77,53 @@ fun HomeScreen(
                 imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
                 targetCategory = "cat_electronics",
                 targetName = "Electronics"
-            ),
-            PromoBanner(
-                id = "2",
-                badge = "New Season",
-                badgeIcon = LucideIcons.Sparkles,
-                title = "Ethiopian Fashion",
-                highlight = "Fashion",
-                subtitle = "Handcrafted & modern",
-                buttonText = "Explore Style",
-                imageUrl = "https://images.unsplash.com/photo-1523381294911-8d3cead13475?w=600",
-                targetCategory = "cat_fashion",
-                targetName = "Fashion"
-            ),
-            PromoBanner(
-                id = "3",
-                badge = "Home & Living",
-                badgeIcon = LucideIcons.House,
-                title = "Transform Your Home",
-                highlight = "Home",
-                subtitle = "Furniture & decor",
-                buttonText = "View Decor",
-                imageUrl = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600",
-                targetCategory = "cat_home",
-                targetName = "Home & Living"
             )
         )
     }
+    val banners = if (liveBanners.isNotEmpty()) liveBanners else fallbackBanners
+
+    fun loadHomeData() {
+        coroutineScope.launch {
+            isLoading = products.isEmpty()
+            val bannerRes = viewModel.repository.getPromoBanners(activeOnly = true)
+            if (bannerRes.success && bannerRes.data != null) {
+                liveBanners = bannerRes.data.map { b ->
+                    PromoBanner(
+                        id = b.id,
+                        badge = b.badge,
+                        badgeIcon = when {
+                            b.badge.contains("Hot", ignoreCase = true) -> LucideIcons.Flame
+                            b.badge.contains("Home", ignoreCase = true) -> LucideIcons.House
+                            else -> LucideIcons.Sparkles
+                        },
+                        title = b.title,
+                        highlight = b.highlight,
+                        subtitle = b.subtitle,
+                        buttonText = b.buttonText,
+                        imageUrl = b.imageUrl,
+                        targetCategory = b.targetCategory,
+                        targetName = b.targetName
+                    )
+                }
+            }
+            val prodRes = viewModel.repository.getProducts()
+            if (prodRes.success && prodRes.data != null) {
+                products = prodRes.data
+            }
+            val shopRes = viewModel.repository.getShops()
+            if (shopRes.success && shopRes.data != null) {
+                shops = shopRes.data
+            }
+            val catRes = viewModel.repository.getCategories()
+            if (catRes.success && catRes.data != null) {
+                categories = catRes.data
+            }
+            isLoading = false
+        }
+    }
 
     LaunchedEffect(Unit) {
-        val prodRes = viewModel.repository.getProducts()
-        if (prodRes.success && prodRes.data != null) {
-            products = prodRes.data
-        }
-        val shopRes = viewModel.repository.getShops()
-        if (shopRes.success && shopRes.data != null) {
-            shops = shopRes.data
-        }
-        val catRes = viewModel.repository.getCategories()
-        if (catRes.success && catRes.data != null) {
-            categories = catRes.data
-        }
+        loadHomeData()
     }
 
     val isDark by viewModel.isDarkMode.collectAsState()
@@ -123,24 +131,37 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            SuqiTopHeader(
-                cartCount = cartCount,
-                notificationCount = unreadNotifCount,
-                onCartClick = { viewModel.navigate(ScreenDestination.Cart) },
-                onNotificationClick = {
-                    viewModel.clearNotificationCount()
-                    viewModel.navigate(ScreenDestination.Notifications)
-                },
-                showThemeToggle = true,
-                isDarkTheme = effectiveDark,
-                onToggleTheme = { viewModel.setDarkMode(!effectiveDark) },
-                locationText = listOfNotNull(selectedSubCity.takeIf { it.isNotBlank() }, selectedCity).joinToString(", ").ifBlank { selectedCity },
-                onLocationClick = { showLocationSheet = true }
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                SuqiTopHeader(
+                    cartCount = cartCount,
+                    notificationCount = unreadNotifCount,
+                    onCartClick = { viewModel.navigate(ScreenDestination.Cart) },
+                    onNotificationClick = {
+                        viewModel.clearNotificationCount()
+                        viewModel.navigate(ScreenDestination.Notifications)
+                    },
+                    showThemeToggle = true,
+                    isDarkTheme = effectiveDark,
+                    onToggleTheme = { viewModel.setDarkMode(!effectiveDark) },
+                    locationText = listOfNotNull(selectedSubCity.takeIf { it.isNotBlank() }, selectedCity).joinToString(", ").ifBlank { selectedCity },
+                    onLocationClick = { showLocationSheet = true }
+                )
+                if (isOffline) {
+                    SuqiOfflineBanner(onRetry = {
+                        viewModel.setOfflineMode(false)
+                        loadHomeData()
+                    })
+                }
+            }
         },
         containerColor = if (colors.isDark) colors.surfaceBackground else SuqiCream,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
+        if (isLoading && products.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(top = 16.dp)) {
+                SuqiSkeletonProductGrid(count = 4)
+            }
+        } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -548,6 +569,7 @@ fun HomeScreen(
                     }
                 }
             }
+        }
         }
     }
 

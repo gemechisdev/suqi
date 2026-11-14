@@ -58,4 +58,13 @@ object SuqiEndpoints {
     const val ADMIN_FEATURE_TOGGLES = "admin/features"
     const val ADMIN_SELLER_QUEUE = "admin/sellers"
     const val ADMIN_VERIFY_SELLER = "admin/sellers/{shopId}/decision"
+    const val BANNERS = "banners"
+    const val ADMIN_CATEGORIES = "admin/categories"
+    const val ADMIN_MODERATION = "admin/moderation"
+    const val SUBSCRIPTION_PLANS = "subscription-plans"
+    const val PRODUCT_QUESTIONS = "products/{id}/questions"
+    const val SUPPORT_TICKETS = "support/tickets"
+    const val AUTH_PHONE = "auth/phone"
+    const val AUTH_PROFILE = "auth/profile"
+    const val AUTH_ADMIN = "auth/admin"
 }

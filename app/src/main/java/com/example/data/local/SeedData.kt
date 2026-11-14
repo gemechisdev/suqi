@@ -22,22 +22,43 @@ object SeedData {
             )
         )
 
-        // User
+        // Users (default active session = Fitsum Gebre seller+buyer account; also seed Admin & Guest)
         val defaultUser = UserEntity(
             id = "user_fitsum",
             name = "Fitsum Gebre",
             phone = "+251 912 345 678",
             email = "fitsum.gebre@gmail.com",
             avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-            role = "SELLER", // Can access both customer hub and seller studio
+            role = "SELLER",
             preferredLanguage = "English",
             region = "Addis Ababa",
             city = "Addis Ababa",
             subCity = "Bole",
             shopId = "shop_techhub",
-            defaultAddressId = "addr_1"
+            defaultAddressId = "addr_1",
+            adminTier = "NONE",
+            activeRole = "SELLER",
+            isActiveSession = true
+        )
+        val adminUser = UserEntity(
+            id = "user_admin",
+            name = "Abebe Kebede",
+            phone = "+251 911 000 111",
+            email = "admin@suqi.et",
+            avatarUrl = "",
+            role = "ADMIN",
+            preferredLanguage = "English",
+            region = "Addis Ababa",
+            city = "Addis Ababa",
+            subCity = "Kirkos",
+            shopId = null,
+            defaultAddressId = null,
+            adminTier = "OWNER",
+            activeRole = "ADMIN",
+            isActiveSession = false
         )
         db.userDao().insertUser(defaultUser)
+        db.userDao().insertUser(adminUser)
 
         // Saved Addresses
         db.savedAddressDao().insertAll(
@@ -831,6 +852,162 @@ object SeedData {
                 )
             )
         )
+
+        ensureSecondaryTablesSeeded(db)
+    }
+
+    suspend fun ensureSecondaryTablesSeeded(db: SuqiDatabase) {
+        if (db.userDao().getUserById("user_admin") == null) {
+            db.userDao().insertUser(
+                UserEntity(
+                    id = "user_admin",
+                    name = "Abebe Kebede",
+                    phone = "+251 911 000 111",
+                    email = "admin@suqi.et",
+                    avatarUrl = "",
+                    role = "ADMIN",
+                    preferredLanguage = "English",
+                    region = "Addis Ababa",
+                    city = "Addis Ababa",
+                    subCity = "Kirkos",
+                    adminTier = "OWNER",
+                    activeRole = "ADMIN",
+                    isActiveSession = false
+                )
+            )
+        }
+        if (db.userDao().getActiveSessionUser() == null) {
+            db.userDao().getFirstUser()?.let { db.userDao().setActiveSession(it.id) }
+        }
+        if (db.promoBannerDao().getAllBanners().isEmpty()) {
+            db.promoBannerDao().insertAll(
+                listOf(
+                    PromoBannerEntity(
+                        id = "banner_1",
+                        badge = "Hot Deal",
+                        title = "Up to 50% Off",
+                        highlight = "50%",
+                        subtitle = "On Selected Items",
+                        buttonText = "Shop Now",
+                        imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
+                        targetCategory = "cat_electronics",
+                        targetName = "Electronics",
+                        isActive = true,
+                        sortOrder = 0
+                    ),
+                    PromoBannerEntity(
+                        id = "banner_2",
+                        badge = "New Season",
+                        title = "Ethiopian Fashion",
+                        highlight = "Fashion",
+                        subtitle = "Handcrafted & modern",
+                        buttonText = "Explore Style",
+                        imageUrl = "https://images.unsplash.com/photo-1523381294911-8d3cead13475?w=600",
+                        targetCategory = "cat_fashion",
+                        targetName = "Fashion",
+                        isActive = true,
+                        sortOrder = 1
+                    ),
+                    PromoBannerEntity(
+                        id = "banner_3",
+                        badge = "Home & Living",
+                        title = "Transform Your Home",
+                        highlight = "Home",
+                        subtitle = "Furniture & decor",
+                        buttonText = "View Decor",
+                        imageUrl = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600",
+                        targetCategory = "cat_home",
+                        targetName = "Home & Living",
+                        isActive = true,
+                        sortOrder = 2
+                    )
+                )
+            )
+        }
+        if (db.subscriptionPlanDao().getAllPlans().isEmpty()) {
+            db.subscriptionPlanDao().insertAll(
+                listOf(
+                    SubscriptionPlanEntity(
+                        id = "plan_starter",
+                        name = "Starter",
+                        monthlyPrice = 0.0,
+                        yearlyPrice = 0.0,
+                        maxProducts = 25,
+                        featuresCsv = "Up to 25 products,Standard listing,Telebirr & CBE checkout",
+                        isPopular = false,
+                        isActive = true
+                    ),
+                    SubscriptionPlanEntity(
+                        id = "plan_pro",
+                        name = "Pro Seller Plan",
+                        monthlyPrice = 299.0,
+                        yearlyPrice = 2990.0,
+                        maxProducts = 500,
+                        featuresCsv = "Up to 500 products,Verified shop badge boost,Promo codes & vouchers,Priority seller analytics",
+                        isPopular = true,
+                        isActive = true
+                    ),
+                    SubscriptionPlanEntity(
+                        id = "plan_enterprise",
+                        name = "Enterprise",
+                        monthlyPrice = 899.0,
+                        yearlyPrice = 8990.0,
+                        maxProducts = 5000,
+                        featuresCsv = "Unlimited listings,Multi-staff verification,Featured homepage placement,Dedicated Addis support",
+                        isPopular = false,
+                        isActive = true
+                    )
+                )
+            )
+        }
+        if (db.flaggedReviewDao().getAllFlagged().isEmpty()) {
+            db.flaggedReviewDao().insertAll(
+                listOf(
+                    FlaggedReviewEntity(
+                        id = "flag_1",
+                        authorName = "Kaleb T.",
+                        reason = "Contains external contact link",
+                        reviewText = "Message me on WhatsApp 0911xxx to get this item cheaper direct!",
+                        status = "REPORTED",
+                        createdAt = "Today"
+                    ),
+                    FlaggedReviewEntity(
+                        id = "flag_2",
+                        authorName = "Meron A.",
+                        reason = "Suspicious promotional spam",
+                        reviewText = "Visit bit.ly/free-etb-promo for 1000 ETB cashback coupon now!",
+                        status = "REPORTED",
+                        createdAt = "Yesterday"
+                    )
+                )
+            )
+        }
+        if (db.productQuestionDao().getQuestionsForProduct("prod_laptop_hp").isEmpty()) {
+            db.productQuestionDao().insertAll(
+                listOf(
+                    ProductQuestionEntity(
+                        id = "pq_1",
+                        productId = "prod_laptop_hp",
+                        shopId = "shop_techhub",
+                        askerName = "Robel M.",
+                        question = "Does it come with an Ethiopian power adapter and laptop bag?",
+                        answer = "Yes! Every HP 15 unit includes the official EU/ET 2-pin charger and a complimentary sleeve.",
+                        answeredByShop = true,
+                        createdAt = "3 days ago"
+                    ),
+                    ProductQuestionEntity(
+                        id = "pq_2",
+                        productId = "prod_earbuds_pro",
+                        shopId = "shop_techhub",
+                        askerName = "Hanna D.",
+                        question = "How long does the charging case hold power?",
+                        answer = "Up to 24 hours combined playback with ANC on.",
+                        answeredByShop = true,
+                        createdAt = "5 days ago"
+                    )
+                )
+            )
+        }
     }
 
     /**

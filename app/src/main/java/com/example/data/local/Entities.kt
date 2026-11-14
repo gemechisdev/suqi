@@ -16,7 +16,12 @@ data class UserEntity(
     val city: String,
     val subCity: String,
     val shopId: String? = null,
-    val defaultAddressId: String? = null
+    val defaultAddressId: String? = null,
+    val adminTier: String = "NONE",
+    val gender: String = "",
+    val birthday: String = "",
+    val activeRole: String = "",
+    val isActiveSession: Boolean = false
 )
 
 @Entity(tableName = "shops")
@@ -45,7 +50,15 @@ data class ShopEntity(
     val productCount: Int,
     val isVacationMode: Boolean = false,
     val acceptsOrders: Boolean = true,
-    val isFollowing: Boolean = false
+    val isFollowing: Boolean = false,
+    val requireReceiptScreenshot: Boolean = false,
+    val businessHoursJson: String = "",
+    val vacationReturnDate: String = "",
+    val vacationNote: String = "",
+    val freeDeliveryThreshold: Double = 0.0,
+    val coverageSubCitiesCsv: String = "",
+    val verificationDocsJson: String = "",
+    val verificationRejectionReason: String? = null
 )
 
 @Entity(tableName = "products")
@@ -125,7 +138,13 @@ data class OrderEntity(
     val verifiedBy: String? = null,
     val verifiedAt: String? = null,
     val orderStatus: String,
-    val createdAt: String
+    val createdAt: String,
+    val receiptImageUri: String = "",
+    val payerIdentifier: String = "",
+    val sellerNotes: String = "",
+    val courierName: String = "",
+    val courierPhone: String = "",
+    val dispatchedAt: String? = null
 )
 
 @Entity(tableName = "shop_payment_methods")
@@ -190,7 +209,8 @@ data class ChatMessageEntity(
     val productContextName: String? = null,
     val productContextPrice: String? = null,
     val productContextImage: String? = null,
-    val isRead: Boolean = true
+    val isRead: Boolean = true,
+    val imageUrl: String = ""
 )
 
 @Entity(tableName = "notifications")
@@ -225,7 +245,9 @@ data class CategoryEntity(
     val nameAmharic: String,
     val nameAfaanOromo: String,
     val icon: String,
-    val subCategoriesCsv: String
+    val subCategoriesCsv: String,
+    val isActive: Boolean = true,
+    val sortOrder: Int = 0
 )
 
 @Entity(tableName = "admin_settings")
@@ -238,4 +260,65 @@ data class AdminSettingsEntity(
     val showFeaturedShops: Boolean = true,
     val activePlanName: String = "Pro Seller Plan",
     val activePlanPrice: Double = 299.0
+)
+
+@Entity(tableName = "promo_banners")
+data class PromoBannerEntity(
+    @PrimaryKey val id: String,
+    val badge: String,
+    val title: String,
+    val highlight: String,
+    val subtitle: String,
+    val buttonText: String,
+    val imageUrl: String,
+    val targetCategory: String,
+    val targetName: String,
+    val isActive: Boolean = true,
+    val sortOrder: Int = 0
+)
+
+@Entity(tableName = "flagged_reviews")
+data class FlaggedReviewEntity(
+    @PrimaryKey val id: String,
+    val authorName: String,
+    val reason: String,
+    val reviewText: String,
+    val status: String = "REPORTED",
+    val createdAt: String
+)
+
+@Entity(tableName = "product_questions")
+data class ProductQuestionEntity(
+    @PrimaryKey val id: String,
+    val productId: String,
+    val shopId: String,
+    val askerName: String,
+    val question: String,
+    val answer: String = "",
+    val answeredByShop: Boolean = false,
+    val createdAt: String
+)
+
+@Entity(tableName = "subscription_plans")
+data class SubscriptionPlanEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val monthlyPrice: Double,
+    val yearlyPrice: Double,
+    val maxProducts: Int,
+    val featuresCsv: String,
+    val isPopular: Boolean = false,
+    val isActive: Boolean = true
+)
+
+@Entity(tableName = "support_tickets")
+data class SupportTicketEntity(
+    @PrimaryKey val id: String,
+    val userId: String,
+    val orderId: String = "",
+    val category: String,
+    val subject: String,
+    val description: String,
+    val status: String = "OPEN",
+    val createdAt: String
 )

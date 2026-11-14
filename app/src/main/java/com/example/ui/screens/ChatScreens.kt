@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,13 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,13 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.compose.rememberLauncherForActivityResult
-import android.net.Uri
 import com.example.data.model.ChatMessageDto
 import com.example.data.model.ProductDto
 import com.example.data.model.ShopDto
@@ -48,68 +41,70 @@ fun ChatListScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
-    val coroutineScope = rememberCoroutineScope()
+    val colors = LocalSuqiColors.current
+    val isOffline by viewModel.isOffline.collectAsState()
     var conversations by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
+        isLoading = true
         val res = viewModel.repository.getChatConversations()
         if (res.success && res.data != null) {
             conversations = res.data
         }
+        isLoading = false
     }
 
-    Scaffold(
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { viewModel.goBack() },
-                    modifier = Modifier.size(40.dp).clip(CircleShape).background(SuqiSecondaryBackground)
-                ) {
-                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = SuqiPrimaryText)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "Chat Messages", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
-            }
-        },
-        containerColor = SuqiBackground,
-        modifier = modifier.fillMaxSize()
+    SuqiScreen(
+        title = "Chat Messages",
+        subtitle = "${conversations.size} active threads",
+        onBackClick = { viewModel.goBack() },
+        isOffline = isOffline,
+        modifier = modifier
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
-            contentPadding = PaddingValues(16.dp)
-        ) {
-            if (conversations.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                        Text(text = "No active conversations.", color = SuqiSecondaryText)
-                    }
-                }
-            } else {
-                items(conversations) { conv ->
-                    Card(
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = LocalSuqiColors.current.cardBackground),
-                        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SuqiBorder)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                            .clickable { viewModel.navigate(ScreenDestination.ChatThread(conv.shopId)) }
+        if (isLoading) {
+            SuqiSkeletonList(
+                count = 4,
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .padding(top = 12.dp)
+            )
+        } else if (conversations.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                SuqiEmptyState(
+                    icon = LucideIcons.MessageCircle,
+                    title = "No active conversations",
+                    subtitle = "Ask a verified Ethiopian seller about stock, delivery times, or custom variations.",
+                    ctaText = "Browse Shops",
+                    onCtaClick = { viewModel.navigate(ScreenDestination.Shops) },
+                    testTag = "chat_list_empty"
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(conversations, key = { it.id }) { conv ->
+                    SuqiSectionCard(
+                        padding = 14.dp,
+                        onClick = { viewModel.navigate(ScreenDestination.ChatThread(conv.shopId)) },
+                        modifier = Modifier.testTag("chat_thread_${conv.shopId}")
                     ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(CircleShape)
-                                    .background(SuqiPrimaryTint),
+                                    .background(colors.primaryTint),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -123,30 +118,44 @@ fun ChatListScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
                                         text = conv.shopName,
                                         fontFamily = SuqiFontFamily,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
+                                        fontSize = 15.sp,
+                                        color = colors.primaryText
                                     )
                                     Text(
                                         text = conv.timestamp,
                                         fontFamily = SuqiFontFamily,
                                         fontSize = 11.sp,
-                                        color = SuqiMutedText
+                                        color = colors.mutedText
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = conv.message,
-                                    fontFamily = SuqiFontFamily,
-                                    fontSize = 13.sp,
-                                    color = SuqiSecondaryText,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (conv.imageUrl.isNotBlank() && conv.message.isBlank()) "Photo attachment" else conv.message,
+                                        fontFamily = SuqiFontFamily,
+                                        fontSize = 13.sp,
+                                        color = colors.secondaryText,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (!conv.isRead) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(SuqiPrimary)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -155,6 +164,7 @@ fun ChatListScreen(
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatThreadScreen(
@@ -167,9 +177,11 @@ fun ChatThreadScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val isOffline by viewModel.isOffline.collectAsState()
     var messages by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
     var inputMessage by remember { mutableStateOf("") }
-    var shopTitle by remember { mutableStateOf("Tech Hub") }
+    var shopTitle by remember { mutableStateOf("Shop Chat") }
+    var previewImageUrl by remember { mutableStateOf<String?>(null) }
 
     var allProducts by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
     var allShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
@@ -186,7 +198,7 @@ fun ChatThreadScreen(
     var shopSearchQuery by remember { mutableStateOf("") }
 
     val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
             pendingPhotoUri = uri
@@ -215,6 +227,10 @@ fun ChatThreadScreen(
     }
 
     LaunchedEffect(shopId) {
+        val shopDetail = viewModel.repository.getShopDetails(shopId)
+        if (shopDetail.success && shopDetail.data != null) {
+            shopTitle = shopDetail.data.name
+        }
         loadMessages()
         val prodRes = viewModel.repository.getProducts()
         if (prodRes.success && prodRes.data != null) allProducts = prodRes.data
@@ -222,36 +238,26 @@ fun ChatThreadScreen(
         if (shopRes.success && shopRes.data != null) allShops = shopRes.data
     }
 
-    Scaffold(
-        topBar = {
-            Row(
+    SuqiScreen(
+        title = shopTitle,
+        subtitle = if (isOffline) "Offline · Cached messages" else "Verified Shop · Online",
+        onBackClick = { viewModel.goBack() },
+        isOffline = isOffline,
+        headerActions = {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(colors.secondaryBackground)
+                    .clickable { viewModel.navigate(ScreenDestination.ShopStorefront(shopId)) },
+                contentAlignment = Alignment.Center
             ) {
-                IconButton(
-                    onClick = { viewModel.goBack() },
-                    modifier = Modifier.size(40.dp).clip(CircleShape).background(colors.secondaryBackground)
-                ) {
-                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = colors.primaryText)
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = shopTitle,
-                            fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = colors.primaryText
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(LucideIcons.CheckCircle, contentDescription = "Verified", tint = SuqiPrimary, modifier = Modifier.size(14.dp))
-                    }
-                    Text(text = "Online", fontSize = 11.sp, color = SuqiSuccess)
-                }
+                Icon(
+                    imageVector = LucideIcons.Store,
+                    contentDescription = "View Shop",
+                    tint = colors.primaryText,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         },
         bottomBar = {
@@ -352,17 +358,24 @@ fun ChatThreadScreen(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(colors.secondaryBackground)
-                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
-                                    Icon(imageVector = LucideIcons.ImagePlus, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(14.dp))
+                                    AsyncImage(
+                                        model = pendingPhotoUri,
+                                        contentDescription = "Pending photo",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                    )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(text = "Photo", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
                                         LucideIcons.X,
-                                        contentDescription = "Remove",
+                                        contentDescription = "Remove photo",
                                         tint = colors.mutedText,
-                                        modifier = Modifier.size(14.dp).clickable { pendingPhotoUri = null }
+                                        modifier = Modifier.size(16.dp).clickable { pendingPhotoUri = null }
                                     )
                                 }
                             }
@@ -375,11 +388,16 @@ fun ChatThreadScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         IconButton(
-                            onClick = { photoPicker.launch("image/*") },
+                            onClick = {
+                                photoPicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(colors.secondaryBackground)
+                                .testTag("chat_attach_photo_button")
                         ) {
                             Icon(LucideIcons.Plus, contentDescription = "Attach photo", tint = colors.primaryText)
                         }
@@ -410,47 +428,56 @@ fun ChatThreadScreen(
                             maxLines = 5,
                             modifier = Modifier
                                 .weight(1f)
-                                .heightIn(min = 44.dp, max = 120.dp)
+                                .heightIn(min = 48.dp, max = 120.dp)
+                                .testTag("chat_message_input")
                         )
 
                         Spacer(modifier = Modifier.width(6.dp))
 
                         IconButton(
                             onClick = { showEmojiPicker = true },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(LucideIcons.Smile, contentDescription = "Emoji", tint = colors.secondaryText)
                         }
 
                         IconButton(
                             onClick = {
-                                if (inputMessage.isNotBlank() || pendingProductName != null || pendingPhotoUri != null) {
-                                    val text = inputMessage.trim().ifBlank {
-                                        if (pendingPhotoUri != null) "📷 Photo" else ""
-                                    }
-                                    inputMessage = ""
-                                    coroutineScope.launch {
-                                        viewModel.repository.sendChatMessage(
-                                            shopId = shopId,
-                                            messageData = mapOf(
-                                                "message" to text,
-                                                "productContextName" to (pendingProductName ?: ""),
-                                                "productContextPrice" to (pendingProductPrice ?: ""),
-                                                "productContextImage" to (pendingProductImage ?: "")
+                                viewModel.requireSignedInOrPrompt("send a message") {
+                                    if (inputMessage.isNotBlank() || pendingProductName != null || pendingPhotoUri != null) {
+                                        val text = inputMessage.trim().ifBlank {
+                                            if (pendingPhotoUri != null) "Sent a photo" else ""
+                                        }
+                                        val photoString = pendingPhotoUri?.toString() ?: ""
+                                        val prodName = pendingProductName ?: ""
+                                        val prodPrice = pendingProductPrice ?: ""
+                                        val prodImg = pendingProductImage ?: ""
+                                        inputMessage = ""
+                                        coroutineScope.launch {
+                                            viewModel.repository.sendChatMessage(
+                                                shopId = shopId,
+                                                messageData = mapOf(
+                                                    "message" to text,
+                                                    "productContextName" to prodName,
+                                                    "productContextPrice" to prodPrice,
+                                                    "productContextImage" to prodImg,
+                                                    "imageUrl" to photoString
+                                                )
                                             )
-                                        )
-                                        pendingProductName = null
-                                        pendingProductPrice = null
-                                        pendingProductImage = null
-                                        pendingPhotoUri = null
-                                        loadMessages()
+                                            pendingProductName = null
+                                            pendingProductPrice = null
+                                            pendingProductImage = null
+                                            pendingPhotoUri = null
+                                            loadMessages()
+                                        }
                                     }
                                 }
                             },
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(SuqiPrimary)
+                                .testTag("chat_send_button")
                         ) {
                             Icon(LucideIcons.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(18.dp))
                         }
@@ -458,6 +485,7 @@ fun ChatThreadScreen(
                 }
             }
         },
+        modifier = modifier
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(paddingValues),
@@ -536,6 +564,21 @@ fun ChatThreadScreen(
                                 msg.message.replace(mentionPattern, "").trim()
                             } else msg.message
 
+                            if (msg.imageUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = msg.imageUrl,
+                                    contentDescription = "Chat photo attachment",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(170.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colors.secondaryBackground)
+                                        .clickable { previewImageUrl = msg.imageUrl }
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
                             ChatBubbleMessageContent(
                                 text = displayText,
                                 isCustomer = isCustomer,
@@ -579,6 +622,42 @@ fun ChatThreadScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+
+    if (previewImageUrl != null) {
+        Dialog(
+            onDismissRequest = { previewImageUrl = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.94f))
+                    .clickable { previewImageUrl = null },
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = previewImageUrl,
+                    contentDescription = "Full photo attachment",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                )
+                IconButton(
+                    onClick = { previewImageUrl = null },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(16.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.2f))
+                ) {
+                    Icon(LucideIcons.X, contentDescription = "Close preview", tint = Color.White)
                 }
             }
         }

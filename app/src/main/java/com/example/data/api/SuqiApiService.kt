@@ -11,8 +11,17 @@ interface SuqiApiService {
     @POST(SuqiEndpoints.AUTH_GOOGLE)
     suspend fun loginWithGoogle(@Body payload: Map<String, String>): ApiResponse<UserDto>
 
+    @POST(SuqiEndpoints.AUTH_PHONE)
+    suspend fun loginWithPhoneOtp(@Body payload: Map<String, String>): ApiResponse<UserDto>
+
     @POST(SuqiEndpoints.AUTH_GUEST)
     suspend fun loginAsGuest(): ApiResponse<UserDto>
+
+    @POST(SuqiEndpoints.AUTH_ADMIN)
+    suspend fun adminSignIn(@Body payload: Map<String, String>): ApiResponse<UserDto>
+
+    @PUT(SuqiEndpoints.AUTH_PROFILE)
+    suspend fun updateUserProfile(@Body payload: Map<String, String>): ApiResponse<UserDto>
 
     @GET(SuqiEndpoints.AUTH_ME)
     suspend fun getCurrentUser(): ApiResponse<UserDto>
@@ -37,6 +46,12 @@ interface SuqiApiService {
     @POST(SuqiEndpoints.PRODUCT_WISHLIST)
     suspend fun toggleWishlist(@Path("id") id: String): ApiResponse<Boolean>
 
+    @GET(SuqiEndpoints.PRODUCT_QUESTIONS)
+    suspend fun getProductQuestions(@Path("id") productId: String): ApiResponse<List<ProductQuestionDto>>
+
+    @POST(SuqiEndpoints.PRODUCT_QUESTIONS)
+    suspend fun submitProductQuestion(@Path("id") productId: String, @Body payload: Map<String, String>): ApiResponse<ProductQuestionDto>
+
     @GET(SuqiEndpoints.SHOPS)
     suspend fun getShops(
         @Query("filter") filter: String = "ALL", // "ALL", "VERIFIED", "TOP_RATED", "NEARBY"
@@ -52,6 +67,9 @@ interface SuqiApiService {
 
     @GET(SuqiEndpoints.CATEGORIES)
     suspend fun getCategories(): ApiResponse<List<CategoryDto>>
+
+    @GET(SuqiEndpoints.BANNERS)
+    suspend fun getPromoBanners(@Query("activeOnly") activeOnly: Boolean = true): ApiResponse<List<PromoBannerDto>>
 
     // Cart
     @GET(SuqiEndpoints.CART)
@@ -104,6 +122,9 @@ interface SuqiApiService {
     @PUT(SuqiEndpoints.SELLER_PRODUCTS)
     suspend fun updateProductStatus(@Query("id") id: String, @Query("status") status: String): ApiResponse<Boolean>
 
+    @DELETE(SuqiEndpoints.SELLER_PRODUCTS)
+    suspend fun deleteProduct(@Query("id") id: String): ApiResponse<Boolean>
+
     @GET(SuqiEndpoints.SELLER_ORDERS)
     suspend fun getSellerOrders(): ApiResponse<List<OrderDto>>
 
@@ -131,14 +152,26 @@ interface SuqiApiService {
     @POST(SuqiEndpoints.SELLER_PAYMENT_METHODS)
     suspend fun saveShopPaymentMethod(@Body method: ShopPaymentMethodDto): ApiResponse<Boolean>
 
+    @DELETE(SuqiEndpoints.SELLER_PAYMENT_METHODS)
+    suspend fun deleteShopPaymentMethod(@Query("id") id: String): ApiResponse<Boolean>
+
     @GET(SuqiEndpoints.SELLER_DELIVERY_OPTIONS)
     suspend fun getShopDeliveryOptions(@Query("shopId") shopId: String): ApiResponse<List<ShopDeliveryOptionDto>>
 
+    @POST(SuqiEndpoints.SELLER_DELIVERY_OPTIONS)
+    suspend fun saveShopDeliveryOption(@Body option: ShopDeliveryOptionDto): ApiResponse<Boolean>
+
+    @DELETE(SuqiEndpoints.SELLER_DELIVERY_OPTIONS)
+    suspend fun deleteShopDeliveryOption(@Query("id") id: String): ApiResponse<Boolean>
+
     @GET(SuqiEndpoints.SELLER_PROMOTIONS)
-    suspend fun getShopPromotions(@Query("shopId") shopId: String): ApiResponse<List<PromoCodeDto>>
+    suspend fun getShopPromotions(@Query("shopId") shopId: String, @Query("includeInactive") includeInactive: Boolean = false): ApiResponse<List<PromoCodeDto>>
 
     @POST(SuqiEndpoints.SELLER_PROMOTIONS)
     suspend fun createPromoCode(@Body promo: PromoCodeDto): ApiResponse<Boolean>
+
+    @DELETE(SuqiEndpoints.SELLER_PROMOTIONS)
+    suspend fun deletePromoCode(@Query("id") id: String): ApiResponse<Boolean>
 
     @POST(SuqiEndpoints.SELLER_VERIFICATION_SUBMIT)
     suspend fun submitSellerVerification(@Body details: Map<String, String>): ApiResponse<Boolean>
@@ -146,7 +179,7 @@ interface SuqiApiService {
     @PUT(SuqiEndpoints.SELLER_SHOP_SETTINGS)
     suspend fun updateShopSettings(@Body settings: Map<String, Any>): ApiResponse<Boolean>
 
-    // Chat, Reviews, Notifications, Addresses
+    // Chat, Reviews, Notifications, Addresses, Support
     @GET(SuqiEndpoints.CHAT_CONVERSATIONS)
     suspend fun getChatConversations(): ApiResponse<List<ChatMessageDto>>
 
@@ -165,11 +198,29 @@ interface SuqiApiService {
     @GET(SuqiEndpoints.NOTIFICATIONS)
     suspend fun getNotifications(): ApiResponse<List<NotificationDto>>
 
+    @PUT(SuqiEndpoints.NOTIFICATIONS)
+    suspend fun markNotificationRead(@Query("id") id: String, @Query("isRead") isRead: Boolean): ApiResponse<Boolean>
+
+    @POST(SuqiEndpoints.NOTIFICATIONS)
+    suspend fun markAllNotificationsRead(): ApiResponse<Boolean>
+
+    @DELETE(SuqiEndpoints.NOTIFICATIONS)
+    suspend fun deleteNotification(@Query("id") id: String): ApiResponse<Boolean>
+
     @GET(SuqiEndpoints.ADDRESSES)
     suspend fun getSavedAddresses(): ApiResponse<List<SavedAddressDto>>
 
     @POST(SuqiEndpoints.ADDRESSES)
     suspend fun saveAddress(@Body address: SavedAddressDto): ApiResponse<SavedAddressDto>
+
+    @DELETE(SuqiEndpoints.ADDRESSES)
+    suspend fun deleteSavedAddress(@Query("id") id: String): ApiResponse<Boolean>
+
+    @POST(SuqiEndpoints.SUPPORT_TICKETS)
+    suspend fun submitSupportTicket(@Body ticket: SupportTicketDto): ApiResponse<SupportTicketDto>
+
+    @GET(SuqiEndpoints.SUPPORT_TICKETS)
+    suspend fun getSupportTickets(): ApiResponse<List<SupportTicketDto>>
 
     // Admin
     @GET(SuqiEndpoints.ADMIN_SETTINGS)
@@ -186,4 +237,31 @@ interface SuqiApiService {
         @Path("shopId") shopId: String,
         @Query("decision") decision: String
     ): ApiResponse<Boolean>
+
+    @POST(SuqiEndpoints.ADMIN_CATEGORIES)
+    suspend fun saveCategory(@Body category: CategoryDto): ApiResponse<CategoryDto>
+
+    @DELETE(SuqiEndpoints.ADMIN_CATEGORIES)
+    suspend fun deleteCategory(@Query("id") id: String): ApiResponse<Boolean>
+
+    @POST(SuqiEndpoints.BANNERS)
+    suspend fun savePromoBanner(@Body banner: PromoBannerDto): ApiResponse<PromoBannerDto>
+
+    @DELETE(SuqiEndpoints.BANNERS)
+    suspend fun deletePromoBanner(@Query("id") id: String): ApiResponse<Boolean>
+
+    @GET(SuqiEndpoints.ADMIN_MODERATION)
+    suspend fun getFlaggedReviews(): ApiResponse<List<FlaggedReviewDto>>
+
+    @POST(SuqiEndpoints.ADMIN_MODERATION)
+    suspend fun reportOrModerateReview(@Body payload: Map<String, String>): ApiResponse<Boolean>
+
+    @GET(SuqiEndpoints.SUBSCRIPTION_PLANS)
+    suspend fun getSubscriptionPlans(): ApiResponse<List<SubscriptionPlanDto>>
+
+    @POST(SuqiEndpoints.SUBSCRIPTION_PLANS)
+    suspend fun saveSubscriptionPlan(@Body plan: SubscriptionPlanDto): ApiResponse<SubscriptionPlanDto>
+
+    @DELETE(SuqiEndpoints.SUBSCRIPTION_PLANS)
+    suspend fun deleteSubscriptionPlan(@Query("id") id: String): ApiResponse<Boolean>
 }

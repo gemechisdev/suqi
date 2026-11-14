@@ -1,83 +1,242 @@
 package com.example.data.backend
 
+import android.content.Context
 import com.example.data.api.SuqiApiService
 import com.example.data.local.*
 import com.example.data.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 
 class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
+
+    constructor(context: Context) : this(SuqiDatabase.getInstance(context))
 
     private fun getCurrentTime(): String {
         val sdf = SimpleDateFormat("MMM d, yyyy • hh:mm a", Locale.getDefault())
         return sdf.format(Date())
     }
 
+    private suspend fun resolveCurrentUser(): UserEntity? {
+        db.ensureSeeded()
+        return db.userDao().getActiveSessionUser() ?: db.userDao().getFirstUser()
+    }
+
+    private suspend fun resolveActiveSellerShopId(): String? {
+        val user = resolveCurrentUser() ?: return null
+        if (!user.shopId.isNullOrBlank()) return user.shopId
+        return db.shopDao().getShopByOwner(user.id)?.id
+    }
+
     override suspend fun loginWithTelegram(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
-        val user = db.userDao().getFirstUser() ?: UserEntity(
-            id = "user_tg_${System.currentTimeMillis()}",
-            name = payload["name"] ?: "Telegram User",
-            phone = payload["phone"] ?: "+251 900 000 000",
-            email = "",
-            avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-            role = "CUSTOMER",
-            preferredLanguage = "English",
-            region = "Addis Ababa",
-            city = "Addis Ababa",
-            subCity = "Bole"
-        ).also { db.userDao().insertUser(it) }
+        val name = payload["name"]?.trim()?.takeIf { it.isNotBlank() } ?: "Telegram Shopper"
+        val phone = payload["phone"]?.trim()?.takeIf { it.isNotBlank() } ?: "+251 911 234 567"
+        val existing = db.userDao().getAllUsers().firstOrNull {
+            it.role != "GUEST" && (it.phone == phone || it.name.equals(name, ignoreCase = true))
+        }
+        db.userDao().clearActiveSessions()
+        val user = if (existing != null) {
+            val updated = existing.copy(isActiveSession = true)
+            db.userDao().updateUser(updated)
+            updated
+        } else {
+            UserEntity(
+                id = "user_tg_${System.currentTimeMillis()}",
+                name = name,
+                phone = phone,
+                email = "",
+                avatarUrl = "",
+                role = "CUSTOMER",
+                preferredLanguage = "English",
+                region = "Addis Ababa",
+                city = "Addis Ababa",
+                subCity = "Bole",
+                activeRole = "CUSTOMER",
+                isActiveSession = true
+            ).also { db.userDao().insertUser(it) }
+        }
         ApiResponse(success = true, data = user.toDto())
     }
 
     override suspend fun loginWithGoogle(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
-        val user = db.userDao().getFirstUser() ?: UserEntity(
-            id = "user_g_${System.currentTimeMillis()}",
-            name = payload["name"] ?: "Google User",
-            phone = "+251 912 345 678",
-            email = payload["email"] ?: "user@gmail.com",
-            avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-            role = "CUSTOMER",
-            preferredLanguage = "English",
-            region = "Addis Ababa",
-            city = "Addis Ababa",
-            subCity = "Bole"
-        ).also { db.userDao().insertUser(it) }
+        val name = payload["name"]?.trim()?.takeIf { it.isNotBlank() } ?: "Suqi Shopper"
+        val email = payload["email"]?.trim()?.takeIf { it.isNotBlank() } ?: "shopper@suqi.et"
+        val existing = db.userDao().getAllUsers().firstOrNull {
+            it.role != "GUEST" && it.email.equals(email, ignoreCase = true)
+        }
+        db.userDao().clearActiveSessions()
+        val user = if (existing != null) {
+            val updated = existing.copy(isActiveSession = true)
+            db.userDao().updateUser(updated)
+            updated
+        } else {
+            UserEntity(
+                id = "user_g_${System.currentTimeMillis()}",
+                name = name,
+                phone = "+251 912 345 678",
+                email = email,
+                avatarUrl = "",
+                role = "CUSTOMER",
+                preferredLanguage = "English",
+                region = "Addis Ababa",
+                city = "Addis Ababa",
+                subCity = "Bole",
+                activeRole = "CUSTOMER",
+                isActiveSession = true
+            ).also { db.userDao().insertUser(it) }
+        }
+        ApiResponse(success = true, data = user.toDto())
+    }
+
+    override suspend fun loginWithPhoneOtp(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
+        val rawPhone = payload["phone"]?.trim().orEmpty()
+        val otp = payload["otp"]?.trim().orEmpty()
+        val name = payload["name"]?.trim().orEmpty()
+        if (rawPhone.length < 9) {
+            return@withContext ApiResponse(success = false, message = "Enter a valid Ethiopian phone number (+251 9xx xxx xxx)")
+        }
+        if (otp.length != 6 || !otp.all { it.isDigit() }) {
+            return@withContext ApiResponse(success = false, message = "Enter the 6-digit SMS verification code (demo: 123456)")
+        }
+        val normalizedPhone = if (rawPhone.startsWith("+251")) rawPhone else "+251 ${rawPhone.removePrefix("0")}"
+        val existing = db.userDao().getAllUsers().firstOrNull {
+            it.phone.replace(" ", "") == normalizedPhone.replace(" ", "")
+        }
+        db.userDao().clearActiveSessions()
+        val user = if (existing != null) {
+            val updated = existing.copy(
+                name = name.ifBlank { existing.name },
+                isActiveSession = true
+            )
+            db.userDao().updateUser(updated)
+            updated
+        } else {
+            UserEntity(
+                id = "user_ph_${System.currentTimeMillis()}",
+                name = name.ifBlank { "Suqi Shopper" },
+                phone = normalizedPhone,
+                email = "",
+                avatarUrl = "",
+                role = "CUSTOMER",
+                preferredLanguage = "English",
+                region = "Addis Ababa",
+                city = "Addis Ababa",
+                subCity = "Bole",
+                activeRole = "CUSTOMER",
+                isActiveSession = true
+            ).also { db.userDao().insertUser(it) }
+        }
         ApiResponse(success = true, data = user.toDto())
     }
 
     override suspend fun loginAsGuest(): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
-        val user = db.userDao().getFirstUser() ?: UserEntity(
-            id = "user_guest",
-            name = "Guest Shopper",
-            phone = "+251 900 000 000",
-            email = "",
-            avatarUrl = "",
-            role = "CUSTOMER",
-            preferredLanguage = "English",
-            region = "Addis Ababa",
-            city = "Addis Ababa",
-            subCity = "Bole"
-        ).also { db.userDao().insertUser(it) }
-        ApiResponse(success = true, data = user.toDto())
+        db.userDao().clearActiveSessions()
+        val existing = db.userDao().getUserById("user_guest")
+        val guest = if (existing != null) {
+            existing.copy(isActiveSession = true, role = "GUEST", activeRole = "GUEST").also {
+                db.userDao().updateUser(it)
+            }
+        } else {
+            UserEntity(
+                id = "user_guest",
+                name = "Guest Shopper",
+                phone = "",
+                email = "",
+                avatarUrl = "",
+                role = "GUEST",
+                preferredLanguage = "English",
+                region = "Addis Ababa",
+                city = "Addis Ababa",
+                subCity = "Bole",
+                activeRole = "GUEST",
+                isActiveSession = true
+            ).also { db.userDao().insertUser(it) }
+        }
+        ApiResponse(success = true, data = guest.toDto())
+    }
+
+    override suspend fun adminSignIn(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
+        val identifier = payload["identifier"]?.trim().orEmpty()
+        val pin = payload["pin"]?.trim().orEmpty()
+        val tier = payload["tier"]?.trim()?.uppercase()?.takeIf { it in listOf("OWNER", "ADMIN", "DEVELOPER") } ?: "OWNER"
+        if (identifier.isBlank() || pin.length < 4) {
+            return@withContext ApiResponse(success = false, message = "Enter admin email/phone and at least a 4-digit PIN.")
+        }
+        // Accept seeded owner credentials or valid staff PIN "123456" / "2026"
+        val isValidCreds = (identifier.equals("admin@suqi.et", ignoreCase = true) ||
+            identifier.contains("911") ||
+            identifier.equals("dev@suqi.et", ignoreCase = true)) &&
+            (pin == "123456" || pin == "suqi2026" || pin == "2026" || pin == "0000")
+        if (!isValidCreds) {
+            return@withContext ApiResponse(
+                success = false,
+                message = "Invalid admin credentials. Demo Owner: admin@suqi.et • PIN: 123456"
+            )
+        }
+        db.userDao().clearActiveSessions()
+        val existingAdmin = db.userDao().getUserById("user_admin")
+        val admin = if (existingAdmin != null) {
+            existingAdmin.copy(
+                adminTier = tier,
+                role = "ADMIN",
+                activeRole = "ADMIN",
+                isActiveSession = true
+            ).also { db.userDao().updateUser(it) }
+        } else {
+            UserEntity(
+                id = "user_admin",
+                name = "Abebe Kebede",
+                phone = "+251 911 000 111",
+                email = identifier,
+                avatarUrl = "",
+                role = "ADMIN",
+                preferredLanguage = "English",
+                region = "Addis Ababa",
+                city = "Addis Ababa",
+                subCity = "Kirkos",
+                adminTier = tier,
+                activeRole = "ADMIN",
+                isActiveSession = true
+            ).also { db.userDao().insertUser(it) }
+        }
+        ApiResponse(success = true, data = admin.toDto())
+    }
+
+    override suspend fun updateUserProfile(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
+        val current = resolveCurrentUser() ?: return@withContext ApiResponse(success = false, message = "No active user session")
+        val updated = current.copy(
+            name = payload["name"]?.trim()?.takeIf { it.isNotBlank() } ?: current.name,
+            phone = payload["phone"]?.trim()?.takeIf { it.isNotBlank() } ?: current.phone,
+            email = payload["email"]?.trim() ?: current.email,
+            avatarUrl = payload["avatarUrl"] ?: current.avatarUrl,
+            preferredLanguage = payload["preferredLanguage"] ?: current.preferredLanguage,
+            region = payload["region"] ?: current.region,
+            city = payload["city"] ?: current.city,
+            subCity = payload["subCity"] ?: current.subCity,
+            gender = payload["gender"] ?: current.gender,
+            birthday = payload["birthday"] ?: current.birthday,
+            activeRole = payload["activeRole"]?.takeIf { it.isNotBlank() } ?: current.activeRole
+        )
+        db.userDao().updateUser(updated)
+        ApiResponse(success = true, data = updated.toDto())
     }
 
     override suspend fun getCurrentUser(): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
-        val user = db.userDao().getFirstUser()
+        val user = resolveCurrentUser()
         ApiResponse(success = user != null, data = user?.toDto())
     }
 
     override suspend fun upgradeToSeller(payload: Map<String, String>): ApiResponse<ShopDto> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val userId = currentUser?.id ?: "user_fitsum"
+        val currentUser = resolveCurrentUser()
+            ?: return@withContext ApiResponse(success = false, message = "Please sign in before opening a shop.")
+        val userId = currentUser.id
         val shopId = "shop_${System.currentTimeMillis()}"
         val newShop = ShopEntity(
             id = shopId,
             ownerUserId = userId,
-            name = payload["shopName"] ?: "New Shop",
+            name = payload["shopName"]?.trim()?.ifBlank { "My Suqi Shop" } ?: "My Suqi Shop",
             slug = (payload["shopName"] ?: "new-shop").lowercase().replace(" ", "-"),
             logoUrl = "https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=150",
             coverUrl = "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800",
@@ -88,7 +247,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             reviewCount = 0,
             isVerified = false,
             verificationStatus = "NOT_SUBMITTED",
-            phone = payload["phone"] ?: "+251 900 000 000",
+            phone = payload["phone"] ?: currentUser.phone.ifBlank { "+251 900 000 000" },
             telegramLink = payload["telegram"] ?: "",
             whatsappLink = "",
             address = payload["address"] ?: "Addis Ababa, Ethiopia",
@@ -103,12 +262,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         )
         db.shopDao().insertShop(newShop)
 
-        // Upgrade user role to SELLER
-        if (currentUser != null) {
-            db.userDao().updateUser(currentUser.copy(role = "SELLER", shopId = shopId))
-        }
+        db.userDao().updateUser(currentUser.copy(role = "SELLER", activeRole = "SELLER", shopId = shopId))
 
-        // Add default payment method and delivery options for new shop
         db.shopPaymentMethodDao().insert(
             ShopPaymentMethodEntity(
                 id = "pm_${shopId}_1",
@@ -145,15 +300,19 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         inStockOnly: Boolean,
         sortBy: String
     ): ApiResponse<List<ProductDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         var list = db.productDao().getAllProducts()
+
+        // Filter out archived items on public storefront unless querying a specific shop directly via seller tools
+        list = list.filter { it.status == "ACTIVE" }
 
         if (!query.isNullOrBlank()) {
             val q = query.trim().lowercase()
             list = list.filter {
                 it.name.lowercase().contains(q) ||
-                it.description.lowercase().contains(q) ||
-                it.shopName.lowercase().contains(q) ||
-                it.subCategory.lowercase().contains(q)
+                    it.description.lowercase().contains(q) ||
+                    it.shopName.lowercase().contains(q) ||
+                    it.subCategory.lowercase().contains(q)
             }
         }
 
@@ -178,7 +337,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             "PRICE_HIGH_LOW" -> list.sortedByDescending { it.price }
             "RATING" -> list.sortedByDescending { it.rating }
             "DISCOUNT" -> list.sortedByDescending { it.discountPercent }
-            else -> list // "POPULAR" default
+            "NEWEST" -> list.reversed()
+            else -> list
         }
 
         ApiResponse(success = true, data = sorted.map { it.toDto() })
@@ -186,11 +346,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun getProductDetails(id: String): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
         val prod = db.productDao().getProductById(id)
-        if (prod != null) {
-            ApiResponse(success = true, data = prod.toDto())
-        } else {
-            ApiResponse(success = false, message = "Product not found")
-        }
+        if (prod != null) ApiResponse(success = true, data = prod.toDto())
+        else ApiResponse(success = false, message = "Product not found")
     }
 
     override suspend fun toggleWishlist(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
@@ -204,11 +361,39 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         }
     }
 
+    override suspend fun getProductQuestions(productId: String): ApiResponse<List<ProductQuestionDto>> = withContext(Dispatchers.IO) {
+        val list = db.productQuestionDao().getQuestionsForProduct(productId).map { it.toDto() }
+        ApiResponse(success = true, data = list)
+    }
+
+    override suspend fun submitProductQuestion(productId: String, payload: Map<String, String>): ApiResponse<ProductQuestionDto> = withContext(Dispatchers.IO) {
+        val user = resolveCurrentUser()
+        val prod = db.productDao().getProductById(productId)
+            ?: return@withContext ApiResponse(success = false, message = "Product not found")
+        val questionText = payload["question"]?.trim().orEmpty()
+        if (questionText.length < 5) {
+            return@withContext ApiResponse(success = false, message = "Please enter at least 5 characters.")
+        }
+        val entity = ProductQuestionEntity(
+            id = "pq_${System.currentTimeMillis()}",
+            productId = productId,
+            shopId = prod.shopId,
+            askerName = user?.name ?: "Shopper",
+            question = questionText,
+            answer = "",
+            answeredByShop = false,
+            createdAt = "Just now"
+        )
+        db.productQuestionDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
     override suspend fun getShops(
         filter: String,
         category: String?,
         query: String?
     ): ApiResponse<List<ShopDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         var list = db.shopDao().getAllShops()
 
         if (!query.isNullOrBlank()) {
@@ -233,11 +418,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun getShopDetails(id: String): ApiResponse<ShopDto> = withContext(Dispatchers.IO) {
         val shop = db.shopDao().getShopById(id)
-        if (shop != null) {
-            ApiResponse(success = true, data = shop.toDto())
-        } else {
-            ApiResponse(success = false, message = "Shop not found")
-        }
+        if (shop != null) ApiResponse(success = true, data = shop.toDto())
+        else ApiResponse(success = false, message = "Shop not found")
     }
 
     override suspend fun toggleFollowShop(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
@@ -253,20 +435,26 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getCategories(): ApiResponse<List<CategoryDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val list = db.categoryDao().getAllCategories().map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
 
+    override suspend fun getPromoBanners(activeOnly: Boolean): ApiResponse<List<PromoBannerDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val list = (if (activeOnly) db.promoBannerDao().getActiveBanners() else db.promoBannerDao().getAllBanners())
+            .map { it.toDto() }
+        ApiResponse(success = true, data = list)
+    }
+
     override suspend fun getCartItems(): ApiResponse<List<CartItemDto>> = withContext(Dispatchers.IO) {
-        val user = db.userDao().getFirstUser()
-        val userId = user?.id ?: "user_fitsum"
+        val userId = resolveCurrentUser()?.id ?: return@withContext ApiResponse(success = true, data = emptyList())
         val items = db.cartDao().getCartItems(userId).map { it.toDto() }
         ApiResponse(success = true, data = items)
     }
 
     override suspend fun addToCart(item: Map<String, Any>): ApiResponse<CartItemDto> = withContext(Dispatchers.IO) {
-        val user = db.userDao().getFirstUser()
-        val userId = user?.id ?: "user_fitsum"
+        val userId = resolveCurrentUser()?.id ?: "user_guest"
         val productId = item["productId"] as String
         val quantity = (item["quantity"] as? Number)?.toInt() ?: 1
         val variation = item["selectedVariation"] as? String ?: ""
@@ -274,17 +462,12 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val product = db.productDao().getProductById(productId)
             ?: return@withContext ApiResponse(success = false, message = "Product not found")
 
-        // Variant-specific price / stock / image when the buyer picked a configured variant
         val variant = product.variantForLabel(variation)
         val available = variant?.stock ?: product.stockQuantity
         val unitPrice = variant?.price ?: product.price
 
-        // Validate inventory
         if (available < quantity) {
-            return@withContext ApiResponse(
-                success = false,
-                message = "Only $available items in stock!"
-            )
+            return@withContext ApiResponse(success = false, message = "Only $available items in stock!")
         }
 
         val cartEntity = CartItemEntity(
@@ -305,11 +488,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun updateCartQuantity(itemId: Long, quantity: Int): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        if (quantity <= 0) {
-            db.cartDao().deleteItem(itemId)
-        } else {
-            db.cartDao().updateQuantity(itemId, quantity)
-        }
+        if (quantity <= 0) db.cartDao().deleteItem(itemId) else db.cartDao().updateQuantity(itemId, quantity)
         ApiResponse(success = true, data = true)
     }
 
@@ -319,22 +498,22 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun clearCart(): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        val user = db.userDao().getFirstUser()
-        val userId = user?.id ?: "user_fitsum"
+        val userId = resolveCurrentUser()?.id ?: return@withContext ApiResponse(success = true, data = true)
         db.cartDao().clearAll(userId)
         ApiResponse(success = true, data = true)
     }
 
     override suspend fun submitOrder(orderData: Map<String, Any>): ApiResponse<OrderDto> = withContext(Dispatchers.IO) {
         val shopId = orderData["shopId"] as String
-        val shopName = orderData["shopName"] as? String ?: "Shop"
-        val customerName = orderData["customerName"] as? String ?: "Customer"
-        val customerPhone = orderData["customerPhone"] as? String ?: "+251 900 000 000"
-        val deliveryAddress = orderData["deliveryAddress"] as? String ?: "Addis Ababa"
+        val shop = db.shopDao().getShopById(shopId)
+        val shopName = orderData["shopName"] as? String ?: shop?.name ?: "Shop"
+        val customerName = (orderData["customerName"] as? String)?.trim().orEmpty().ifBlank { "Customer" }
+        val customerPhone = (orderData["customerPhone"] as? String)?.trim().orEmpty().ifBlank { "+251 900 000 000" }
+        val deliveryAddress = (orderData["deliveryAddress"] as? String)?.trim().orEmpty().ifBlank { "Addis Ababa" }
         val subtotal = (orderData["subtotal"] as Number).toDouble()
         val deliveryFee = (orderData["deliveryFee"] as? Number)?.toDouble() ?: 0.0
         val discountAmount = (orderData["discountAmount"] as? Number)?.toDouble() ?: 0.0
-        val totalAmount = subtotal + deliveryFee - discountAmount
+        val totalAmount = (subtotal + deliveryFee - discountAmount).coerceAtLeast(0.0)
         val promoCode = orderData["promoCode"] as? String
         val deliveryOptionTitle = orderData["deliveryOptionTitle"] as? String ?: "Standard Delivery"
         val deliveryOptionType = orderData["deliveryOptionType"] as? String ?: "STANDARD"
@@ -343,30 +522,35 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val paymentMethodType = orderData["paymentMethodType"] as? String ?: "TELEBIRR"
         val paymentMethodAccount = orderData["paymentMethodAccount"] as? String ?: ""
         val transactionReference = (orderData["transactionReference"] as? String)?.trim() ?: ""
+        val receiptImageUri = (orderData["receiptImageUri"] as? String)?.trim() ?: ""
+        val payerIdentifier = (orderData["payerIdentifier"] as? String)?.trim() ?: ""
 
         if (transactionReference.isBlank()) {
             return@withContext ApiResponse(success = false, message = "Transaction reference is required")
         }
+        if (shop?.requireReceiptScreenshot == true && receiptImageUri.isBlank()) {
+            return@withContext ApiResponse(
+                success = false,
+                message = "${shop.name} requires a payment receipt screenshot before submitting your order."
+            )
+        }
 
-        // Ethiopian Fraud Prevention: Prevent duplicate transaction reference submission
         val existingOrderWithRef = db.orderDao().getOrderByTransactionReference(transactionReference)
         if (existingOrderWithRef != null) {
             return@withContext ApiResponse(
                 success = false,
-                message = "This transaction reference ($transactionReference) has already been submitted for another active order. Please check your bank receipt or SMS confirmation."
+                message = "This transaction reference ($transactionReference) has already been submitted for another active order."
             )
         }
 
         val itemsJson = orderData["itemsJson"] as? String ?: "[]"
-        val user = db.userDao().getFirstUser()
-        val userId = user?.id ?: "user_fitsum"
+        val user = resolveCurrentUser()
+        val userId = user?.id ?: "user_guest"
 
-        // Generate unique order reference e.g. SUQ-2025-001239
         val refNum = 1234 + (db.orderDao().getAllOrders().size)
-        val orderReference = "SUQ-2025-${String.format("%06d", refNum)}"
+        val orderReference = "SUQ-2026-${String.format(Locale.US, "%06d", refNum)}"
         val orderId = "ord_${System.currentTimeMillis()}"
 
-        // Validate and reserve stock before order creation
         try {
             val jsonArr = JSONArray(itemsJson)
             for (i in 0 until jsonArr.length()) {
@@ -422,14 +606,13 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             transactionReference = transactionReference,
             paymentStatus = "PENDING_VERIFICATION",
             orderStatus = "Awaiting Payment Confirmation",
-            createdAt = getCurrentTime()
+            createdAt = getCurrentTime(),
+            receiptImageUri = receiptImageUri,
+            payerIdentifier = payerIdentifier
         )
         db.orderDao().insertOrder(order)
-
-        // Clear only this shop's items from the cart (multi-vendor independence!)
         db.cartDao().clearShopItems(userId, shopId)
 
-        // Create in-app notification
         db.notificationDao().insert(
             NotificationEntity(
                 id = "notif_${System.currentTimeMillis()}",
@@ -437,7 +620,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 type = "PAYMENT",
                 title = "Order Submitted to $shopName",
                 body = "Order #$orderReference total ETB ${totalAmount.toInt()} is pending payment verification.",
-                timestamp = "Just now"
+                timestamp = "Just now",
+                isRead = false
             )
         )
 
@@ -445,19 +629,15 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getOrders(): ApiResponse<List<OrderDto>> = withContext(Dispatchers.IO) {
-        val user = db.userDao().getFirstUser()
-        val userId = user?.id ?: "user_fitsum"
+        val userId = resolveCurrentUser()?.id ?: return@withContext ApiResponse(success = true, data = emptyList())
         val orders = db.orderDao().getCustomerOrders(userId).map { it.toDto() }
         ApiResponse(success = true, data = orders)
     }
 
     override suspend fun getOrderDetails(orderId: String): ApiResponse<OrderDto> = withContext(Dispatchers.IO) {
         val order = db.orderDao().getOrderById(orderId)
-        if (order != null) {
-            ApiResponse(success = true, data = order.toDto())
-        } else {
-            ApiResponse(success = false, message = "Order not found")
-        }
+        if (order != null) ApiResponse(success = true, data = order.toDto())
+        else ApiResponse(success = false, message = "Order not found")
     }
 
     override suspend fun resubmitPayment(
@@ -481,10 +661,14 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         }
 
         val newMethod = payload["paymentMethodTitle"] ?: order.paymentMethodTitle
+        val newReceipt = payload["receiptImageUri"]?.takeIf { it.isNotBlank() } ?: order.receiptImageUri
+        val newPayer = payload["payerIdentifier"]?.takeIf { it.isNotBlank() } ?: order.payerIdentifier
 
         val updated = order.copy(
             transactionReference = newRef,
             paymentMethodTitle = newMethod,
+            receiptImageUri = newReceipt,
+            payerIdentifier = newPayer,
             paymentStatus = "PENDING_VERIFICATION",
             orderStatus = "Awaiting Payment Confirmation",
             rejectionReason = null
@@ -498,7 +682,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 type = "PAYMENT",
                 title = "Payment Resubmitted",
                 body = "Updated transaction reference $newRef submitted for Order #${order.orderReference}.",
-                timestamp = "Just now"
+                timestamp = "Just now",
+                isRead = false
             )
         )
 
@@ -509,7 +694,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val order = db.orderDao().getOrderById(orderId)
             ?: return@withContext ApiResponse(success = false, message = "Order not found")
 
-        // Release held stock
         try {
             val jsonArr = JSONArray(order.itemsJson)
             for (i in 0 until jsonArr.length()) {
@@ -520,42 +704,69 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             }
         } catch (_: Exception) {}
 
-        val updated = order.copy(orderStatus = "Cancelled")
-        db.orderDao().updateOrder(updated)
-
+        db.orderDao().updateOrder(order.copy(orderStatus = "Cancelled"))
         ApiResponse(success = true, data = true)
     }
 
     override suspend fun getSellerDashboard(): ApiResponse<Map<String, Any>> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val shopId = currentUser?.shopId ?: "shop_techhub"
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
 
+        val shop = db.shopDao().getShopById(shopId)
         val orders = db.orderDao().getShopOrders(shopId)
         val pendingCount = orders.count { it.paymentStatus == "PENDING_VERIFICATION" }
+        val toDispatchCount = orders.count { it.paymentStatus == "VERIFIED" && it.orderStatus in listOf("Confirmed", "Processing") }
         val totalSales = orders.filter { it.paymentStatus == "VERIFIED" }.sumOf { it.totalAmount }
         val products = db.productDao().getProductsByShop(shopId)
+        val activeProducts = products.count { it.status == "ACTIVE" }
         val lowStockCount = products.count { it.stockQuantity in 1..5 }
+        val outOfStockCount = products.count { it.stockQuantity == 0 }
+        val paymentMethodsCount = db.shopPaymentMethodDao().getMethodsForShop(shopId).count { it.isEnabled }
+        val deliveryCount = db.shopDeliveryOptionDao().getOptionsForShop(shopId).count { it.isEnabled }
+        val unansweredChats = db.chatDao().getMessagesForShop(shopId).count { !it.isRead && it.senderType == "CUSTOMER" }
 
-        val data = mapOf(
-            "totalSales" to 248750.0 + totalSales,
-            "pendingOrders" to pendingCount + 2,
+        // Build clean chart series grounded in real verified sales (evenly distributed across past orders/days when orders exist)
+        val chart7d = if (orders.isEmpty()) listOf(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        else {
+            val verifiedOrders = orders.filter { it.paymentStatus == "VERIFIED" }
+            val buckets = MutableList(7) { 0.0 }
+            verifiedOrders.forEachIndexed { idx, ord -> buckets[6 - (idx % 7)] += ord.totalAmount }
+            buckets
+        }
+
+        val data = mapOf<String, Any>(
+            "shopId" to shopId,
+            "shopName" to (shop?.name ?: "My Shop"),
+            "isVerified" to (shop?.isVerified == true),
+            "verificationStatus" to (shop?.verificationStatus ?: "NOT_SUBMITTED"),
+            "totalSales" to totalSales,
+            "totalOrders" to orders.size,
+            "pendingOrders" to pendingCount,
+            "toDispatchOrders" to toDispatchCount,
             "lowStock" to lowStockCount,
-            "productCount" to products.size,
-            "shopName" to (db.shopDao().getShopById(shopId)?.name ?: "Tech Hub")
+            "outOfStock" to outOfStockCount,
+            "productCount" to activeProducts,
+            "totalProductCount" to products.size,
+            "unansweredChats" to unansweredChats,
+            "hasPaymentMethod" to (paymentMethodsCount > 0),
+            "hasDeliveryOption" to (deliveryCount > 0),
+            "hasLogo" to (!shop?.logoUrl.isNullOrBlank()),
+            "shopRating" to (shop?.rating ?: 5.0),
+            "chart7d" to chart7d
         )
         ApiResponse(success = true, data = data)
     }
 
     override suspend fun getSellerProducts(): ApiResponse<List<ProductDto>> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val shopId = currentUser?.shopId ?: "shop_techhub"
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account", data = emptyList())
         val list = db.productDao().getProductsByShop(shopId).map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
 
     override suspend fun createProduct(productData: Map<String, Any>): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val shopId = currentUser?.shopId ?: "shop_techhub"
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "Create a seller shop first before adding products.")
         val shop = db.shopDao().getShopById(shopId)
 
         validateProductInput(productData)?.let { return@withContext ApiResponse(success = false, message = it) }
@@ -568,6 +779,9 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             existing = null
         )
         db.productDao().insertProduct(product)
+        if (shop != null) {
+            db.shopDao().updateShop(shop.copy(productCount = db.productDao().getProductsByShop(shopId).size))
+        }
         ApiResponse(success = true, data = product.toDto())
     }
 
@@ -582,7 +796,16 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         ApiResponse(success = true, data = product.toDto())
     }
 
-    /** Backend-side validation (mirrors the form): name, price, discount, stock, required attributes, media count. */
+    override suspend fun deleteProduct(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val existing = db.productDao().getProductById(id)
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Product not found")
+        db.productDao().deleteById(id)
+        db.shopDao().getShopById(existing.shopId)?.let { shop ->
+            db.shopDao().updateShop(shop.copy(productCount = db.productDao().getProductsByShop(shop.id).size))
+        }
+        ApiResponse(success = true, data = true)
+    }
+
     private fun validateProductInput(data: Map<String, Any>): String? {
         val name = (data["name"] as? String)?.trim().orEmpty()
         if (name.isBlank()) return "Product name is required"
@@ -614,7 +837,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val discount = (data["discountPercent"] as? Number)?.toInt() ?: existing?.discountPercent ?: 0
 
         var stock = (data["stockQuantity"] as? Number)?.toInt() ?: existing?.stockQuantity ?: 10
-        // When every variant tracks its own stock, the product total is their sum.
         if (details != null && details.variants.isNotEmpty() && details.variants.all { it.stock != null }) {
             stock = details.variants.sumOf { it.stock ?: 0 }
         }
@@ -626,7 +848,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         }
         val extraImages = details?.media.orEmpty().map { it.url }.filter { it != cover }
 
-        // Legacy colour / option CSVs stay populated for older screens.
         val colorAttr = details?.buyerOptions?.firstOrNull { it.type == AttrType.COLOR }
         val otherOption = details?.buyerOptions?.firstOrNull { it.type != AttrType.COLOR }
         val colorsCsv = if (details != null) {
@@ -646,12 +867,12 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         return ProductEntity(
             id = id,
             shopId = shopId,
-            shopName = shop?.name ?: existing?.shopName ?: "Tech Hub",
-            shopVerified = shop?.isVerified ?: existing?.shopVerified ?: true,
+            shopName = shop?.name ?: existing?.shopName ?: "Suqi Shop",
+            shopVerified = shop?.isVerified ?: existing?.shopVerified ?: false,
             name = (data["name"] as? String)?.trim() ?: existing?.name ?: "",
             nameAmharic = data["nameAmharic"] as? String ?: existing?.nameAmharic ?: "",
             nameAfaanOromo = data["nameAfaanOromo"] as? String ?: existing?.nameAfaanOromo ?: "",
-            description = data["description"] as? String ?: existing?.description ?: "New product listed on Suqi.",
+            description = data["description"] as? String ?: existing?.description ?: "Listed on Suqi Marketplace.",
             descriptionAmharic = data["descriptionAmharic"] as? String ?: existing?.descriptionAmharic ?: "",
             descriptionAfaanOromo = data["descriptionAfaanOromo"] as? String ?: existing?.descriptionAfaanOromo ?: "",
             primaryImageUrl = cover,
@@ -668,13 +889,12 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             soldCount = existing?.soldCount ?: "New",
             colorsCsv = colorsCsv,
             specsCsv = specsCsv,
-            status = existing?.status ?: "ACTIVE",
+            status = data["status"] as? String ?: existing?.status ?: "ACTIVE",
             isWishlisted = existing?.isWishlisted ?: false,
             detailsJson = details?.toJson() ?: existing?.detailsJson ?: ""
         )
     }
 
-    /** Variant chosen by the buyer, matched by its label ("Black • 256 GB"). */
     private fun ProductEntity.variantForLabel(label: String): ProductVariant? {
         if (label.isBlank()) return null
         val d = parseProductDetails(detailsJson) ?: return null
@@ -694,25 +914,51 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getSellerOrders(): ApiResponse<List<OrderDto>> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val shopId = currentUser?.shopId ?: "shop_techhub"
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account", data = emptyList())
         val list = db.orderDao().getShopOrders(shopId).map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
 
     override suspend fun updateSellerOrderStatus(orderId: String, status: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         val order = db.orderDao().getOrderById(orderId)
-        if (order != null) {
-            db.orderDao().updateOrder(order.copy(orderStatus = status))
-            ApiResponse(success = true, data = true)
-        } else {
-            ApiResponse(success = false, data = false)
-        }
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Order not found")
+        val shop = db.shopDao().getShopById(order.shopId)
+        val dispatchedAt = if (status in listOf("Dispatched", "Out for Delivery")) {
+            order.dispatchedAt ?: getCurrentTime()
+        } else order.dispatchedAt
+        val courierName = if (status in listOf("Dispatched", "Out for Delivery") && order.courierName.isBlank()) {
+            "${order.shopName} Dispatch"
+        } else order.courierName
+        val courierPhone = if (status in listOf("Dispatched", "Out for Delivery") && order.courierPhone.isBlank()) {
+            shop?.phone ?: order.customerPhone
+        } else order.courierPhone
+
+        db.orderDao().updateOrder(
+            order.copy(
+                orderStatus = status,
+                dispatchedAt = dispatchedAt,
+                courierName = courierName,
+                courierPhone = courierPhone
+            )
+        )
+        db.notificationDao().insert(
+            NotificationEntity(
+                id = "notif_${System.currentTimeMillis()}",
+                userId = order.customerUserId,
+                type = "ORDER",
+                title = "Order #${order.orderReference} $status",
+                body = "${order.shopName} updated your order status to $status.",
+                timestamp = "Just now",
+                isRead = false
+            )
+        )
+        ApiResponse(success = true, data = true)
     }
 
     override suspend fun getSellerVerificationQueue(): ApiResponse<List<OrderDto>> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val shopId = currentUser?.shopId ?: "shop_techhub"
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account", data = emptyList())
         val list = db.orderDao().getPendingVerificationOrders(shopId).map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
@@ -721,7 +967,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val order = db.orderDao().getOrderById(orderId)
             ?: return@withContext ApiResponse(success = false, message = "Order not found")
 
-        val currentUser = db.userDao().getFirstUser()
+        val currentUser = resolveCurrentUser()
         val updated = order.copy(
             paymentStatus = "VERIFIED",
             orderStatus = "Confirmed",
@@ -731,7 +977,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         )
         db.orderDao().updateOrder(updated)
 
-        // Send customer notification
         db.notificationDao().insert(
             NotificationEntity(
                 id = "notif_${System.currentTimeMillis()}",
@@ -739,10 +984,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 type = "PAYMENT",
                 title = "Payment Verified!",
                 body = "${order.shopName} has confirmed your payment for Order #${order.orderReference}. Preparing order now.",
-                timestamp = "Just now"
+                timestamp = "Just now",
+                isRead = false
             )
         )
-
         ApiResponse(success = true, data = true)
     }
 
@@ -758,7 +1003,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         )
         db.orderDao().updateOrder(updated)
 
-        // Send customer notification with rejection reason so they can resubmit
         db.notificationDao().insert(
             NotificationEntity(
                 id = "notif_${System.currentTimeMillis()}",
@@ -766,44 +1010,94 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 type = "PAYMENT",
                 title = "Payment Rejected - Resubmission Required",
                 body = "${order.shopName} was unable to verify reference for Order #${order.orderReference}: $reason",
-                timestamp = "Just now"
+                timestamp = "Just now",
+                isRead = false
             )
         )
-
         ApiResponse(success = true, data = true)
     }
 
     override suspend fun getShopPaymentMethods(shopId: String): ApiResponse<List<ShopPaymentMethodDto>> = withContext(Dispatchers.IO) {
-        val methods = db.shopPaymentMethodDao().getMethodsForShop(shopId).map { it.toDto() }
+        val targetShopId = shopId.ifBlank { resolveActiveSellerShopId().orEmpty() }
+        val methods = if (targetShopId.isBlank()) emptyList() else db.shopPaymentMethodDao().getMethodsForShop(targetShopId).map { it.toDto() }
         ApiResponse(success = true, data = methods)
     }
 
     override suspend fun saveShopPaymentMethod(method: ShopPaymentMethodDto): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        db.shopPaymentMethodDao().insert(method.toEntity())
+        val targetShopId = method.shopId.ifBlank { resolveActiveSellerShopId() }
+            ?: return@withContext ApiResponse(success = false, message = "No shop found for payment method")
+        db.shopPaymentMethodDao().insert(method.copy(shopId = targetShopId).toEntity())
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun deleteShopPaymentMethod(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.shopPaymentMethodDao().deleteById(id)
         ApiResponse(success = true, data = true)
     }
 
     override suspend fun getShopDeliveryOptions(shopId: String): ApiResponse<List<ShopDeliveryOptionDto>> = withContext(Dispatchers.IO) {
-        val options = db.shopDeliveryOptionDao().getOptionsForShop(shopId).map { it.toDto() }
+        val targetShopId = shopId.ifBlank { resolveActiveSellerShopId().orEmpty() }
+        val options = if (targetShopId.isBlank()) emptyList() else db.shopDeliveryOptionDao().getOptionsForShop(targetShopId).map { it.toDto() }
         ApiResponse(success = true, data = options)
     }
 
-    override suspend fun getShopPromotions(shopId: String): ApiResponse<List<PromoCodeDto>> = withContext(Dispatchers.IO) {
-        val list = db.promoCodeDao().getActivePromosForShop(shopId).map { it.toDto() }
+    override suspend fun saveShopDeliveryOption(option: ShopDeliveryOptionDto): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val targetShopId = option.shopId.ifBlank { resolveActiveSellerShopId() }
+            ?: return@withContext ApiResponse(success = false, message = "No shop found for delivery option")
+        db.shopDeliveryOptionDao().insert(
+            ShopDeliveryOptionEntity(
+                id = option.id.ifBlank { "del_${System.currentTimeMillis()}" },
+                shopId = targetShopId,
+                optionType = option.optionType,
+                title = option.title,
+                fee = option.fee,
+                estimatedTime = option.estimatedTime,
+                isEnabled = option.isEnabled
+            )
+        )
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun deleteShopDeliveryOption(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.shopDeliveryOptionDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun getShopPromotions(shopId: String, includeInactive: Boolean): ApiResponse<List<PromoCodeDto>> = withContext(Dispatchers.IO) {
+        val targetShopId = shopId.ifBlank { resolveActiveSellerShopId().orEmpty() }
+        val list = if (targetShopId.isBlank()) emptyList() else {
+            val entities = if (includeInactive) db.promoCodeDao().getAllPromosForShop(targetShopId)
+            else db.promoCodeDao().getActivePromosForShop(targetShopId)
+            entities.map { it.toDto() }
+        }
         ApiResponse(success = true, data = list)
     }
 
     override suspend fun createPromoCode(promo: PromoCodeDto): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        db.promoCodeDao().insert(promo.toEntity())
+        val targetShopId = promo.shopId.ifBlank { resolveActiveSellerShopId() }
+            ?: return@withContext ApiResponse(success = false, message = "No shop found for promotion")
+        db.promoCodeDao().insert(promo.copy(shopId = targetShopId).toEntity())
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun deletePromoCode(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.promoCodeDao().deleteById(id)
         ApiResponse(success = true, data = true)
     }
 
     override suspend fun submitSellerVerification(details: Map<String, String>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val shopId = currentUser?.shopId ?: "shop_techhub"
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "No shop associated with account")
         val shop = db.shopDao().getShopById(shopId)
         if (shop != null) {
-            db.shopDao().updateShop(shop.copy(verificationStatus = "PENDING_REVIEW"))
+            val docsJson = JSONArray(details.values.filter { it.isNotBlank() }).toString()
+            db.shopDao().updateShop(
+                shop.copy(
+                    verificationStatus = "PENDING_REVIEW",
+                    verificationDocsJson = docsJson,
+                    verificationRejectionReason = null
+                )
+            )
             ApiResponse(success = true, data = true)
         } else {
             ApiResponse(success = false, data = false)
@@ -811,8 +1105,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun updateShopSettings(settings: Map<String, Any>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val shopId = currentUser?.shopId ?: "shop_techhub"
+        val shopId = (settings["shopId"] as? String)?.takeIf { it.isNotBlank() } ?: resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "No shop associated with account")
         val shop = db.shopDao().getShopById(shopId)
         if (shop != null) {
             val updated = shop.copy(
@@ -821,7 +1115,17 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 description = settings["description"] as? String ?: shop.description,
                 phone = settings["phone"] as? String ?: shop.phone,
                 telegramLink = settings["telegramLink"] as? String ?: shop.telegramLink,
-                isVacationMode = settings["isVacationMode"] as? Boolean ?: shop.isVacationMode
+                whatsappLink = settings["whatsappLink"] as? String ?: shop.whatsappLink,
+                logoUrl = settings["logoUrl"] as? String ?: shop.logoUrl,
+                coverUrl = settings["coverUrl"] as? String ?: shop.coverUrl,
+                isVacationMode = settings["isVacationMode"] as? Boolean ?: shop.isVacationMode,
+                acceptsOrders = settings["acceptsOrders"] as? Boolean ?: shop.acceptsOrders,
+                requireReceiptScreenshot = settings["requireReceiptScreenshot"] as? Boolean ?: shop.requireReceiptScreenshot,
+                vacationReturnDate = settings["vacationReturnDate"] as? String ?: shop.vacationReturnDate,
+                vacationNote = settings["vacationNote"] as? String ?: shop.vacationNote,
+                freeDeliveryThreshold = (settings["freeDeliveryThreshold"] as? Number)?.toDouble() ?: shop.freeDeliveryThreshold,
+                coverageSubCitiesCsv = settings["coverageSubCitiesCsv"] as? String ?: shop.coverageSubCitiesCsv,
+                businessHoursJson = settings["businessHoursJson"] as? String ?: shop.businessHoursJson
             )
             db.shopDao().updateShop(updated)
             ApiResponse(success = true, data = true)
@@ -843,7 +1147,12 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun sendChatMessage(shopId: String, messageData: Map<String, Any>): ApiResponse<ChatMessageDto> = withContext(Dispatchers.IO) {
         val convId = "conv_${shopId.replace("shop_", "")}"
-        val text = messageData["message"] as String
+        val text = (messageData["message"] as? String)?.trim().orEmpty()
+        val imageUrl = (messageData["imageUrl"] as? String)?.trim().orEmpty()
+        val senderType = (messageData["senderType"] as? String)?.takeIf { it.isNotBlank() } ?: "CUSTOMER"
+        if (text.isBlank() && imageUrl.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Message cannot be empty")
+        }
         val shop = db.shopDao().getShopById(shopId)
 
         val msg = ChatMessageEntity(
@@ -851,13 +1160,14 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             conversationId = convId,
             shopId = shopId,
             shopName = shop?.name ?: "Shop",
-            senderType = "CUSTOMER",
-            message = text,
+            senderType = senderType,
+            message = text.ifBlank { "Sent a photo" },
             timestamp = "Just now",
             productContextName = messageData["productContextName"] as? String,
             productContextPrice = messageData["productContextPrice"] as? String,
             productContextImage = messageData["productContextImage"] as? String,
-            isRead = true
+            isRead = true,
+            imageUrl = imageUrl
         )
         db.chatDao().insert(msg)
         ApiResponse(success = true, data = msg.toDto())
@@ -869,8 +1179,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun submitReview(reviewData: Map<String, Any>): ApiResponse<ReviewDto> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val userId = currentUser?.id ?: "user_fitsum"
+        val currentUser = resolveCurrentUser()
+        val userId = currentUser?.id ?: "user_guest"
         val targetId = reviewData["targetId"] as String
         val targetType = reviewData["targetType"] as? String ?: "PRODUCT"
         val rating = (reviewData["rating"] as Number).toDouble().coerceIn(1.0, 5.0)
@@ -880,7 +1190,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             return@withContext ApiResponse(success = false, message = "Review comment cannot be empty.")
         }
 
-        // Check if user is a verified purchaser for this target
         val confirmedOrders = db.orderDao().getEligibleOrdersForCustomer(userId)
         val isVerifiedBuyer = when (targetType) {
             "PRODUCT" -> confirmedOrders.any { it.itemsJson.contains(targetId) }
@@ -902,7 +1211,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         )
         db.reviewDao().insert(review)
 
-        // Update product or shop aggregate rating in the database
         if (targetType == "PRODUCT") {
             val prod = db.productDao().getProductById(targetId)
             if (prod != null) {
@@ -925,22 +1233,42 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getNotifications(): ApiResponse<List<NotificationDto>> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val userId = currentUser?.id ?: "user_fitsum"
-        val list = db.notificationDao().getNotifications(userId).map { it.toDto() }
+        val currentUser = resolveCurrentUser()
+            ?: return@withContext ApiResponse(success = true, data = emptyList())
+        val list = db.notificationDao().getNotifications(currentUser.id).map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
 
+    override suspend fun markNotificationRead(id: String, isRead: Boolean): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.notificationDao().setRead(id, isRead)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun markAllNotificationsRead(): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val currentUser = resolveCurrentUser() ?: return@withContext ApiResponse(success = true, data = true)
+        db.notificationDao().markAllRead(currentUser.id)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun deleteNotification(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.notificationDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
+
     override suspend fun getSavedAddresses(): ApiResponse<List<SavedAddressDto>> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val userId = currentUser?.id ?: "user_fitsum"
-        val list = db.savedAddressDao().getAddresses(userId).map { it.toDto() }
+        val currentUser = resolveCurrentUser()
+            ?: return@withContext ApiResponse(success = true, data = emptyList())
+        val list = db.savedAddressDao().getAddresses(currentUser.id).map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
 
     override suspend fun saveAddress(address: SavedAddressDto): ApiResponse<SavedAddressDto> = withContext(Dispatchers.IO) {
-        val currentUser = db.userDao().getFirstUser()
-        val userId = currentUser?.id ?: "user_fitsum"
+        val currentUser = resolveCurrentUser()
+            ?: return@withContext ApiResponse(success = false, message = "Sign in to save delivery addresses.")
+        val userId = currentUser.id
+        if (address.isDefault) {
+            db.savedAddressDao().clearDefaultForUser(userId)
+        }
         val entity = SavedAddressEntity(
             id = if (address.id.isBlank()) "addr_${System.currentTimeMillis()}" else address.id,
             userId = userId,
@@ -954,10 +1282,56 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             isDefault = address.isDefault
         )
         db.savedAddressDao().insert(entity)
+        if (entity.isDefault) {
+            db.userDao().updateUser(currentUser.copy(defaultAddressId = entity.id))
+        }
         ApiResponse(success = true, data = entity.toDto())
     }
 
+    override suspend fun deleteSavedAddress(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val currentUser = resolveCurrentUser() ?: return@withContext ApiResponse(success = false, data = false)
+        val addresses = db.savedAddressDao().getAddresses(currentUser.id)
+        val target = addresses.firstOrNull { it.id == id }
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Address not found")
+        val activeOrders = db.orderDao().getCustomerOrders(currentUser.id)
+            .filter { it.orderStatus !in listOf("Delivered", "Cancelled") }
+        val inUse = activeOrders.any { it.deliveryAddress.contains(target.streetOrLandmark, ignoreCase = true) }
+        if (inUse) {
+            return@withContext ApiResponse(
+                success = false,
+                data = false,
+                message = "Cannot delete an address currently used by an active order."
+            )
+        }
+        db.savedAddressDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun submitSupportTicket(ticket: SupportTicketDto): ApiResponse<SupportTicketDto> = withContext(Dispatchers.IO) {
+        val user = resolveCurrentUser()
+        val entity = SupportTicketEntity(
+            id = ticket.id.ifBlank { "tkt_${System.currentTimeMillis()}" },
+            userId = user?.id ?: ticket.userId.ifBlank { "user_guest" },
+            orderId = ticket.orderId,
+            category = ticket.category,
+            subject = ticket.subject.trim(),
+            description = ticket.description.trim(),
+            status = "OPEN",
+            createdAt = getCurrentTime()
+        )
+        db.supportTicketDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun getSupportTickets(): ApiResponse<List<SupportTicketDto>> = withContext(Dispatchers.IO) {
+        val user = resolveCurrentUser()
+        val list = if (user?.role == "ADMIN") db.supportTicketDao().getAllTickets()
+        else db.supportTicketDao().getTicketsForUser(user?.id ?: "user_guest")
+        ApiResponse(success = true, data = list.map { it.toDto() })
+    }
+
     override suspend fun getAdminSettings(): ApiResponse<AdminSettingsDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val settings = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
         ApiResponse(
             success = true,
@@ -1007,13 +1381,108 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             ApiResponse(success = false, data = false)
         }
     }
+
+    override suspend fun saveCategory(category: CategoryDto): ApiResponse<CategoryDto> = withContext(Dispatchers.IO) {
+        val entity = CategoryEntity(
+            id = category.id.ifBlank { "cat_${System.currentTimeMillis()}" },
+            name = category.name.trim(),
+            nameAmharic = category.nameAmharic.trim(),
+            nameAfaanOromo = category.nameAfaanOromo.trim(),
+            icon = category.icon.ifBlank { "sparkles" },
+            subCategoriesCsv = category.subCategories.joinToString(","),
+            isActive = category.isActive,
+            sortOrder = category.sortOrder
+        )
+        db.categoryDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deleteCategory(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.categoryDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun savePromoBanner(banner: PromoBannerDto): ApiResponse<PromoBannerDto> = withContext(Dispatchers.IO) {
+        val entity = PromoBannerEntity(
+            id = banner.id.ifBlank { "banner_${System.currentTimeMillis()}" },
+            badge = banner.badge.trim(),
+            title = banner.title.trim(),
+            highlight = banner.highlight.trim(),
+            subtitle = banner.subtitle.trim(),
+            buttonText = banner.buttonText.trim().ifBlank { "Shop Now" },
+            imageUrl = banner.imageUrl.trim(),
+            targetCategory = banner.targetCategory,
+            targetName = banner.targetName,
+            isActive = banner.isActive,
+            sortOrder = banner.sortOrder
+        )
+        db.promoBannerDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deletePromoBanner(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.promoBannerDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun getFlaggedReviews(): ApiResponse<List<FlaggedReviewDto>> = withContext(Dispatchers.IO) {
+        val list = db.flaggedReviewDao().getAllFlagged().map { it.toDto() }
+        ApiResponse(success = true, data = list)
+    }
+
+    override suspend fun reportOrModerateReview(payload: Map<String, String>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val action = payload["action"] ?: "REPORT"
+        if (action == "MODERATE") {
+            val id = payload["id"] ?: return@withContext ApiResponse(success = false, data = false)
+            val status = payload["status"] ?: "DISMISSED"
+            db.flaggedReviewDao().updateStatus(id, status)
+        } else {
+            val entity = FlaggedReviewEntity(
+                id = "flag_${System.currentTimeMillis()}",
+                authorName = payload["authorName"] ?: "Listing Report",
+                reason = payload["reason"] ?: "Reported by user",
+                reviewText = payload["reviewText"] ?: "",
+                status = "REPORTED",
+                createdAt = "Just now"
+            )
+            db.flaggedReviewDao().insert(entity)
+        }
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun getSubscriptionPlans(): ApiResponse<List<SubscriptionPlanDto>> = withContext(Dispatchers.IO) {
+        val list = db.subscriptionPlanDao().getAllPlans().map { it.toDto() }
+        ApiResponse(success = true, data = list)
+    }
+
+    override suspend fun saveSubscriptionPlan(plan: SubscriptionPlanDto): ApiResponse<SubscriptionPlanDto> = withContext(Dispatchers.IO) {
+        val entity = SubscriptionPlanEntity(
+            id = plan.id.ifBlank { "plan_${System.currentTimeMillis()}" },
+            name = plan.name.trim(),
+            monthlyPrice = plan.monthlyPrice,
+            yearlyPrice = plan.yearlyPrice,
+            maxProducts = plan.maxProducts,
+            featuresCsv = plan.featuresCsv,
+            isPopular = plan.isPopular,
+            isActive = plan.isActive
+        )
+        db.subscriptionPlanDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deleteSubscriptionPlan(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.subscriptionPlanDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
 }
 
 // Extension mapper functions
 fun UserEntity.toDto() = UserDto(
     id = id, name = name, phone = phone, email = email, avatarUrl = avatarUrl,
     role = role, preferredLanguage = preferredLanguage, region = region, city = city,
-    subCity = subCity, shopId = shopId, defaultAddressId = defaultAddressId
+    subCity = subCity, shopId = shopId, defaultAddressId = defaultAddressId,
+    adminTier = adminTier, gender = gender, birthday = birthday,
+    activeRole = activeRole.ifBlank { role }, isActiveSession = isActiveSession
 )
 
 fun ShopEntity.toDto() = ShopDto(
@@ -1023,7 +1492,11 @@ fun ShopEntity.toDto() = ShopDto(
     verificationStatus = verificationStatus, phone = phone, telegramLink = telegramLink,
     whatsappLink = whatsappLink, address = address, region = region, city = city,
     subCity = subCity, followersCount = followersCount, productCount = productCount,
-    isVacationMode = isVacationMode, acceptsOrders = acceptsOrders, isFollowing = isFollowing
+    isVacationMode = isVacationMode, acceptsOrders = acceptsOrders, isFollowing = isFollowing,
+    requireReceiptScreenshot = requireReceiptScreenshot, businessHoursJson = businessHoursJson,
+    vacationReturnDate = vacationReturnDate, vacationNote = vacationNote,
+    freeDeliveryThreshold = freeDeliveryThreshold, coverageSubCitiesCsv = coverageSubCitiesCsv,
+    verificationDocsJson = verificationDocsJson, verificationRejectionReason = verificationRejectionReason
 )
 
 fun ProductEntity.toDto() = ProductDto(
@@ -1086,7 +1559,10 @@ fun OrderEntity.toDto(): OrderDto {
         paymentMethodAccount = paymentMethodAccount, transactionReference = transactionReference,
         paymentStatus = paymentStatus, rejectionReason = rejectionReason,
         verificationNotes = verificationNotes, verifiedBy = verifiedBy,
-        verifiedAt = verifiedAt, orderStatus = orderStatus, createdAt = createdAt
+        verifiedAt = verifiedAt, orderStatus = orderStatus, createdAt = createdAt,
+        receiptImageUri = receiptImageUri, payerIdentifier = payerIdentifier,
+        sellerNotes = sellerNotes, courierName = courierName,
+        courierPhone = courierPhone, dispatchedAt = dispatchedAt
     )
 }
 
@@ -1130,7 +1606,7 @@ fun ChatMessageEntity.toDto() = ChatMessageDto(
     shopName = shopName, senderType = senderType, message = message,
     timestamp = timestamp, productContextName = productContextName,
     productContextPrice = productContextPrice, productContextImage = productContextImage,
-    isRead = isRead
+    isRead = isRead, imageUrl = imageUrl
 )
 
 fun NotificationEntity.toDto() = NotificationDto(
@@ -1145,5 +1621,32 @@ fun SavedAddressEntity.toDto() = SavedAddressDto(
 
 fun CategoryEntity.toDto() = CategoryDto(
     id = id, name = name, nameAmharic = nameAmharic, nameAfaanOromo = nameAfaanOromo,
-    icon = icon, subCategories = if (subCategoriesCsv.isBlank()) emptyList() else subCategoriesCsv.split(",")
+    icon = icon, subCategories = if (subCategoriesCsv.isBlank()) emptyList() else subCategoriesCsv.split(","),
+    isActive = isActive, sortOrder = sortOrder
+)
+
+fun PromoBannerEntity.toDto() = PromoBannerDto(
+    id = id, badge = badge, title = title, highlight = highlight, subtitle = subtitle,
+    buttonText = buttonText, imageUrl = imageUrl, targetCategory = targetCategory,
+    targetName = targetName, isActive = isActive, sortOrder = sortOrder
+)
+
+fun FlaggedReviewEntity.toDto() = FlaggedReviewDto(
+    id = id, authorName = authorName, reason = reason, reviewText = reviewText,
+    status = status, createdAt = createdAt
+)
+
+fun ProductQuestionEntity.toDto() = ProductQuestionDto(
+    id = id, productId = productId, shopId = shopId, askerName = askerName,
+    question = question, answer = answer, answeredByShop = answeredByShop, createdAt = createdAt
+)
+
+fun SubscriptionPlanEntity.toDto() = SubscriptionPlanDto(
+    id = id, name = name, monthlyPrice = monthlyPrice, yearlyPrice = yearlyPrice,
+    maxProducts = maxProducts, featuresCsv = featuresCsv, isPopular = isPopular, isActive = isActive
+)
+
+fun SupportTicketEntity.toDto() = SupportTicketDto(
+    id = id, userId = userId, orderId = orderId, category = category,
+    subject = subject, description = description, status = status, createdAt = createdAt
 )
