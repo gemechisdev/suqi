@@ -36,7 +36,7 @@ import kotlinx.coroutines.sync.withLock
         SubscriptionPlanEntity::class,
         SupportTicketEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -211,6 +211,13 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v5: buyer-submitted transferredAmount on orders for seller amount-match verification. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE orders ADD COLUMN transferredAmount REAL")
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -220,7 +227,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     context.applicationContext,
                     SuqiDatabase::class.java,
                     "suqi_marketplace.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).addCallback(object : Callback() {
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).addCallback(object : Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         super.onOpen(db)
                         CoroutineScope(Dispatchers.IO).launch {

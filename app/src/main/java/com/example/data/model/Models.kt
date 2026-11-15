@@ -154,7 +154,8 @@ data class OrderDto(
     val sellerNotes: String = "",
     val courierName: String = "",
     val courierPhone: String = "",
-    val dispatchedAt: String? = null
+    val dispatchedAt: String? = null,
+    val transferredAmount: Double? = null
 )
 
 @JsonClass(generateAdapter = true)

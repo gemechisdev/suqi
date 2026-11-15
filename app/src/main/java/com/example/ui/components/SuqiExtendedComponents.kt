@@ -105,7 +105,7 @@ fun SuqiTabs(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .then(if (!scrollable) Modifier.weight(1f) else Modifier)
-                        .heightIn(min = 42.dp)
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(999.dp))
                         .background(if (selected) SuqiPrimary else colors.cardBackground)
                         .then(
@@ -1199,12 +1199,19 @@ fun SuqiImagePickerTile(
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .size(28.dp)
+                                    .size(48.dp)
                                     .clip(CircleShape)
-                                    .background(SuqiError)
                                     .clickable { onRemove() }
                             ) {
-                                Icon(LucideIcons.Trash2, contentDescription = strings.common.removeImageDesc, tint = Color.White, modifier = Modifier.size(14.dp))
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .background(SuqiError)
+                                ) {
+                                    Icon(LucideIcons.Trash2, contentDescription = strings.common.removeImageDesc, tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
                             }
                         }
                     }
@@ -1260,7 +1267,7 @@ fun SuqiImagePickerTile(
                     TextButton(
                         onClick = { onImagePicked(demoSampleUrl) },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                        modifier = Modifier.height(32.dp)
+                        modifier = Modifier.heightIn(min = 48.dp)
                     ) {
                         Text(strings.common.useSamplePhoto, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
                     }
@@ -1268,7 +1275,7 @@ fun SuqiImagePickerTile(
                 TextButton(
                     onClick = { showDemoLinkRow = !showDemoLinkRow },
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    modifier = Modifier.height(32.dp)
+                    modifier = Modifier.heightIn(min = 48.dp)
                 ) {
                     Text(if (showDemoLinkRow) strings.common.hideUrlLabel else strings.common.pasteUrlLabel, fontSize = 11.sp, color = colors.secondaryText)
                 }
@@ -1422,7 +1429,7 @@ fun SuqiDocumentViewer(
                 IconButton(
                     onClick = onDismiss,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.16f))
                 ) {

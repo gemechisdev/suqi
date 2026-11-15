@@ -551,6 +551,7 @@ fun CheckoutPaymentScreen(
     } else 0.0
     val deliveryFee = deliveryOption?.fee ?: 50.0
     val totalAmount = maxOf(0.0, subtotal + deliveryFee - discount)
+    var transferAmountInput by remember(totalAmount) { mutableStateOf(totalAmount.toLong().toString()) }
 
     val orderRefPreview = remember { "SUQ-2025-${(100000..999999).random()}" }
 
@@ -649,6 +650,7 @@ fun CheckoutPaymentScreen(
                                     "paymentMethodAccount" to (selectedMethod?.accountNumber ?: ""),
                                     "transactionReference" to transactionReference.trim(),
                                     "payerIdentifier" to payerIdentifier.trim(),
+                                    "transferredAmount" to (transferAmountInput.trim().toDoubleOrNull() ?: totalAmount),
                                     "receiptImageUri" to receiptUri,
                                     "itemsJson" to itemsJsonArr.toString()
                                 )
@@ -842,6 +844,23 @@ fun CheckoutPaymentScreen(
                         label = "",
                         placeholder = "0911234567",
                         testTag = "input_payer_identifier"
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = strings.checkout.transferAmountLabel,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    SuqiTextField(
+                        value = transferAmountInput,
+                        onValueChange = { transferAmountInput = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                        label = "",
+                        placeholder = totalAmount.toLong().toString(),
+                        testTag = "input_transfer_amount"
                     )
                 }
             }

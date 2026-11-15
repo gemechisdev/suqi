@@ -1,6 +1,8 @@
 package com.example.util
 
+import com.example.ui.i18n.SuqiStringsData
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.Locale
 
 object EthiopianMarketplaceUtils {
@@ -103,6 +105,61 @@ object EthiopianMarketplaceUtils {
     fun formatEtbPrice(amount: Double): String {
         val formatter = NumberFormat.getNumberInstance(Locale.US)
         return "ETB ${formatter.format(amount.toLong())}"
+    }
+
+    private val timestampPatterns = listOf(
+        "yyyy-MM-dd HH:mm",
+        "MMM d, yyyy • hh:mm a",
+        "MMM d, yyyy hh:mm a",
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm",
+        "yyyy-MM-dd"
+    )
+
+    fun parseMarketplaceTimestampMillis(raw: String): Long? {
+        val trimmed = raw.trim()
+        if (trimmed.isBlank()) return null
+        for (pattern in timestampPatterns) {
+            try {
+                val sdf = SimpleDateFormat(pattern, Locale.US)
+                sdf.isLenient = false
+                val parsed = sdf.parse(trimmed)
+                if (parsed != null) return parsed.time
+            } catch (_: Exception) {
+            }
+        }
+        return null
+    }
+
+    fun computeElapsedHours(raw: String, nowMillis: Long = System.currentTimeMillis()): Long? {
+        val trimmed = raw.trim()
+        if (trimmed.isBlank()) return null
+        val lower = trimmed.lowercase(Locale.US)
+        when {
+            lower == "just now" -> return 0L
+            lower == "today" -> return 1L
+            lower == "yesterday" -> return 24L
+            lower.endsWith("days ago") || lower.endsWith("day ago") -> {
+                val days = lower.substringBefore(" ").toLongOrNull()
+                if (days != null) return days.coerceAtLeast(0L) * 24L
+            }
+        }
+        val parsedMillis = parseMarketplaceTimestampMillis(trimmed) ?: return null
+        return ((nowMillis - parsedMillis) / 3_600_000L).coerceAtLeast(0L)
+    }
+
+    fun formatWaitingAgeLabel(
+        raw: String,
+        strings: SuqiStringsData,
+        nowMillis: Long = System.currentTimeMillis()
+    ): String? {
+        val hours = computeElapsedHours(raw, nowMillis) ?: return null
+        return when {
+            hours < 1L -> strings.extras.justNowLabel
+            hours < 24L -> String.format(strings.extras.ageHoursTemplate, hours)
+            else -> String.format(strings.extras.ageDaysTemplate, hours / 24L)
+        }
     }
 
     data class LegalDocument(

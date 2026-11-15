@@ -74,7 +74,12 @@ data class SuqiExtraStrings(
     val gateSaveWishlist: String,
     val authCodeMismatchLocked: String,
     val authCodeMismatchTriesTemplate: String,
-    val defaultShopDescriptionTemplate: String
+    val defaultShopDescriptionTemplate: String,
+    val ageHoursTemplate: String,
+    val ageDaysTemplate: String,
+    val verifiedByTemplate: String,
+    val submittedAmountTemplate: String,
+    val receiptSummaryLabel: String
 )
 
 object SuqiExtraCatalog {
@@ -151,7 +156,12 @@ object SuqiExtraCatalog {
         gateSaveWishlist = "Save to wishlist",
         authCodeMismatchLocked = "Code didn't match. Locked for 30 seconds.",
         authCodeMismatchTriesTemplate = "Code didn't match (%d tries left)",
-        defaultShopDescriptionTemplate = "Welcome to %s on Suqi!"
+        defaultShopDescriptionTemplate = "Welcome to %s on Suqi!",
+        ageHoursTemplate = "%dh ago",
+        ageDaysTemplate = "%dd ago",
+        verifiedByTemplate = "Verified by %s",
+        submittedAmountTemplate = "Paid %s",
+        receiptSummaryLabel = "Payment Receipt"
     )
 
     val amharic = SuqiExtraStrings(
@@ -227,7 +237,12 @@ object SuqiExtraCatalog {
         gateSaveWishlist = "ወደ ምኞት ዝርዝር አስቀምጥ",
         authCodeMismatchLocked = "ኮዱ አልተመሳሰለም። ለ30 ሰከንድ ተቆልፏል።",
         authCodeMismatchTriesTemplate = "ኮዱ አልተመሳሰለም (%d ሙከራዎች ቀርተዋል)",
-        defaultShopDescriptionTemplate = "እንኳን ወደ %s በሱቂ ላይ በደህና መጡ!"
+        defaultShopDescriptionTemplate = "እንኳን ወደ %s በሱቂ ላይ በደህና መጡ!",
+        ageHoursTemplate = "ከ%d ሰዓት በፊት",
+        ageDaysTemplate = "ከ%d ቀን በፊት",
+        verifiedByTemplate = "በ%s ተረጋግጧል",
+        submittedAmountTemplate = "%s ተከፍሏል",
+        receiptSummaryLabel = "የክፍያ ደረሰኝ"
     )
 
     val afaanOromo = SuqiExtraStrings(
@@ -303,6 +318,11 @@ object SuqiExtraCatalog {
         gateSaveWishlist = "Tarree fedhiitti olkaa'i",
         authCodeMismatchLocked = "Koodiin walitti hin madaalu. Sekondii 30f cufameera.",
         authCodeMismatchTriesTemplate = "Koodiin walitti hin madaalu (yaalii %d hafe)",
-        defaultShopDescriptionTemplate = "Baga nagaan gara %s Suqi irratti dhuftan!"
+        defaultShopDescriptionTemplate = "Baga nagaan gara %s Suqi irratti dhuftan!",
+        ageHoursTemplate = "Sa'aatii %d dura",
+        ageDaysTemplate = "Guyyaa %d dura",
+        verifiedByTemplate = "%s tiin mirkanaa'e",
+        submittedAmountTemplate = "%s kaffalame",
+        receiptSummaryLabel = "Ragaa Kaffaltii"
     )
 }

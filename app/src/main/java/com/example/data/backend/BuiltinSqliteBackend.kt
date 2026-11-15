@@ -15,7 +15,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     constructor(context: Context) : this(SuqiDatabase.getInstance(context))
 
     private fun getCurrentTime(): String {
-        val sdf = SimpleDateFormat("MMM d, yyyy • hh:mm a", Locale.getDefault())
+        val sdf = SimpleDateFormat("MMM d, yyyy • hh:mm a", Locale.US)
         return sdf.format(Date())
     }
 
@@ -524,6 +524,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val transactionReference = (orderData["transactionReference"] as? String)?.trim() ?: ""
         val receiptImageUri = (orderData["receiptImageUri"] as? String)?.trim() ?: ""
         val payerIdentifier = (orderData["payerIdentifier"] as? String)?.trim() ?: ""
+        val transferredAmount = (orderData["transferredAmount"] as? Number)?.toDouble()
+            ?: (orderData["transferredAmount"] as? String)?.trim()?.toDoubleOrNull()
 
         if (transactionReference.isBlank()) {
             return@withContext ApiResponse(success = false, message = "Transaction reference is required")
@@ -608,7 +610,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             orderStatus = "Awaiting Payment Confirmation",
             createdAt = getCurrentTime(),
             receiptImageUri = receiptImageUri,
-            payerIdentifier = payerIdentifier
+            payerIdentifier = payerIdentifier,
+            transferredAmount = transferredAmount
         )
         db.orderDao().insertOrder(order)
         db.cartDao().clearShopItems(userId, shopId)
@@ -663,12 +666,14 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val newMethod = payload["paymentMethodTitle"] ?: order.paymentMethodTitle
         val newReceipt = payload["receiptImageUri"]?.takeIf { it.isNotBlank() } ?: order.receiptImageUri
         val newPayer = payload["payerIdentifier"]?.takeIf { it.isNotBlank() } ?: order.payerIdentifier
+        val newTransferredAmount = payload["transferredAmount"]?.trim()?.toDoubleOrNull() ?: order.transferredAmount
 
         val updated = order.copy(
             transactionReference = newRef,
             paymentMethodTitle = newMethod,
             receiptImageUri = newReceipt,
             payerIdentifier = newPayer,
+            transferredAmount = newTransferredAmount,
             paymentStatus = "PENDING_VERIFICATION",
             orderStatus = "Awaiting Payment Confirmation",
             rejectionReason = null
@@ -1620,7 +1625,8 @@ fun OrderEntity.toDto(): OrderDto {
         verifiedAt = verifiedAt, orderStatus = orderStatus, createdAt = createdAt,
         receiptImageUri = receiptImageUri, payerIdentifier = payerIdentifier,
         sellerNotes = sellerNotes, courierName = courierName,
-        courierPhone = courierPhone, dispatchedAt = dispatchedAt
+        courierPhone = courierPhone, dispatchedAt = dispatchedAt,
+        transferredAmount = transferredAmount
     )
 }
 

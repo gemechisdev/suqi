@@ -675,6 +675,9 @@ fun OrderDetailScreen(
     // Resubmit Payment Proof Sheet (Ref + Optional PickVisualMedia receipt)
     if (showResubmitSheet) {
         var newRef by remember { mutableStateOf(currentOrder.transactionReference) }
+        var newAmount by remember {
+            mutableStateOf((currentOrder.transferredAmount ?: currentOrder.totalAmount).toLong().toString())
+        }
         var newReceiptUri by remember { mutableStateOf(currentOrder.receiptImageUri) }
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) newReceiptUri = uri.toString()
@@ -683,10 +686,17 @@ fun OrderDetailScreen(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(strings.checkout.receiptRequiredHint, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                 SuqiTextField(value = newRef, onValueChange = { newRef = it }, label = strings.checkout.newTxRefRequiredLabel, placeholder = "TXN991022")
+                SuqiTextField(
+                    value = newAmount,
+                    onValueChange = { newAmount = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = strings.checkout.transferAmountLabel,
+                    placeholder = currentOrder.totalAmount.toLong().toString(),
+                    testTag = "resubmit_transfer_amount_input"
+                )
                 OutlinedButton(
                     onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 ) {
                     Icon(LucideIcons.Upload, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -700,7 +710,13 @@ fun OrderDetailScreen(
                         coroutineScope.launch {
                             viewModel.repository.resubmitPayment(
                                 currentOrder.id,
-                                mapOf("transactionReference" to newRef.trim(), "receiptImageUri" to newReceiptUri)
+                                buildMap {
+                                    put("transactionReference", newRef.trim())
+                                    put("receiptImageUri", newReceiptUri)
+                                    newAmount.trim().toDoubleOrNull()?.let { amt ->
+                                        put("transferredAmount", amt.toString())
+                                    }
+                                }
                             )
                             viewModel.showToast(strings.common.doneLabel)
                             showResubmitSheet = false

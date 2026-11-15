@@ -688,7 +688,8 @@ object SeedData {
                 transactionReference = "TXN-TB-9823145",
                 paymentStatus = "PENDING_VERIFICATION",
                 orderStatus = "Awaiting Payment Confirmation",
-                createdAt = "Apr 28, 2026 • 10:24 AM"
+                createdAt = "Apr 28, 2026 • 10:24 AM",
+                transferredAmount = 25049.0
             ),
             OrderEntity(
                 id = "ord_2",
@@ -713,7 +714,8 @@ object SeedData {
                 transactionReference = "TXN-TB-8841203",
                 paymentStatus = "VERIFIED",
                 orderStatus = "Confirmed",
-                createdAt = "Apr 27, 2026 • 04:15 PM"
+                createdAt = "Apr 27, 2026 • 04:15 PM",
+                transferredAmount = 12549.0
             ),
             OrderEntity(
                 id = "ord_3",
@@ -738,7 +740,8 @@ object SeedData {
                 transactionReference = "FT26117A718290",
                 paymentStatus = "VERIFIED",
                 orderStatus = "Delivered",
-                createdAt = "Apr 26, 2026 • 11:30 AM"
+                createdAt = "Apr 26, 2026 • 11:30 AM",
+                transferredAmount = 9999.0
             )
         )
         db.orderDao().insertAll(orders)

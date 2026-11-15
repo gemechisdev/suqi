@@ -32,6 +32,7 @@ import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
 import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
+import com.example.util.EthiopianMarketplaceUtils
 import kotlinx.coroutines.launch
 
 @Composable
@@ -222,7 +223,25 @@ fun AdminVerificationV2Screen(
                                 }
                             }
                             if (submission.submittedAt.isNotBlank()) {
-                                Text(submission.submittedAt, fontSize = 11.sp, color = colors.mutedText)
+                                val detailAgeLabel = EthiopianMarketplaceUtils.formatWaitingAgeLabel(submission.submittedAt, strings)
+                                val detailElapsedHours = EthiopianMarketplaceUtils.computeElapsedHours(submission.submittedAt)
+                                val detailIsOverdue = detailElapsedHours != null &&
+                                    detailElapsedHours >= 24L &&
+                                    reviewing.verificationStatus in listOf("PENDING_REVIEW", "RESUBMITTED", "CHANGES_REQUESTED")
+                                Spacer(Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(submission.submittedAt, fontSize = 11.sp, color = colors.mutedText)
+                                    if (!detailAgeLabel.isNullOrBlank()) {
+                                        SuqiStatusBadge(
+                                            statusText = detailAgeLabel,
+                                            type = if (detailIsOverdue) StatusType.WARNING else StatusType.NEUTRAL,
+                                            modifier = Modifier.testTag("admin_verify_detail_age")
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -496,16 +515,35 @@ fun AdminVerificationV2Screen(
                                         Text(shop.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                         Text("${shop.category} · ${placeLabel(shop.subCity)}, ${placeLabel(shop.city)}", fontSize = 12.sp, color = colors.secondaryText)
                                         Spacer(Modifier.height(4.dp))
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        val submittedTimestamp = sub.submittedAt.ifBlank {
+                                            sub.history.lastOrNull()?.at.orEmpty()
+                                        }
+                                        val ageLabel = EthiopianMarketplaceUtils.formatWaitingAgeLabel(submittedTimestamp, strings)
+                                        val elapsedHours = EthiopianMarketplaceUtils.computeElapsedHours(submittedTimestamp)
+                                        val isOverdue = elapsedHours != null &&
+                                            elapsedHours >= 24L &&
+                                            shop.verificationStatus in listOf("PENDING_REVIEW", "RESUBMITTED", "CHANGES_REQUESTED")
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                             Text(
                                                 text = "${sub.docs.size}/5",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = SuqiPrimary
                                             )
-                                            if (sub.submittedAt.isNotBlank()) {
-                                                Text("· ${sub.submittedAt}", fontSize = 11.sp, color = colors.mutedText)
+                                            if (submittedTimestamp.isNotBlank()) {
+                                                Text("· $submittedTimestamp", fontSize = 11.sp, color = colors.mutedText, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
+                                        }
+                                        if (!ageLabel.isNullOrBlank()) {
+                                            Spacer(Modifier.height(6.dp))
+                                            SuqiStatusBadge(
+                                                statusText = ageLabel,
+                                                type = if (isOverdue) StatusType.WARNING else StatusType.NEUTRAL,
+                                                modifier = Modifier.testTag("admin_verify_age_${shop.id}")
+                                            )
                                         }
                                     }
                                     SuqiStatusBadge(

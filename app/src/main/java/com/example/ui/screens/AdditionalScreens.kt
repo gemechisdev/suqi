@@ -879,14 +879,16 @@ fun AppSettingsScreen(
                         testTag = "settings_admin_signin_row"
                     )
 
-                    SuqiSwitchRow(
-                        title = strings.buyer.offlineSimulatorTitle,
-                        subtitle = strings.offlineBannerTitle,
-                        icon = LucideIcons.WifiOff,
-                        checked = isOffline,
-                        onCheckedChange = { viewModel.setOfflineMode(it) },
-                        testTag = "settings_offline_switch"
-                    )
+                    if (isDevUnlocked || com.example.data.api.BackendConfig.DemoMode) {
+                        SuqiSwitchRow(
+                            title = strings.buyer.offlineSimulatorTitle,
+                            subtitle = strings.offlineBannerTitle,
+                            icon = LucideIcons.WifiOff,
+                            checked = isOffline,
+                            onCheckedChange = { viewModel.setOfflineMode(it) },
+                            testTag = "settings_offline_switch"
+                        )
+                    }
 
                     if (isDevUnlocked) {
                         SuqiListRow(

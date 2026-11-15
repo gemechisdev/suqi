@@ -417,4 +417,135 @@ class ExampleRobolectricTest {
         assertEquals("1-3 የስራ ቀናት", am.localizeEta("1-3 business days", com.example.ui.i18n.SuqiLanguage.AM))
         assertEquals("Guyyaa 1-2", com.example.ui.i18n.SuqiExtraCatalog.afaanOromo.localizeEta("1-2 days", com.example.ui.i18n.SuqiLanguage.OM))
     }
+
+    @Test
+    fun testVerificationWaitingAgeFormattingAndThresholds() {
+        val enStrings = com.example.ui.i18n.SuqiStringCatalog.forLanguage(com.example.ui.i18n.SuqiLanguage.EN)
+
+        val isoBase = EthiopianMarketplaceUtils.parseMarketplaceTimestampMillis("2026-11-15 10:00")
+        assertNotNull(isoBase)
+        val formattedBase = EthiopianMarketplaceUtils.parseMarketplaceTimestampMillis("Nov 15, 2026 • 10:00 AM")
+        assertNotNull(formattedBase)
+        assertEquals(isoBase, formattedBase)
+
+        assertEquals(0L, EthiopianMarketplaceUtils.computeElapsedHours("Just now"))
+        assertEquals(24L, EthiopianMarketplaceUtils.computeElapsedHours("Yesterday"))
+
+        // < 1h -> Just now
+        assertEquals(
+            enStrings.extras.justNowLabel,
+            EthiopianMarketplaceUtils.formatWaitingAgeLabel("2026-11-15 10:00", enStrings, isoBase!! + 30L * 60_000L)
+        )
+        // 4h (< 6h seller warning)
+        assertEquals(
+            "4h ago",
+            EthiopianMarketplaceUtils.formatWaitingAgeLabel("2026-11-15 10:00", enStrings, isoBase + 4L * 3_600_000L)
+        )
+        // 8h (>= 6h seller warning threshold)
+        val hours8 = EthiopianMarketplaceUtils.computeElapsedHours("2026-11-15 10:00", isoBase + 8L * 3_600_000L)
+        assertEquals(8L, hours8)
+        assertEquals(
+            "8h ago",
+            EthiopianMarketplaceUtils.formatWaitingAgeLabel("2026-11-15 10:00", enStrings, isoBase + 8L * 3_600_000L)
+        )
+        // 48h (>= 24h admin warning threshold)
+        assertEquals(
+            "2d ago",
+            EthiopianMarketplaceUtils.formatWaitingAgeLabel("2026-11-15 10:00", enStrings, isoBase + 48L * 3_600_000L)
+        )
+    }
+
+    @Test
+    fun testOrderTransferredAmountAndVerificationStatusTransitions() = runBlocking {
+        // Ensure active user owns shop_techhub deterministically
+        val loginRes = backend.loginWithPhoneOtp(
+            mapOf("phone" to "+251 912 345 678", "otp" to "123456")
+        )
+        assertTrue(loginRes.success)
+
+        val shopProducts = backend.getProducts(shopId = "shop_techhub").data.orEmpty()
+        assertTrue("shop_techhub should have seeded products", shopProducts.isNotEmpty())
+        val prod = shopProducts.first()
+
+        val itemsArr = JSONArray().apply {
+            put(JSONObject().apply {
+                put("productId", prod.id)
+                put("quantity", 1)
+            })
+        }
+        val expectedTotal = prod.price + 100.0
+
+        val basePayload = mapOf(
+            "shopId" to "shop_techhub",
+            "shopName" to prod.shopName,
+            "customerName" to "Meron Tadesse",
+            "customerPhone" to "+251 922 334 455",
+            "deliveryAddress" to "Bole, Addis Ababa",
+            "subtotal" to prod.price,
+            "deliveryFee" to 100.0,
+            "discountAmount" to 0.0,
+            "promoCode" to "",
+            "deliveryOptionTitle" to "Standard Delivery",
+            "deliveryOptionType" to "STANDARD",
+            "deliveryEstimatedDays" to "1-2 days",
+            "paymentMethodTitle" to "Telebirr",
+            "paymentMethodType" to "TELEBIRR",
+            "paymentMethodAccount" to "0911234567",
+            "itemsJson" to itemsArr.toString()
+        )
+
+        val ts = System.currentTimeMillis()
+        val matchTxn = "TXN_MATCH_${ts}_A"
+        val mismatchTxn = "TXN_MISMATCH_${ts}_B"
+
+        val matchOrderRes = backend.submitOrder(
+            basePayload + mapOf(
+                "transactionReference" to matchTxn,
+                "transferredAmount" to expectedTotal
+            )
+        )
+        assertTrue(matchOrderRes.success)
+        val matchOrder = matchOrderRes.data!!
+        assertEquals(expectedTotal, matchOrder.transferredAmount ?: -1.0, 0.01)
+
+        kotlinx.coroutines.delay(5)
+
+        val mismatchOrderRes = backend.submitOrder(
+            basePayload + mapOf(
+                "transactionReference" to mismatchTxn,
+                "transferredAmount" to (expectedTotal - 50.0)
+            )
+        )
+        assertTrue(mismatchOrderRes.success)
+        val mismatchOrder = mismatchOrderRes.data!!
+        assertEquals(expectedTotal - 50.0, mismatchOrder.transferredAmount ?: -1.0, 0.01)
+
+        // Seller approves matching order & rejects mismatched order
+        assertTrue(backend.verifyPayment(matchOrder.id, mapOf("notes" to "Exact ETB match")).success)
+        assertTrue(backend.rejectPayment(mismatchOrder.id, mapOf("reason" to "Transferred ETB is 50 short")).success)
+
+        val sellerOrders = backend.getSellerOrders().data.orEmpty()
+        val verified = sellerOrders.firstOrNull { it.id == matchOrder.id }
+        val rejected = sellerOrders.firstOrNull { it.id == mismatchOrder.id }
+        assertNotNull(verified)
+        assertNotNull(rejected)
+        assertEquals("VERIFIED", verified!!.paymentStatus)
+        assertEquals("REJECTED", rejected!!.paymentStatus)
+        assertEquals(expectedTotal, verified.transferredAmount ?: -1.0, 0.01)
+
+        // Buyer resubmits corrected transfer amount & new ref -> moves back to PENDING_VERIFICATION
+        val resubmittedTxn = "TXN_RESUB_${System.currentTimeMillis()}"
+        val resubmitRes = backend.resubmitPayment(
+            mismatchOrder.id,
+            mapOf(
+                "transactionReference" to resubmittedTxn,
+                "transferredAmount" to expectedTotal.toInt().toString()
+            )
+        )
+        assertTrue(resubmitRes.success)
+        val resubmitted = resubmitRes.data!!
+        assertEquals("PENDING_VERIFICATION", resubmitted.paymentStatus)
+        assertEquals(expectedTotal, resubmitted.transferredAmount ?: -1.0, 0.01)
+    }
 }
+

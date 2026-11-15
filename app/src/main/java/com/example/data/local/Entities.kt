@@ -144,7 +144,8 @@ data class OrderEntity(
     val sellerNotes: String = "",
     val courierName: String = "",
     val courierPhone: String = "",
-    val dispatchedAt: String? = null
+    val dispatchedAt: String? = null,
+    val transferredAmount: Double? = null
 )
 
 @Entity(tableName = "shop_payment_methods")
