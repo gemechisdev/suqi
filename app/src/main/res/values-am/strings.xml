@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">ሱቂ</string>
+    <string name="nav_home">መነሻ</string>
+    <string name="nav_categories">ምድቦች</string>
+    <string name="nav_search">ፈልግ</string>
+    <string name="nav_shops">ሱቆች</string>
+    <string name="nav_account">መለያ</string>
+    <string name="search_placeholder">ምርቶችን ወይም ሱቆችን ይፈልጉ...</string>
+    <string name="featured_shops">ተመራጭ ሱቆች</string>
+    <string name="see_all">ሁሉንም ይመልከቱ</string>
+    <string name="add_to_cart">ወደ ጋሪ ጨምር</string>
+    <string name="checkout">ክፍያ ቀጥል</string>
+    <string name="language">ቋንቋ</string>
+    <string name="settings">ቅንብሮች</string>
+</resources>

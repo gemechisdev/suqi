@@ -34,6 +34,10 @@ import com.example.data.model.*
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.localizedDescription
+import com.example.ui.i18n.localizedName
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -46,6 +50,8 @@ fun ProductDetailsScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val currentUser by viewModel.currentUser.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
@@ -147,7 +153,7 @@ fun ProductDetailsScreen(
                             .height(50.dp)
                             .testTag("btn_add_to_cart")
                     ) {
-                        Text("Add to Cart", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = SuqiPrimary)
+                        Text(strings.addToCart, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = SuqiPrimary)
                     }
 
                     Button(
@@ -181,7 +187,7 @@ fun ProductDetailsScreen(
                             .height(50.dp)
                             .testTag("btn_buy_now")
                     ) {
-                        Text("Buy Now", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                        Text(strings.buyNow, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
                     }
                 }
             }
@@ -323,7 +329,7 @@ fun ProductDetailsScreen(
                     }
 
                     Text(
-                        text = currentProd.name,
+                        text = currentProd.localizedName(lang),
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
@@ -374,7 +380,7 @@ fun ProductDetailsScreen(
                                 )
                                 if (hasSizeOption && (option.label.contains("Size", ignoreCase = true) || option.key.contains("size", ignoreCase = true))) {
                                     Text(
-                                        text = "Size Guide",
+                                        text = strings.sizeGuide,
                                         fontFamily = SuqiFontFamily,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp,
@@ -527,7 +533,7 @@ fun ProductDetailsScreen(
                             Text("Chat", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
                         }
                         SuqiButton(
-                            text = "Visit Shop",
+                            text = strings.visitShop,
                             isPrimary = false,
                             isPill = true,
                             onClick = { viewModel.navigate(ScreenDestination.ShopStorefront(currentProd.shopId)) },
@@ -540,15 +546,15 @@ fun ProductDetailsScreen(
             // Description & Specifications
             item {
                 SuqiSectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text("Description", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                    Text(strings.description, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(currentProd.description, fontFamily = SuqiFontFamily, fontSize = 14.sp, lineHeight = 22.sp, color = colors.secondaryText)
+                    Text(currentProd.localizedDescription(lang), fontFamily = SuqiFontFamily, fontSize = 14.sp, lineHeight = 22.sp, color = colors.secondaryText)
 
                     Spacer(modifier = Modifier.height(16.dp))
                     HorizontalDivider(color = colors.border)
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Text("Specifications", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                    Text(strings.specifications, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(10.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SpecRowItem(label = "Category", value = com.example.data.model.MarketplaceCategories.nameForId(currentProd.categoryId))
@@ -569,7 +575,7 @@ fun ProductDetailsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Customer Reviews (${reviews.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                        Text("${strings.customerReviews} (${reviews.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                         Text(
                             text = "Write a Review",
                             fontFamily = SuqiFontFamily,

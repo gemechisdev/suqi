@@ -159,6 +159,7 @@ fun SuqiTextField(
     leadingIcon: ImageVector? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
     singleLine: Boolean = true,
+    enabled: Boolean = true,
     isError: Boolean = false,
     errorMessage: String? = null,
     testTag: String = "suqi_text_field"
@@ -177,6 +178,7 @@ fun SuqiTextField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
+            enabled = enabled,
             placeholder = {
                 Text(
                     text = placeholder,
@@ -255,6 +257,7 @@ fun SuqiStatusBadge(
     modifier: Modifier = Modifier
 ) {
     val (bgColor, textColor) = when (type) {
+        StatusType.PRIMARY -> Pair(LocalSuqiColors.current.primaryTint, SuqiPrimary)
         StatusType.SUCCESS -> Pair(SuqiSuccessBg, SuqiSuccess)
         StatusType.WARNING -> Pair(SuqiWarningBg, SuqiWarning)
         StatusType.ERROR -> Pair(SuqiErrorBg, SuqiError)
@@ -286,7 +289,7 @@ fun SuqiStatusBadge(
     }
 }
 
-enum class StatusType { SUCCESS, WARNING, ERROR, NEUTRAL }
+enum class StatusType { PRIMARY, SUCCESS, WARNING, ERROR, NEUTRAL }
 
 @Composable
 fun SuqiSelectionCard(
@@ -426,6 +429,7 @@ fun SuqiFloatingBottomNav(
 ) {
     val colors = LocalSuqiColors.current
     val density = LocalDensity.current
+    val strings = com.example.ui.i18n.suqiStrings()
 
     data class TabSpec(
         val route: String,
@@ -433,10 +437,10 @@ fun SuqiFloatingBottomNav(
         val icon: androidx.compose.ui.graphics.vector.ImageVector
     )
     val sideTabs = listOf(
-        TabSpec("home", "Home", LucideIcons.House),
-        TabSpec("categories", "Categories", LucideIcons.LayoutGrid),
-        TabSpec("shops", "Shops", LucideIcons.Tag),
-        TabSpec("account", "Account", LucideIcons.User)
+        TabSpec("home", strings.navHome, LucideIcons.House),
+        TabSpec("categories", strings.navCategories, LucideIcons.LayoutGrid),
+        TabSpec("shops", strings.navShops, LucideIcons.Tag),
+        TabSpec("account", strings.navAccount, LucideIcons.User)
     )
     // Indices: 0 home, 1 categories, 2 search (centre), 3 shops, 4 account
     val selectedIndex = when (currentRoute) {

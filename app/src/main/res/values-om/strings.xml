@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Suqi</string>
+    <string name="nav_home">Mana</string>
+    <string name="nav_categories">Gosoota</string>
+    <string name="nav_search">Barbaadi</string>
+    <string name="nav_shops">Suuqiiwwan</string>
+    <string name="nav_account">Eenyummaa</string>
+    <string name="search_placeholder">Meeshaalee ykn suuqiiwwan barbaadi...</string>
+    <string name="featured_shops">Suuqiiwwan Filatamoo</string>
+    <string name="see_all">Hunda ilaali</string>
+    <string name="add_to_cart">Gara Gaarii Dabali</string>
+    <string name="checkout">Kaffaltii Itti Fufi</string>
+    <string name="language">Afaan</string>
+    <string name="settings">Qindaa\'ina</string>
+</resources>

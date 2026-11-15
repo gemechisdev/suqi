@@ -582,6 +582,7 @@ fun SuqiSearchField(
     onValueChange: (String) -> Unit,
     placeholder: String = "Search products or shops...",
     onClear: (() -> Unit)? = { onValueChange("") },
+    onSearch: (() -> Unit)? = null,
     trailingAction: @Composable (() -> Unit)? = null,
     testTag: String = "suqi_search_field",
     modifier: Modifier = Modifier
@@ -619,6 +620,12 @@ fun SuqiSearchField(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Search
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onSearch = { onSearch?.invoke() }
+                ),
                 textStyle = TextStyle(
                     fontFamily = SuqiFontFamily,
                     fontSize = 15.sp,

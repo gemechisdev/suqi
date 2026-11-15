@@ -179,11 +179,26 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Location State
+    private val prefs = application.getSharedPreferences("suqi_prefs", android.content.Context.MODE_PRIVATE)
+
+    // Location & Language State
     val selectedRegion = MutableStateFlow("Addis Ababa")
     val selectedCity = MutableStateFlow("Addis Ababa")
     val selectedSubCity = MutableStateFlow("Bole")
-    val selectedLanguage = MutableStateFlow("English")
+    val selectedLanguage = MutableStateFlow(prefs.getString("selected_language", "English") ?: "English")
+
+    fun setSelectedLanguage(language: String) {
+        val canonical = when (com.example.ui.i18n.SuqiLanguage.fromSetting(language)) {
+            com.example.ui.i18n.SuqiLanguage.AM -> "Amharic"
+            com.example.ui.i18n.SuqiLanguage.OM -> "Afaan Oromo"
+            com.example.ui.i18n.SuqiLanguage.EN -> "English"
+        }
+        selectedLanguage.value = canonical
+        prefs.edit().putString("selected_language", canonical).apply()
+        viewModelScope.launch {
+            repository.updateUserProfile(mapOf("preferredLanguage" to canonical))
+        }
+    }
 
     // Active Checkout State for current shop checkout (populated from active user & default address)
     val activeCheckoutDeliveryAddress = MutableStateFlow("")
@@ -240,7 +255,10 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
                 if (u.city.isNotBlank()) selectedCity.value = u.city
                 if (u.subCity.isNotBlank()) selectedSubCity.value = u.subCity
                 if (u.region.isNotBlank()) selectedRegion.value = u.region
-                if (u.preferredLanguage.isNotBlank()) selectedLanguage.value = u.preferredLanguage
+                if (!prefs.contains("selected_language") && u.preferredLanguage.isNotBlank()) {
+                    selectedLanguage.value = u.preferredLanguage
+                    prefs.edit().putString("selected_language", u.preferredLanguage).apply()
+                }
 
                 val addrRes = repository.getSavedAddresses()
                 val defAddr = addrRes.data?.firstOrNull { it.isDefault } ?: addrRes.data?.firstOrNull()

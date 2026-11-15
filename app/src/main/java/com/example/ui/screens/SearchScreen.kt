@@ -30,6 +30,9 @@ import com.example.data.model.ShopDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.localizedName
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -40,6 +43,8 @@ fun SearchScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isOffline by viewModel.isOffline.collectAsState()
 
@@ -64,7 +69,36 @@ fun SearchScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
 
-    val recentSearches = remember { mutableStateListOf("laptop", "t-shirt", "nike", "headphones", "sofa") }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val searchPrefs = remember { context.getSharedPreferences("suqi_search_prefs", android.content.Context.MODE_PRIVATE) }
+    val recentSearches = remember {
+        mutableStateListOf<String>().apply {
+            val initialized = searchPrefs.getBoolean("recent_initialized", false)
+            if (!initialized && com.example.data.api.BackendConfig.DemoMode) {
+                val defaults = listOf("laptop", "t-shirt", "nike", "headphones", "sofa")
+                addAll(defaults)
+                searchPrefs.edit()
+                    .putBoolean("recent_initialized", true)
+                    .putString("recent_json", org.json.JSONArray(defaults).toString())
+                    .apply()
+            } else {
+                val raw = searchPrefs.getString("recent_json", "[]") ?: "[]"
+                val arr = runCatching { org.json.JSONArray(raw) }.getOrNull()
+                if (arr != null) {
+                    for (i in 0 until arr.length()) {
+                        val term = arr.optString(i).trim()
+                        if (term.isNotBlank()) add(term)
+                    }
+                }
+            }
+        }
+    }
+    fun persistRecent() {
+        searchPrefs.edit()
+            .putBoolean("recent_initialized", true)
+            .putString("recent_json", org.json.JSONArray(recentSearches.toList()).toString())
+            .apply()
+    }
     val popularSearches = listOf("HP Core i5", "Samsung Galaxy", "Wireless Earbuds", "Sneakers", "Coffee Set")
 
     LaunchedEffect(Unit) {
@@ -109,8 +143,14 @@ fun SearchScreen(
                 productResults = applyLocalFilters(pRes.data.orEmpty())
                 val sRes = viewModel.repository.getShops(query = q.takeIf { it.isNotBlank() })
                 shopResults = (sRes.data.orEmpty()).filter { !verifiedOnly || it.isVerified }
-                if (recordRecent && q.isNotBlank() && !recentSearches.contains(q)) {
-                    recentSearches.add(0, q)
+                if (recordRecent && q.isNotBlank()) {
+                    val trimmed = q.trim()
+                    recentSearches.removeAll { it.equals(trimmed, ignoreCase = true) }
+                    recentSearches.add(0, trimmed)
+                    if (recentSearches.size > 10) {
+                        while (recentSearches.size > 10) recentSearches.removeAt(recentSearches.lastIndex)
+                    }
+                    persistRecent()
                 }
             } else {
                 productResults = emptyList()
@@ -184,7 +224,8 @@ fun SearchScreen(
                 SuqiSearchField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = "Search products or shops...",
+                    onSearch = { performSearch(searchQuery, recordRecent = true) },
+                    placeholder = strings.searchPlaceholder,
                     testTag = "search_input_field",
                     modifier = Modifier.weight(1f)
                 )
@@ -230,14 +271,20 @@ fun SearchScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Recent Searches", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                                    Text(strings.recentSearches, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                     Text(
-                                        text = "Clear",
+                                        text = strings.clearAll,
                                         fontFamily = SuqiFontFamily,
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 13.sp,
                                         color = SuqiPrimary,
-                                        modifier = Modifier.clickable { recentSearches.clear() }
+                                        modifier = Modifier
+                                            .clickable {
+                                                recentSearches.clear()
+                                                persistRecent()
+                                            }
+                                            .padding(horizontal = 6.dp, vertical = 4.dp)
+                                            .testTag("search_clear_recent")
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
@@ -247,13 +294,21 @@ fun SearchScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(12.dp))
-                                            .clickable { performSearch(term) }
-                                            .padding(vertical = 10.dp, horizontal = 4.dp)
+                                            .clickable { performSearch(term, recordRecent = true) }
+                                            .padding(vertical = 8.dp, horizontal = 4.dp)
                                     ) {
                                         Icon(LucideIcons.History, contentDescription = null, tint = colors.secondaryText, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(term, fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.primaryText, modifier = Modifier.weight(1f))
-                                        Icon(LucideIcons.ArrowUpLeft, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(16.dp))
+                                        IconButton(
+                                            onClick = {
+                                                recentSearches.remove(term)
+                                                persistRecent()
+                                            },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(LucideIcons.X, contentDescription = "Remove $term", tint = colors.mutedText, modifier = Modifier.size(15.dp))
+                                        }
                                     }
                                 }
                             }
@@ -262,7 +317,7 @@ fun SearchScreen(
 
                     item {
                         SuqiSectionCard {
-                            Text("Popular Searches", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                            Text(strings.popularSearches, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                             Spacer(modifier = Modifier.height(10.dp))
                             popularSearches.forEach { term ->
                                 Row(
@@ -324,8 +379,8 @@ fun SearchScreen(
                                         .padding(4.dp)
                                 ) {
                                     listOf(
-                                        0 to "Products (${productResults.size})",
-                                        1 to "Shops (${shopResults.size})"
+                                        0 to "${strings.productsTab} (${productResults.size})",
+                                        1 to "${strings.shopsTab} (${shopResults.size})"
                                     ).forEach { (idx, label) ->
                                         val selected = selectedTab == idx
                                         Box(
@@ -389,7 +444,7 @@ fun SearchScreen(
                                     Icon(LucideIcons.SlidersHorizontal, contentDescription = null, tint = if (activeFilterCount > 0) SuqiPrimary else colors.primaryText, modifier = Modifier.size(15.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (activeFilterCount > 0) "Filters ($activeFilterCount)" else "Filters",
+                                        text = if (activeFilterCount > 0) "${strings.filtersLabel} ($activeFilterCount)" else strings.filtersLabel,
                                         fontFamily = SuqiFontFamily,
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 12.sp,
@@ -543,13 +598,14 @@ fun SearchScreen(
                         FilterChip(
                             selected = selectedCategoryFilter.isBlank(),
                             onClick = { selectedCategoryFilter = "" },
-                            label = { Text("All", fontFamily = SuqiFontFamily) }
+                            label = { Text(strings.allLabel, fontFamily = SuqiFontFamily) }
                         )
                         categories.forEach { cat ->
+                            val catName = cat.localizedName(lang)
                             FilterChip(
                                 selected = selectedCategoryFilter == cat.id,
                                 onClick = { selectedCategoryFilter = cat.id },
-                                label = { Text(cat.name, fontFamily = SuqiFontFamily) }
+                                label = { Text(catName, fontFamily = SuqiFontFamily) }
                             )
                         }
                     }
@@ -674,9 +730,11 @@ fun SearchResultProductRow(
 
             Spacer(modifier = Modifier.width(12.dp))
 
+            val lang = LocalSuqiLanguage.current
+            val displayTitle = product.localizedName(lang)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = product.name,
+                    text = displayTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,

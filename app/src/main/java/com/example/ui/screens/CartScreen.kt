@@ -34,6 +34,7 @@ fun CartScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var cartItems by remember { mutableStateOf<List<CartItemDto>>(emptyList()) }
     var shopPromos by remember { mutableStateOf<Map<String, List<PromoCodeDto>>>(emptyMap()) }
@@ -67,7 +68,7 @@ fun CartScreen(
     val groupedByShop = cartItems.groupBy { it.shopId to it.shopName }
 
     SuqiScreen(
-        title = "My Cart",
+        title = strings.cartTitle,
         subtitle = if (cartItems.isNotEmpty()) "${cartItems.sumOf { it.quantity }} items across ${groupedByShop.size} shop(s)" else null,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -109,9 +110,9 @@ fun CartScreen(
             ) {
                 SuqiEmptyState(
                     icon = LucideIcons.ShoppingCart,
-                    title = "Your Cart is Empty",
-                    subtitle = "Explore amazing deals from verified independent shops across Ethiopia.",
-                    ctaText = "Start Shopping",
+                    title = strings.emptyCartTitle,
+                    subtitle = strings.emptyCartSubtitle,
+                    ctaText = strings.startShopping,
                     onCtaClick = { viewModel.popToRoot(ScreenDestination.Home) },
                     testTag = "cart_empty_state"
                 )
@@ -254,6 +255,7 @@ fun ShopCartGroupCard(
     onCheckoutShop: (PromoCodeDto?) -> Unit
 ) {
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     var promoCodeInput by remember { mutableStateOf("") }
     var appliedPromo by remember { mutableStateOf<PromoCodeDto?>(null) }
     var promoError by remember { mutableStateOf<String?>(null) }
@@ -404,7 +406,7 @@ fun ShopCartGroupCard(
                 },
                 placeholder = {
                     Text(
-                        text = "Enter promo code",
+                        text = strings.promoCodeHint,
                         fontFamily = SuqiFontFamily,
                         fontSize = 13.sp,
                         color = colors.mutedText
@@ -475,7 +477,7 @@ fun ShopCartGroupCard(
                     .height(48.dp)
                     .testTag("promo_apply_$shopId")
             ) {
-                Text("Apply", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text(strings.applyLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
         }
 
@@ -528,7 +530,7 @@ fun ShopCartGroupCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Subtotal (${items.sumOf { it.quantity }} items)",
+                text = "${strings.subtotalLabel} (${items.sumOf { it.quantity }})",
                 fontFamily = SuqiFontFamily,
                 fontSize = 14.sp,
                 color = colors.secondaryText

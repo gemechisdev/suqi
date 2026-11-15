@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.ProductDto
+import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.localizedName
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.LocalSuqiColors
 import com.example.ui.theme.LucideIcons
 import com.example.ui.theme.SuqiFontFamily
@@ -83,11 +86,14 @@ fun SuqiProductCard(
     onShopClick: (() -> Unit)? = null
 ) {
     val colors = LocalSuqiColors.current
+    val lang = LocalSuqiLanguage.current
+    val strings = suqiStrings()
     val cardShape = RoundedCornerShape(SuqiRadius.Card)
     val imageShape = RoundedCornerShape(18.dp)
     val soldOut = product.stockQuantity <= 0
     val lowStock = !soldOut && product.stockQuantity <= 3
     val hasDiscount = product.discountPercent > 0
+    val localizedTitle = product.localizedName(lang)
     val subtitle = listOf(categoryLabel(product.categoryId), product.subCategory)
         .filter { it.isNotBlank() }
         .joinToString(" · ")
@@ -133,7 +139,7 @@ fun SuqiProductCard(
                             .padding(horizontal = 12.dp, vertical = 5.dp)
                     ) {
                         Text(
-                            text = "Sold out",
+                            text = strings.outOfStock,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp,
@@ -212,7 +218,7 @@ fun SuqiProductCard(
         // ── Details ───────────────────────────────────────────
         Column(modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 10.dp)) {
             Text(
-                text = product.name,
+                text = localizedTitle,
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -342,7 +348,7 @@ fun SuqiProductCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (soldOut) "Sold out" else "Add to Cart",
+                        text = if (soldOut) strings.outOfStock else strings.addToCart,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp,

@@ -711,6 +711,7 @@ fun AppSettingsScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val currentUser by viewModel.currentUser.collectAsState()
     val isDarkPref by viewModel.isDarkMode.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
@@ -726,7 +727,7 @@ fun AppSettingsScreen(
     var versionTapCount by remember { mutableIntStateOf(0) }
 
     SuqiScreen(
-        title = "App Settings",
+        title = strings.settingsTitle,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -745,23 +746,21 @@ fun AppSettingsScreen(
 
                     val langs = listOf(
                         "English" to "English",
-                        "Amharic" to "Amharic (አማርኛ)",
-                        "Afaan Oromo" to "Afaan Oromo"
+                        "Amharic" to "አማርኛ (Amharic)",
+                        "Afaan Oromo" to "Afaan Oromoo"
                     )
                     langs.forEach { (key, label) ->
-                        val isSel = curLang.equals(key, ignoreCase = true) || curLang.startsWith(key.take(5), ignoreCase = true)
+                        val isSel = com.example.ui.i18n.SuqiLanguage.fromSetting(curLang) == com.example.ui.i18n.SuqiLanguage.fromSetting(key)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable {
-                                    viewModel.selectedLanguage.value = key
-                                    coroutineScope.launch {
-                                        viewModel.repository.updateUserProfile(mapOf("preferredLanguage" to key))
-                                        viewModel.showToast("Language set to $key")
-                                    }
+                                    viewModel.setSelectedLanguage(key)
+                                    viewModel.showToast("Language: $label")
                                 }
-                                .padding(vertical = 10.dp, horizontal = 6.dp),
+                                .padding(vertical = 10.dp, horizontal = 6.dp)
+                                .testTag("settings_lang_${key.lowercase().replace(" ", "_")}"),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -787,13 +786,13 @@ fun AppSettingsScreen(
 
             item {
                 SuqiSectionCard(padding = 16.dp) {
-                    Text("Appearance & Theme", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                    Text(strings.appearanceTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(8.dp))
 
                     val themeOptions = listOf(
-                        "System Default" to null,
-                        "Light Mode (Warm Cream)" to false,
-                        "Dark Mode" to true
+                        strings.systemDefault to null,
+                        strings.lightMode to false,
+                        strings.darkMode to true
                     )
 
                     themeOptions.forEach { (label, value) ->
@@ -1347,8 +1346,19 @@ fun AdminSignInScreen(
     val colors = LocalSuqiColors.current
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var selectedTier by remember { mutableStateOf("OWNER") }
-    var identifier by remember { mutableStateOf("") }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("suqi_admin_prefs", android.content.Context.MODE_PRIVATE) }
+    var rememberDevice by remember { mutableStateOf(prefs.getBoolean("remember_device", false)) }
+    var selectedTier by remember {
+        mutableStateOf(
+            if (rememberDevice) (prefs.getString("saved_tier", "OWNER") ?: "OWNER") else "OWNER"
+        )
+    }
+    var identifier by remember {
+        mutableStateOf(
+            if (rememberDevice) (prefs.getString("saved_identifier", "") ?: "") else ""
+        )
+    }
     var pin by remember { mutableStateOf("") }
     var showPin by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
@@ -1491,7 +1501,23 @@ fun AdminSignInScreen(
                         Text(errorMsg!!, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiError)
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    SuqiSwitchRow(
+                        title = "Remember this device",
+                        subtitle = "Keep staff email and tier prefilled on this device",
+                        checked = rememberDevice,
+                        onCheckedChange = { checked ->
+                            rememberDevice = checked
+                            prefs.edit().putBoolean("remember_device", checked).apply()
+                            if (!checked) {
+                                prefs.edit().remove("saved_identifier").remove("saved_tier").apply()
+                            }
+                        },
+                        testTag = "admin_remember_device"
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     SuqiButton(
                         text = if (isSubmitting) "Verifying..." else "Sign In to Admin Console",
@@ -1506,6 +1532,13 @@ fun AdminSignInScreen(
                                 val res = viewModel.repository.adminSignIn(identifier.trim(), pin.trim(), selectedTier)
                                 isSubmitting = false
                                 if (res.success) {
+                                    if (rememberDevice) {
+                                        prefs.edit()
+                                            .putBoolean("remember_device", true)
+                                            .putString("saved_identifier", identifier.trim())
+                                            .putString("saved_tier", selectedTier)
+                                            .apply()
+                                    }
                                     if (selectedTier == "DEVELOPER" || selectedTier == "OWNER") {
                                         viewModel.unlockDeveloperTools()
                                     }
@@ -1523,25 +1556,27 @@ fun AdminSignInScreen(
                 }
             }
 
-            item {
-                SuqiSectionCard(containerColor = colors.secondaryBackground, padding = 14.dp) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Staff Access Reference", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = colors.primaryText)
-                            Text("ID: admin@suqi.et  •  PIN: 123456", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
-                        }
-                        TextButton(
-                            onClick = {
-                                identifier = "admin@suqi.et"
-                                pin = "123456"
-                                errorMsg = null
-                            }
+            if (com.example.data.api.BackendConfig.DemoMode) {
+                item {
+                    SuqiSectionCard(containerColor = colors.secondaryBackground, padding = 14.dp) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Fill", fontWeight = FontWeight.Bold, color = SuqiPrimary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Staff Access Reference", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = colors.primaryText)
+                                Text("ID: admin@suqi.et  •  PIN: 123456", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
+                            }
+                            TextButton(
+                                onClick = {
+                                    identifier = "admin@suqi.et"
+                                    pin = "123456"
+                                    errorMsg = null
+                                }
+                            ) {
+                                Text("Fill", fontWeight = FontWeight.Bold, color = SuqiPrimary)
+                            }
                         }
                     }
                 }
@@ -1551,7 +1586,7 @@ fun AdminSignInScreen(
 }
 
 // ==========================================
-// Admin Console (F-02 Segmented Tabs + Real DB Counts)
+// Admin Console (F-02 Segmented Tabs + Real DB Counts + A-01 Role Badge & 15-min Idle Timeout)
 // ==========================================
 @Composable
 fun AdminConsoleScreen(
@@ -1573,7 +1608,18 @@ fun AdminConsoleScreen(
     var flaggedReviewsCount by remember { mutableIntStateOf(0) }
     var tickets by remember { mutableStateOf<List<SupportTicketDto>>(emptyList()) }
 
+    // A-01 15-minute idle session timeout dialog
+    var lastActivityMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var showTimeoutDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(lastActivityMs) {
+        val idleLimitMs = 15L * 60L * 1000L
+        kotlinx.coroutines.delay(idleLimitMs)
+        showTimeoutDialog = true
+    }
+
     fun loadAdminData() {
+        lastActivityMs = System.currentTimeMillis()
         coroutineScope.launch {
             viewModel.repository.getAdminSettings().data?.let { adminSettings = it }
             viewModel.repository.getShops().data?.let { shopsCount = it.size }
@@ -1589,20 +1635,34 @@ fun AdminConsoleScreen(
         loadAdminData()
     }
 
+    val resolvedTier = adminTier.ifBlank { "OWNER" }.uppercase()
+    val tierBadgeType = when (resolvedTier) {
+        "OWNER" -> StatusType.PRIMARY
+        "DEVELOPER" -> StatusType.WARNING
+        else -> StatusType.SUCCESS
+    }
+
     SuqiScreen(
         title = "Admin Console",
-        subtitle = "Tier: ${adminTier.ifBlank { "OWNER" }}",
+        subtitle = "Governance & marketplace operations",
         onBackClick = { viewModel.popToRoot(ScreenDestination.Home) },
         isOffline = isOffline,
         headerActions = {
-            IconButton(
-                onClick = { loadAdminData() },
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(colors.secondaryBackground)
-            ) {
-                Icon(LucideIcons.RefreshCw, contentDescription = "Refresh stats", tint = colors.primaryText, modifier = Modifier.size(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SuqiStatusBadge(
+                    statusText = resolvedTier.lowercase().replaceFirstChar { it.uppercase() },
+                    type = tierBadgeType
+                )
+                IconButton(
+                    onClick = { loadAdminData() },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(colors.secondaryBackground)
+                        .testTag("admin_refresh_btn")
+                ) {
+                    Icon(LucideIcons.RefreshCw, contentDescription = "Refresh stats", tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                }
             }
         },
         modifier = modifier
@@ -1614,7 +1674,10 @@ fun AdminConsoleScreen(
         ) {
             SuqiAdminSegmentedTabs(
                 selectedTab = selectedTab,
-                onSelectTab = { selectedTab = it },
+                onSelectTab = {
+                    lastActivityMs = System.currentTimeMillis()
+                    selectedTab = it
+                },
                 isDeveloperVisible = isDevUnlocked || adminTier == "DEVELOPER" || adminTier == "OWNER"
             )
 
@@ -1809,6 +1872,13 @@ fun AdminConsoleScreen(
                                     testTag = "admin_tools_devtools"
                                 )
                                 SuqiListRow(
+                                    icon = LucideIcons.Clock,
+                                    title = "Lock Session (Test Idle Timeout)",
+                                    subtitle = "Preview 15-minute staff inactivity guard",
+                                    onClick = { showTimeoutDialog = true },
+                                    testTag = "admin_test_timeout"
+                                )
+                                SuqiListRow(
                                     icon = LucideIcons.User,
                                     title = "Return to Buyer Storefront",
                                     subtitle = "Switch active role to CUSTOMER",
@@ -1823,6 +1893,46 @@ fun AdminConsoleScreen(
                 }
             }
         }
+    }
+
+    if (showTimeoutDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Staff Session Timed Out", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText) },
+            text = {
+                Text(
+                    "Your admin session has been idle for 15 minutes. Stay signed in to continue operating the console or sign out to lock governance tools.",
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 13.sp,
+                    color = colors.secondaryText
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        lastActivityMs = System.currentTimeMillis()
+                        showTimeoutDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text("Stay signed in", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showTimeoutDialog = false
+                        viewModel.setActiveRole("CUSTOMER")
+                        viewModel.popToRoot(ScreenDestination.AdminSignIn)
+                    }
+                ) {
+                    Text("Sign out", color = SuqiError, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 }
 
@@ -1856,104 +1966,7 @@ fun AdminFeaturesScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    val colors = LocalSuqiColors.current
-    val isOffline by viewModel.isOffline.collectAsState()
-    var pendingShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    fun loadShops() {
-        coroutineScope.launch {
-            isLoading = true
-            val res = viewModel.repository.getAdminSellerVerificationQueue()
-            if (res.success && res.data != null) {
-                pendingShops = res.data
-            }
-            isLoading = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        loadShops()
-    }
-
-    SuqiScreen(
-        title = "Seller Verification Queue",
-        subtitle = "${pendingShops.size} pending reviews",
-        onBackClick = { viewModel.goBack() },
-        isOffline = isOffline,
-        modifier = modifier
-    ) { paddingValues ->
-        if (isLoading) {
-            SuqiSkeletonList(count = 3, modifier = Modifier.padding(paddingValues).padding(top = 12.dp))
-        } else if (pendingShops.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                SuqiEmptyState(
-                    icon = LucideIcons.BadgeCheck,
-                    title = "Verification queue clear",
-                    subtitle = "All submitted Ethiopian merchant verification requests have been reviewed."
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(pendingShops, key = { it.id }) { shop ->
-                    SuqiSectionCard(padding = 16.dp) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AsyncImage(
-                                model = shop.logoUrl,
-                                contentDescription = shop.name,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(colors.imageBackdrop)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = shop.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
-                                Text(text = "${shop.category} • ${shop.subCity}, ${shop.city}", fontSize = 12.sp, color = colors.secondaryText)
-                            }
-                            SuqiStatusBadge("Pending", StatusType.WARNING)
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        viewModel.repository.adminVerifySellerDecision(shop.id, "APPROVE")
-                                        viewModel.showToast("${shop.name} verified!")
-                                        loadShops()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = SuqiSuccess),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f).height(44.dp)
-                            ) { Text("Approve", color = Color.White, fontWeight = FontWeight.Bold) }
-
-                            Button(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        viewModel.repository.adminVerifySellerDecision(shop.id, "REJECT")
-                                        viewModel.showToast("${shop.name} rejected.")
-                                        loadShops()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = SuqiError),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f).height(44.dp)
-                            ) { Text("Reject", color = Color.White, fontWeight = FontWeight.Bold) }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    AdminVerificationV2Screen(viewModel = viewModel, modifier = modifier)
 }
 
 // ==========================================
@@ -2177,7 +2190,17 @@ fun AdminCategoriesScreen(
                 SuqiTextField(value = nameEn, onValueChange = { nameEn = it }, label = "Category Name (English) *")
                 SuqiTextField(value = nameAm, onValueChange = { nameAm = it }, label = "Name (Amharic / አማርኛ)")
                 SuqiTextField(value = nameOr, onValueChange = { nameOr = it }, label = "Name (Afaan Oromo)")
-                SuqiTextField(value = imageUrl, onValueChange = { imageUrl = it }, label = "Image URL")
+                SuqiImagePickerTile(
+                    label = "Category Cover Photo",
+                    imageUri = imageUrl.takeIf { it.isNotBlank() },
+                    onImagePicked = { imageUrl = it },
+                    onRemove = { imageUrl = "" },
+                    aspectRatio = 1f,
+                    tileHeight = 128.dp,
+                    guidance = "Square 1:1 crop recommended for category grid cards.",
+                    demoSampleUrl = MarketplaceCategories.imageUrlForId(editingCategory?.id ?: "cat_electronics"),
+                    testTag = "admin_category_image_picker"
+                )
                 SuqiTextField(value = subsCsv, onValueChange = { subsCsv = it }, label = "Sub-categories (comma separated)")
                 SuqiButton(
                     text = if (editingCategory == null) "Create Category" else "Save Category",
@@ -2407,7 +2430,17 @@ fun AdminBannersScreen(
                 }
                 SuqiTextField(value = subtitle, onValueChange = { subtitle = it }, label = "Subtitle")
                 SuqiTextField(value = ctaText, onValueChange = { ctaText = it }, label = "Button CTA")
-                SuqiTextField(value = imageUrl, onValueChange = { imageUrl = it }, label = "Banner Image URL")
+                SuqiImagePickerTile(
+                    label = "Banner Artwork (4:5 Portrait Crop)",
+                    imageUri = imageUrl.takeIf { it.isNotBlank() },
+                    onImagePicked = { imageUrl = it },
+                    onRemove = { imageUrl = "" },
+                    aspectRatio = 0.8f,
+                    tileHeight = 156.dp,
+                    guidance = "4:5 aspect crop fits the Home hero carousel card.",
+                    demoSampleUrl = "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800",
+                    testTag = "admin_banner_image_picker"
+                )
                 val categoryOptions = MarketplaceCategories.all.map { it.id to it.name }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

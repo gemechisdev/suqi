@@ -42,6 +42,7 @@ fun MyOrdersScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
     var orders by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
@@ -74,8 +75,8 @@ fun MyOrdersScreen(
     }
 
     SuqiScreen(
-        title = "My Orders",
-        subtitle = "${orders.size} total orders",
+        title = strings.myOrders,
+        subtitle = "${orders.size} ${strings.myOrders.lowercase()}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         onRetryOffline = {
@@ -242,6 +243,7 @@ fun OrderDetailScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val currentUser by viewModel.currentUser.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
 
@@ -274,7 +276,7 @@ fun OrderDetailScreen(
     }
 
     SuqiScreen(
-        title = "Order Details",
+        title = strings.orderDetails,
         subtitle = "#${currentOrder.orderReference}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -347,7 +349,7 @@ fun OrderDetailScreen(
                         }
                         else -> {
                             SuqiButton(
-                                text = "Reorder Items",
+                                text = strings.reorder,
                                 icon = LucideIcons.RotateCcw,
                                 isPill = true,
                                 onClick = {

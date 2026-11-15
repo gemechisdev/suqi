@@ -28,6 +28,7 @@ import com.example.R
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -38,6 +39,7 @@ fun AuthScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val coroutineScope = rememberCoroutineScope()
 
     var phoneInput by remember { mutableStateOf("") }
@@ -45,7 +47,11 @@ fun AuthScreen(
     var otpInput by remember { mutableStateOf("") }
     var otpSent by remember { mutableStateOf(false) }
     var resendSeconds by remember { mutableIntStateOf(0) }
+    var failedAttempts by remember { mutableIntStateOf(0) }
+    var lockoutSeconds by remember { mutableIntStateOf(0) }
+    var otpHasError by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    val shakeOffset = remember { androidx.compose.animation.core.Animatable(0f) }
 
     var showSocialSheet by remember { mutableStateOf<String?>(null) } // "TELEGRAM" or "GOOGLE"
     var socialName by remember { mutableStateOf("") }
@@ -55,6 +61,17 @@ fun AuthScreen(
         if (otpSent && resendSeconds > 0) {
             delay(1000)
             resendSeconds -= 1
+        }
+    }
+
+    LaunchedEffect(lockoutSeconds) {
+        if (lockoutSeconds > 0) {
+            delay(1000)
+            lockoutSeconds -= 1
+            if (lockoutSeconds == 0) {
+                failedAttempts = 0
+                errorMsg = null
+            }
         }
     }
 
@@ -92,7 +109,7 @@ fun AuthScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Every Shop. Every Product.",
+                        text = strings.everyShopEveryProduct,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
@@ -120,9 +137,10 @@ fun AuthScreen(
                         color = colors.primaryText
                     )
                     Spacer(modifier = Modifier.height(4.dp))
+                    val demoHint = if (com.example.data.api.BackendConfig.DemoMode) " (Use demo code 123456)" else ""
                     Text(
                         text = if (!otpSent) "We'll send a one-time verification SMS to your +251 number."
-                        else "Sent to +251 ${phoneInput.removePrefix("0").removePrefix("+251").trim()} (Use demo code 123456)",
+                        else "Sent to +251 ${phoneInput.removePrefix("0").removePrefix("+251").trim()}$demoHint",
                         fontFamily = SuqiFontFamily,
                         fontSize = 12.sp,
                         color = colors.secondaryText
@@ -139,6 +157,7 @@ fun AuthScreen(
                             testTag = "auth_name_input"
                         )
                         Spacer(modifier = Modifier.height(12.dp))
+                        val phoneError = !errorMsg.isNullOrBlank()
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -149,8 +168,12 @@ fun AuthScreen(
                                 modifier = Modifier
                                     .height(54.dp)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(colors.primaryTint)
-                                    .border(1.dp, SuqiPrimary.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                                    .background(if (phoneError) colors.errorBg else colors.primaryTint)
+                                    .border(
+                                        1.dp,
+                                        if (phoneError) SuqiError else SuqiPrimary.copy(alpha = 0.4f),
+                                        RoundedCornerShape(16.dp)
+                                    )
                                     .padding(horizontal = 14.dp)
                             ) {
                                 Text(
@@ -158,7 +181,7 @@ fun AuthScreen(
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = SuqiPrimary
+                                    color = if (phoneError) SuqiError else SuqiPrimary
                                 )
                             }
                             OutlinedTextField(
@@ -167,6 +190,7 @@ fun AuthScreen(
                                     phoneInput = it.filter { ch -> ch.isDigit() || ch == ' ' }.take(12)
                                     errorMsg = null
                                 },
+                                isError = phoneError,
                                 placeholder = { Text("912 345 678", color = colors.mutedText) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -174,8 +198,9 @@ fun AuthScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedContainerColor = colors.secondaryBackground,
                                     unfocusedContainerColor = colors.secondaryBackground,
-                                    focusedBorderColor = SuqiPrimary,
-                                    unfocusedBorderColor = colors.border,
+                                    focusedBorderColor = if (phoneError) SuqiError else SuqiPrimary,
+                                    unfocusedBorderColor = if (phoneError) SuqiError else colors.border,
+                                    errorBorderColor = SuqiError,
                                     focusedTextColor = colors.primaryText,
                                     unfocusedTextColor = colors.primaryText
                                 ),
@@ -184,27 +209,37 @@ fun AuthScreen(
                                     .testTag("auth_phone_input")
                             )
                         }
-                        if (!errorMsg.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                        if (phoneError) {
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = errorMsg!!,
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 12.sp,
-                                color = SuqiError
+                                color = SuqiError,
+                                modifier = Modifier.testTag("auth_phone_error")
                             )
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         SuqiButton(
                             text = "Send Verification Code",
                             onClick = {
-                                val digits = phoneInput.filter { it.isDigit() }
-                                if (digits.length < 9) {
-                                    errorMsg = "Enter a valid 9-digit Ethiopian mobile number"
+                                val rawDigits = phoneInput.filter { it.isDigit() }
+                                val normalizedDigits = rawDigits.removePrefix("251").removePrefix("0")
+                                val isValid = com.example.util.EthiopianMarketplaceUtils.isValidEthiopianPhone("+251$normalizedDigits")
+                                if (!isValid) {
+                                    errorMsg = "Enter a valid 9-digit Ethiopian mobile number starting with 9 or 7"
                                 } else {
                                     otpSent = true
-                                    resendSeconds = 30
+                                    otpInput = ""
+                                    otpHasError = false
+                                    failedAttempts = 0
+                                    resendSeconds = 42
                                     errorMsg = null
-                                    viewModel.showToast("SMS code sent (demo: 123456)")
+                                    if (com.example.data.api.BackendConfig.DemoMode) {
+                                        viewModel.showToast("SMS code sent (demo: 123456)")
+                                    } else {
+                                        viewModel.showToast("Verification SMS sent")
+                                    }
                                 }
                             },
                             isPill = true,
@@ -213,65 +248,172 @@ fun AuthScreen(
                             testTag = "auth_send_otp"
                         )
                     } else {
-                        OutlinedTextField(
+                        // 6 separate 52dp OTP digit boxes with paste support and wrong-code shake animation
+                        androidx.compose.foundation.text.BasicTextField(
                             value = otpInput,
-                            onValueChange = {
-                                otpInput = it.filter { ch -> ch.isDigit() }.take(6)
-                                errorMsg = null
+                            onValueChange = { incoming ->
+                                if (lockoutSeconds == 0) {
+                                    otpInput = incoming.filter { ch -> ch.isDigit() }.take(6)
+                                    otpHasError = false
+                                    errorMsg = null
+                                }
                             },
-                            label = { Text("6-digit code") },
-                            placeholder = { Text("123456") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            shape = RoundedCornerShape(16.dp),
+                            enabled = lockoutSeconds == 0,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("auth_otp_input")
+                                .offset { androidx.compose.ui.unit.IntOffset(shakeOffset.value.toInt(), 0) }
+                                .testTag("auth_otp_input"),
+                            decorationBox = {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    for (idx in 0 until 6) {
+                                        val ch = otpInput.getOrNull(idx)?.toString() ?: ""
+                                        val isActive = lockoutSeconds == 0 && (otpInput.length == idx || (idx == 5 && otpInput.length == 6))
+                                        val borderColor = when {
+                                            otpHasError || lockoutSeconds > 0 -> SuqiError
+                                            isActive -> SuqiPrimary
+                                            ch.isNotEmpty() -> SuqiPrimary.copy(alpha = 0.55f)
+                                            else -> colors.border
+                                        }
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .size(width = 46.dp, height = 52.dp)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(
+                                                    when {
+                                                        otpHasError -> colors.errorBg
+                                                        isActive -> colors.primaryTint
+                                                        else -> colors.secondaryBackground
+                                                    }
+                                                )
+                                                .border(
+                                                    width = if (isActive || otpHasError) 2.dp else 1.dp,
+                                                    color = borderColor,
+                                                    shape = RoundedCornerShape(14.dp)
+                                                )
+                                                .testTag("auth_otp_box_$idx")
+                                        ) {
+                                            Text(
+                                                text = ch,
+                                                fontFamily = SuqiFontFamily,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 20.sp,
+                                                color = if (otpHasError) SuqiError else colors.primaryText
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         )
-                        if (!errorMsg.isNullOrBlank()) {
+
+                        if (lockoutSeconds > 0) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            SuqiSectionCard(containerColor = colors.warningBg, padding = 12.dp) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.testTag("auth_lockout_banner")
+                                ) {
+                                    Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(20.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Too many wrong attempts",
+                                            fontFamily = SuqiFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = colors.primaryText
+                                        )
+                                        Text(
+                                            text = "Try again in 0:${lockoutSeconds.toString().padStart(2, '0')}",
+                                            fontFamily = SuqiFontFamily,
+                                            fontSize = 12.sp,
+                                            color = colors.secondaryText
+                                        )
+                                    }
+                                }
+                            }
+                        } else if (!errorMsg.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = errorMsg!!,
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 12.sp,
-                                color = SuqiError
+                                color = SuqiError,
+                                modifier = Modifier.testTag("auth_otp_error")
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Spacer(modifier = Modifier.height(10.dp))
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            TextButton(onClick = { otpSent = false; otpInput = "" }) {
+                            TextButton(
+                                onClick = {
+                                    otpSent = false
+                                    otpInput = ""
+                                    otpHasError = false
+                                    failedAttempts = 0
+                                    lockoutSeconds = 0
+                                    errorMsg = null
+                                },
+                                modifier = Modifier.testTag("auth_change_number")
+                            ) {
                                 Text("Change number", color = colors.secondaryText)
                             }
                             TextButton(
-                                enabled = resendSeconds == 0,
+                                enabled = resendSeconds == 0 && lockoutSeconds == 0,
                                 onClick = {
-                                    resendSeconds = 30
-                                    viewModel.showToast("Code resent (123456)")
-                                }
+                                    resendSeconds = 42
+                                    if (com.example.data.api.BackendConfig.DemoMode) {
+                                        viewModel.showToast("Code resent (123456)")
+                                    } else {
+                                        viewModel.showToast("New SMS verification code sent")
+                                    }
+                                },
+                                modifier = Modifier.testTag("auth_resend_otp")
                             ) {
                                 Text(
-                                    text = if (resendSeconds > 0) "Resend in ${resendSeconds}s" else "Resend code",
-                                    color = if (resendSeconds > 0) colors.mutedText else SuqiPrimary
+                                    text = if (resendSeconds > 0) "Resend in 0:${resendSeconds.toString().padStart(2, '0')}" else "Resend code",
+                                    color = if (resendSeconds > 0 || lockoutSeconds > 0) colors.mutedText else SuqiPrimary
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         SuqiButton(
                             text = "Verify & Sign In",
+                            enabled = lockoutSeconds == 0 && otpInput.length == 6,
                             onClick = {
                                 coroutineScope.launch {
-                                    val digits = phoneInput.filter { it.isDigit() }.removePrefix("0")
+                                    val digits = phoneInput.filter { it.isDigit() }.removePrefix("251").removePrefix("0")
                                     val res = viewModel.repository.loginWithPhoneOtp("+251 $digits", otpInput, fullNameInput)
                                     if (res.success) {
+                                        failedAttempts = 0
+                                        otpHasError = false
                                         viewModel.refreshSession()
                                         viewModel.showToast("Welcome ${res.data?.name ?: "to Suqi"}!")
                                         viewModel.popToRoot(ScreenDestination.Home)
                                     } else {
-                                        errorMsg = res.message ?: "Verification failed"
+                                        otpHasError = true
+                                        failedAttempts += 1
+                                        if (failedAttempts >= 5) {
+                                            lockoutSeconds = 30
+                                            errorMsg = "Code didn't match. Locked for 30 seconds."
+                                        } else {
+                                            errorMsg = "Code didn't match (${5 - failedAttempts} tries left)"
+                                        }
+                                        // Horizontal shake animation
+                                        listOf(-18f, 18f, -12f, 12f, -6f, 0f).forEach { target ->
+                                            shakeOffset.animateTo(
+                                                targetValue = target,
+                                                animationSpec = androidx.compose.animation.core.tween(durationMillis = 42)
+                                            )
+                                        }
                                     }
                                 }
                             },
@@ -416,13 +558,18 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val coroutineScope = rememberCoroutineScope()
     var selectedLanguage by remember { mutableStateOf(viewModel.selectedLanguage.value) }
     var selectedRegion by remember { mutableStateOf(viewModel.selectedRegion.value) }
     var selectedCity by remember { mutableStateOf(viewModel.selectedCity.value) }
     var selectedSubCity by remember { mutableStateOf(viewModel.selectedSubCity.value) }
 
-    val languages = listOf("English", "Amharic", "Afaan Oromo")
+    val languages = listOf(
+        "English" to "English",
+        "Amharic" to "አማርኛ",
+        "Afaan Oromo" to "Afaan Oromoo"
+    )
     val regions = listOf("Addis Ababa", "Oromia", "Amhara", "Dire Dawa", "Sidama")
     val subCities = listOf("Bole", "Kirkos", "Yeka", "Arada", "Lideta", "Nifas Silk")
 
@@ -444,7 +591,7 @@ fun OnboardingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Skip",
+                        text = strings.skipLabel,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
@@ -465,7 +612,7 @@ fun OnboardingScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Welcome to Suqi!",
+                    text = strings.welcomeToSuqi,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 26.sp,
@@ -483,7 +630,7 @@ fun OnboardingScreen(
             item {
                 SuqiSectionCard(padding = 16.dp) {
                     Text(
-                        text = "Language",
+                        text = strings.languageTitle,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
@@ -494,8 +641,8 @@ fun OnboardingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        languages.forEach { lang ->
-                            val isSel = lang == selectedLanguage
+                        languages.forEach { (key, label) ->
+                            val isSel = key == selectedLanguage
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -503,18 +650,21 @@ fun OnboardingScreen(
                                     .clip(RoundedCornerShape(999.dp))
                                     .background(if (isSel) SuqiPrimary else colors.secondaryBackground)
                                     .clickable {
-                                        selectedLanguage = lang
-                                        viewModel.selectedLanguage.value = lang
+                                        selectedLanguage = key
+                                        viewModel.setSelectedLanguage(key)
                                     }
-                                    .padding(vertical = 10.dp),
+                                    .padding(vertical = 10.dp, horizontal = 6.dp)
+                                    .testTag("onboarding_lang_${key.lowercase().replace(" ", "_")}"),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = lang,
+                                    text = label,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
                                     fontSize = 12.sp,
-                                    color = if (isSel) Color.White else colors.primaryText
+                                    color = if (isSel) Color.White else colors.primaryText,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2
                                 )
                             }
                         }

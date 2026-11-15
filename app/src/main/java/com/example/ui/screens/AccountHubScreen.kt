@@ -38,6 +38,7 @@ fun AccountHubScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val currentUser by viewModel.currentUser.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
     val adminTier by viewModel.adminTier.collectAsState()
@@ -66,7 +67,7 @@ fun AccountHubScreen(
     }
 
     SuqiScreen(
-        title = "My Account",
+        title = strings.accountTitle,
         isOffline = isOffline,
         onRetryOffline = {
             viewModel.setOfflineMode(false)
@@ -146,7 +147,7 @@ fun AccountHubScreen(
                         }
                         Spacer(modifier = Modifier.height(14.dp))
                         SuqiButton(
-                            text = "Sign In / Create Account",
+                            text = strings.signIn,
                             onClick = { viewModel.navigate(ScreenDestination.Auth) },
                             isPill = true,
                             modifier = Modifier.fillMaxWidth(),
@@ -319,7 +320,7 @@ fun AccountHubScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
-                                            text = "Seller Studio",
+                                            text = strings.sellerStudioLabel,
                                             fontFamily = SuqiFontFamily,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 15.sp,
@@ -411,7 +412,7 @@ fun AccountHubScreen(
                 SuqiSectionCard(padding = 12.dp) {
                     SuqiListRow(
                         icon = LucideIcons.Receipt,
-                        title = "My Orders",
+                        title = strings.myOrders,
                         subtitle = "Track deliveries & payment status",
                         onClick = {
                             viewModel.requireSignedInOrPrompt("view your orders") {
@@ -423,7 +424,7 @@ fun AccountHubScreen(
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                     SuqiListRow(
                         icon = LucideIcons.Heart,
-                        title = "Wishlist",
+                        title = strings.wishlistTitle,
                         badge = if (wishlistCount > 0) wishlistCount.toString() else null,
                         onClick = { viewModel.navigate(ScreenDestination.Wishlist) },
                         testTag = "account_menu_wishlist"
@@ -431,7 +432,7 @@ fun AccountHubScreen(
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                     SuqiListRow(
                         icon = LucideIcons.HeartFilled,
-                        title = "Following Shops",
+                        title = strings.followingTitle,
                         badge = if (followedCount > 0) followedCount.toString() else null,
                         onClick = { viewModel.navigate(ScreenDestination.Following) },
                         testTag = "account_menu_following"
@@ -439,7 +440,7 @@ fun AccountHubScreen(
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                     SuqiListRow(
                         icon = LucideIcons.MapPin,
-                        title = "Saved Addresses",
+                        title = strings.savedAddresses,
                         onClick = {
                             viewModel.requireSignedInOrPrompt("manage saved addresses") {
                                 viewModel.navigate(ScreenDestination.SavedAddresses)
@@ -466,22 +467,22 @@ fun AccountHubScreen(
                 SuqiSectionCard(padding = 12.dp) {
                     SuqiListRow(
                         icon = LucideIcons.Bell,
-                        title = "Notifications",
+                        title = strings.notificationsTitle,
                         onClick = { viewModel.navigate(ScreenDestination.Notifications) },
                         testTag = "account_menu_notifications"
                     )
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                     SuqiListRow(
                         icon = LucideIcons.Settings,
-                        title = "App Settings",
-                        subtitle = "Theme, language (${viewModel.selectedLanguage.collectAsState().value}) & location",
+                        title = strings.settingsTitle,
+                        subtitle = "${strings.appearanceTitle} • ${viewModel.selectedLanguage.collectAsState().value}",
                         onClick = { viewModel.navigate(ScreenDestination.AppSettings) },
                         testTag = "account_menu_settings"
                     )
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                     SuqiListRow(
                         icon = LucideIcons.HelpCircle,
-                        title = "Help & Support",
+                        title = strings.helpSupportTitle,
                         subtitle = "FAQs, returns & support tickets",
                         onClick = { viewModel.navigate(ScreenDestination.HelpLegal) },
                         testTag = "account_menu_help"
@@ -584,7 +585,7 @@ fun AccountHubScreen(
                         Icon(LucideIcons.LogOut, contentDescription = null, tint = SuqiError, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Sign Out",
+                            text = strings.signOut,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             color = SuqiError
@@ -744,7 +745,7 @@ fun ProfileEditScreen(
                                 )
                                 isSaving = false
                                 if (res.success) {
-                                    viewModel.selectedLanguage.value = preferredLanguage
+                                    viewModel.setSelectedLanguage(preferredLanguage)
                                     viewModel.refreshSession()
                                     viewModel.showToast("Profile updated!")
                                     viewModel.goBack()

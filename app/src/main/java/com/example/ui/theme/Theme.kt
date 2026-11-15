@@ -100,6 +100,7 @@ val SuqiDarkColorScheme = darkColorScheme(
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    language: com.example.ui.i18n.SuqiLanguage = com.example.ui.i18n.SuqiLanguage.EN,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) SuqiDarkColorScheme else SuqiLightColorScheme
@@ -141,10 +142,17 @@ fun MyApplicationTheme(
         )
     }
 
-    CompositionLocalProvider(LocalSuqiColors provides extendedColors) {
+    val localizedStrings = com.example.ui.i18n.SuqiStringCatalog.forLanguage(language)
+    val localizedTypography = com.example.ui.i18n.suqiTypographyForLanguage(language)
+
+    CompositionLocalProvider(
+        LocalSuqiColors provides extendedColors,
+        com.example.ui.i18n.LocalSuqiLanguage provides language,
+        com.example.ui.i18n.LocalSuqiStrings provides localizedStrings
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = SuqiTypography,
+            typography = localizedTypography,
             content = content
         )
     }

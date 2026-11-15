@@ -38,6 +38,7 @@ fun CategoryListingScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isOffline by viewModel.isOffline.collectAsState()
 
@@ -203,7 +204,7 @@ fun CategoryListingScreen(
                                 Icon(LucideIcons.SlidersHorizontal, contentDescription = null, tint = if (activeFilterCount > 0) SuqiPrimary else colors.primaryText, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (activeFilterCount > 0) "Filters ($activeFilterCount)" else "Filters",
+                                    text = if (activeFilterCount > 0) "${strings.filtersLabel} ($activeFilterCount)" else strings.filtersLabel,
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -221,7 +222,7 @@ fun CategoryListingScreen(
                             ) {
                                 Icon(LucideIcons.ArrowUpDown, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Sort", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
+                                Text(strings.sortLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
                             }
                         }
 
@@ -248,7 +249,7 @@ fun CategoryListingScreen(
                     item {
                         SuqiEmptyState(
                             icon = LucideIcons.SearchX,
-                            title = "No products found",
+                            title = strings.noProductsFound,
                             subtitle = "Try switching subcategories or clearing your active price and stock filters.",
                             ctaText = "Reset Filters",
                             onCtaClick = {

@@ -121,6 +121,7 @@ fun CheckoutDeliveryScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
     var deliveryOptions by remember { mutableStateOf<List<ShopDeliveryOptionDto>>(emptyList()) }
@@ -197,7 +198,7 @@ fun CheckoutDeliveryScreen(
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     SuqiButton(
-                        text = "Continue to Payment",
+                        text = strings.continueToPayment,
                         onClick = {
                             if (recipientName.isBlank() || recipientPhone.isBlank() || deliveryAddress.isBlank()) {
                                 viewModel.showToast("Please add recipient & delivery address")
@@ -228,7 +229,7 @@ fun CheckoutDeliveryScreen(
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
-                        text = "Delivery Details",
+                        text = strings.checkoutDeliveryTitle,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
@@ -361,7 +362,7 @@ fun CheckoutDeliveryScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Delivery Fee", fontFamily = SuqiFontFamily, color = colors.secondaryText)
+                            Text(strings.deliveryFeeLabel, fontFamily = SuqiFontFamily, color = colors.secondaryText)
                             Text(formatEtb(deliveryFee), fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
                         }
 
@@ -374,7 +375,7 @@ fun CheckoutDeliveryScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Total", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = colors.primaryText)
+                            Text(strings.totalLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = colors.primaryText)
                             Text(
                                 formatEtb(totalAmount),
                                 fontFamily = SuqiFontFamily,
@@ -506,6 +507,7 @@ fun CheckoutPaymentScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
     var shopDetails by remember { mutableStateOf<ShopDto?>(null) }
@@ -564,7 +566,7 @@ fun CheckoutPaymentScreen(
     }
 
     SuqiScreen(
-        title = "Payment",
+        title = strings.checkoutPaymentTitle,
         subtitle = viewModel.activeCheckoutShopName.value,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -669,7 +671,7 @@ fun CheckoutPaymentScreen(
                             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
                         } else {
                             Text(
-                                text = "Submit Order",
+                                text = strings.placeOrder,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,

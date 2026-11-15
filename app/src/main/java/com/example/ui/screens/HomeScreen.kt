@@ -40,6 +40,9 @@ import com.example.data.model.ShopDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.localizedName
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -57,6 +60,8 @@ fun HomeScreen(
     val selectedSubCity by viewModel.selectedSubCity.collectAsState()
     val recentlyViewed by viewModel.recentlyViewed.collectAsState()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
 
     var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
@@ -158,7 +163,7 @@ fun HomeScreen(
                 }
             }
         },
-        containerColor = if (colors.isDark) colors.surfaceBackground else SuqiCream,
+        containerColor = colors.surfaceBackground,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
         if (isLoading && products.isEmpty()) {
@@ -230,7 +235,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Search products or shops...",
+                            text = strings.searchPlaceholder,
                             fontFamily = SuqiFontFamily,
                             fontSize = 15.sp,
                             color = colors.mutedText
@@ -261,16 +266,17 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(categories, key = { it.id }) { cat ->
+                        val catTitle = cat.localizedName(lang)
                         CategoryImageShortcutItem(
-                            title = cat.name,
+                            title = catTitle,
                             imageUrl = cat.imageUrl.ifBlank { MarketplaceCategories.imageUrlForId(cat.id) },
-                            onClick = { viewModel.navigate(ScreenDestination.CategoryListing(cat.id, cat.name)) },
+                            onClick = { viewModel.navigate(ScreenDestination.CategoryListing(cat.id, catTitle)) },
                             testTag = "home_cat_${cat.id}"
                         )
                     }
                     item(key = "all_categories_shortcut") {
                         CategoryShortcutItem(
-                            title = "All",
+                            title = strings.allLabel,
                             icon = LucideIcons.LayoutGrid,
                             onClick = { viewModel.navigate(ScreenDestination.Categories) }
                         )
@@ -289,14 +295,14 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Featured Shops",
+                            text = strings.featuredShops,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 18.sp,
-                            color = SuqiPrimaryText
+                            color = colors.primaryText
                         )
                         Text(
-                            text = "See all →",
+                            text = strings.seeAllArrow,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
@@ -333,7 +339,7 @@ fun HomeScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "New Arrivals",
+                                text = strings.newArrivals,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 18.sp,
@@ -356,13 +362,13 @@ fun HomeScreen(
                             }
                         }
                         Text(
-                            text = "See all →",
+                            text = strings.seeAllArrow,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
                             color = SuqiPrimary,
                             modifier = Modifier.clickable {
-                                viewModel.navigate(ScreenDestination.CategoryListing("all", "New Arrivals"))
+                                viewModel.navigate(ScreenDestination.CategoryListing("all", strings.newArrivals))
                             }
                         )
                     }
@@ -407,20 +413,20 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Popular Products",
+                            text = strings.popularNow,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 18.sp,
                             color = colors.primaryText
                         )
                         Text(
-                            text = "See all →",
+                            text = strings.seeAllArrow,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
                             color = SuqiPrimary,
                             modifier = Modifier.clickable {
-                                viewModel.navigate(ScreenDestination.CategoryListing("all", "All Products"))
+                                viewModel.navigate(ScreenDestination.CategoryListing("all", strings.popularNow))
                             }
                         )
                     }
@@ -477,7 +483,7 @@ fun HomeScreen(
                             Icon(LucideIcons.Sparkles, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Recommended for You",
+                                text = strings.recommendedForYou,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 18.sp,
@@ -530,7 +536,7 @@ fun HomeScreen(
                                 Icon(LucideIcons.History, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Recently Viewed",
+                                    text = strings.recentlyViewed,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 18.sp,
@@ -572,7 +578,7 @@ fun HomeScreen(
     if (showLocationSheet) {
         ModalBottomSheet(
             onDismissRequest = { showLocationSheet = false },
-            containerColor = SuqiSurface,
+            containerColor = colors.cardBackground,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
             LocationPickerContent(
@@ -680,10 +686,10 @@ fun FeaturedShopCard(
     shop: ShopDto,
     onClick: () -> Unit
 ) {
-    val isDark = LocalSuqiColors.current.isDark
+    val colors = LocalSuqiColors.current
     val shape = RoundedCornerShape(SuqiRadius.Card)
-    val tint = if (isDark) SuqiShopTintDark else SuqiShopTintLight
-    val outline = if (isDark) SuqiShopBorderDark else SuqiShopBorderLight
+    val tint = colors.shopTint
+    val outline = colors.shopBorder
     Box(
         modifier = Modifier
             .width(170.dp)
@@ -720,7 +726,7 @@ fun FeaturedShopCard(
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp,
-                    color = SuqiPrimaryText,
+                    color = colors.primaryText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -747,7 +753,7 @@ fun FeaturedShopCard(
                     text = "${shop.rating} (${shop.reviewCount})",
                     fontFamily = SuqiFontFamily,
                     fontSize = 11.sp,
-                    color = SuqiSecondaryText
+                    color = colors.secondaryText
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -755,7 +761,7 @@ fun FeaturedShopCard(
                 text = shop.address,
                 fontFamily = SuqiFontFamily,
                 fontSize = 11.sp,
-                color = SuqiMutedText,
+                color = colors.mutedText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -770,6 +776,7 @@ fun LocationPickerContent(
     currentSubCity: String,
     onSelectLocation: (String, String, String) -> Unit
 ) {
+    val colors = LocalSuqiColors.current
     var selectedRegion by remember { mutableStateOf(currentRegion) }
     var selectedCity by remember { mutableStateOf(currentCity) }
     var selectedSubCity by remember { mutableStateOf(currentSubCity) }
@@ -783,18 +790,19 @@ fun LocationPickerContent(
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
+        val strings = com.example.ui.i18n.suqiStrings()
         Text(
-            text = "Select Your Location",
+            text = strings.selectYourLocation,
             fontFamily = SuqiFontFamily,
             fontWeight = FontWeight.SemiBold,
             fontSize = 18.sp,
-            color = SuqiPrimaryText
+            color = colors.primaryText
         )
         Text(
             text = "See products, shops and delivery fees tailored to your area across Ethiopia.",
             fontFamily = SuqiFontFamily,
             fontSize = 13.sp,
-            color = SuqiSecondaryText
+            color = colors.secondaryText
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -803,7 +811,8 @@ fun LocationPickerContent(
             text = "Region",
             fontFamily = SuqiFontFamily,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp
+            fontSize = 14.sp,
+            color = colors.primaryText
         )
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -812,8 +821,8 @@ fun LocationPickerContent(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
-                        .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
+                        .background(if (isSel) colors.primaryTint else colors.secondaryBackground)
+                        .border(1.dp, if (isSel) SuqiPrimary else colors.border, RoundedCornerShape(999.dp))
                         .clickable {
                             selectedRegion = reg
                             selectedCity = if (reg == "Addis Ababa") "Addis Ababa" else "Adama"
@@ -830,7 +839,7 @@ fun LocationPickerContent(
                         fontFamily = SuqiFontFamily,
                         fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                         fontSize = 13.sp,
-                        color = if (isSel) SuqiPrimary else SuqiPrimaryText
+                        color = if (isSel) SuqiPrimary else colors.primaryText
                     )
                 }
             }
@@ -843,7 +852,8 @@ fun LocationPickerContent(
                 text = "Addis Ababa Sub-City (All 11 Kifle Ketemas)",
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp
+                fontSize = 14.sp,
+                color = colors.primaryText
             )
             Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -852,8 +862,8 @@ fun LocationPickerContent(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
-                            .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
-                            .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
+                            .background(if (isSel) colors.primaryTint else colors.secondaryBackground)
+                            .border(1.dp, if (isSel) SuqiPrimary else colors.border, RoundedCornerShape(999.dp))
                             .clickable { selectedSubCity = sc }
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
@@ -862,7 +872,7 @@ fun LocationPickerContent(
                             fontFamily = SuqiFontFamily,
                             fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                             fontSize = 13.sp,
-                            color = if (isSel) SuqiPrimary else SuqiPrimaryText
+                            color = if (isSel) SuqiPrimary else colors.primaryText
                         )
                     }
                 }
@@ -872,7 +882,8 @@ fun LocationPickerContent(
                 text = "Commercial Hub City",
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp
+                fontSize = 14.sp,
+                color = colors.primaryText
             )
             Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -881,8 +892,8 @@ fun LocationPickerContent(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
-                            .background(if (isSel) SuqiPrimaryTint else SuqiSecondaryBackground)
-                            .border(1.dp, if (isSel) SuqiPrimary else SuqiBorder, RoundedCornerShape(999.dp))
+                            .background(if (isSel) colors.primaryTint else colors.secondaryBackground)
+                            .border(1.dp, if (isSel) SuqiPrimary else colors.border, RoundedCornerShape(999.dp))
                             .clickable {
                                 selectedCity = hub
                                 selectedSubCity = "Center"
@@ -894,7 +905,7 @@ fun LocationPickerContent(
                             fontFamily = SuqiFontFamily,
                             fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                             fontSize = 13.sp,
-                            color = if (isSel) SuqiPrimary else SuqiPrimaryText
+                            color = if (isSel) SuqiPrimary else colors.primaryText
                         )
                     }
                 }
@@ -904,7 +915,7 @@ fun LocationPickerContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         SuqiButton(
-            text = "Set Location",
+            text = strings.setLocation,
             onClick = { onSelectLocation(selectedRegion, selectedCity, selectedSubCity) },
             modifier = Modifier.fillMaxWidth()
         )

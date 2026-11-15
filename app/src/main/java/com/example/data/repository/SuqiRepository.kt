@@ -180,7 +180,12 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun getAdminSettings() = api.getAdminSettings()
     suspend fun updateFeatureToggle(feature: String, enabled: Boolean) = api.updateFeatureToggle(feature, enabled)
     suspend fun getAdminSellerVerificationQueue() = api.getAdminSellerVerificationQueue()
-    suspend fun adminVerifySellerDecision(shopId: String, decision: String) = api.adminVerifySellerDecision(shopId, decision)
+    suspend fun adminVerifySellerDecision(
+        shopId: String,
+        decision: String,
+        reason: String? = null,
+        failedKeys: String? = null
+    ) = api.adminVerifySellerDecision(shopId, decision, reason, failedKeys)
     suspend fun saveCategory(category: CategoryDto) = api.saveCategory(category)
     suspend fun deleteCategory(id: String) = api.deleteCategory(id)
     suspend fun savePromoBanner(banner: PromoBannerDto) = api.savePromoBanner(banner)

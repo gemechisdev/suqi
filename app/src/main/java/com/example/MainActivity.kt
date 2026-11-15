@@ -37,10 +37,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val isDarkPref by viewModel.isDarkMode.collectAsState()
+            val selectedLang by viewModel.selectedLanguage.collectAsState()
             val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
             val darkTheme = isDarkPref ?: systemDark
+            val currentLang = com.example.ui.i18n.SuqiLanguage.fromSetting(selectedLang)
 
-            MyApplicationTheme(darkTheme = darkTheme) {
+            MyApplicationTheme(darkTheme = darkTheme, language = currentLang) {
                 SuqiAppRoot(viewModel = viewModel, onFinish = { finish() })
             }
         }

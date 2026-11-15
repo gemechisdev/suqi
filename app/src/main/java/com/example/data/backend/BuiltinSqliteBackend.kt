@@ -1090,11 +1090,33 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             ?: return@withContext ApiResponse(success = false, data = false, message = "No shop associated with account")
         val shop = db.shopDao().getShopById(shopId)
         if (shop != null) {
-            val docsJson = JSONArray(details.values.filter { it.isNotBlank() }).toString()
+            val existing = VerificationDocsCodec.parse(shop.verificationDocsJson)
+            val mergedDocs = existing.docs.toMutableMap()
+            VerificationDocsCodec.docSlots.forEach { slot ->
+                val incoming = details[slot.key]?.trim()
+                if (!incoming.isNullOrBlank()) {
+                    mergedDocs[slot.key] = incoming
+                }
+            }
+            val now = VerificationDocsCodec.nowLabel()
+            val wasResubmission = shop.verificationStatus in listOf("REJECTED", "CHANGES_REQUESTED")
+            val nextStatus = if (wasResubmission) "RESUBMITTED" else "PENDING_REVIEW"
+            val updatedSubmission = existing.copy(
+                docs = mergedDocs,
+                licenseRef = details["license"]?.trim().orEmpty().ifBlank { existing.licenseRef },
+                tin = details["tin"]?.trim().orEmpty().ifBlank { existing.tin },
+                submittedAt = now,
+                failedKeys = emptyList(),
+                history = existing.history + VerificationHistoryEntry(
+                    status = nextStatus,
+                    at = now,
+                    note = if (wasResubmission) "Seller resubmitted updated verification documents" else "Submitted verification documents for review"
+                )
+            )
             db.shopDao().updateShop(
                 shop.copy(
-                    verificationStatus = "PENDING_REVIEW",
-                    verificationDocsJson = docsJson,
+                    verificationStatus = nextStatus,
+                    verificationDocsJson = VerificationDocsCodec.toJson(updatedSubmission),
                     verificationRejectionReason = null
                 )
             )
@@ -1362,18 +1384,51 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getAdminSellerVerificationQueue(): ApiResponse<List<ShopDto>> = withContext(Dispatchers.IO) {
-        val pending = db.shopDao().getAllShops().filter { it.verificationStatus == "PENDING_REVIEW" }
+        val pending = db.shopDao().getAllShops().filter {
+            it.verificationStatus in listOf("PENDING_REVIEW", "RESUBMITTED", "CHANGES_REQUESTED")
+        }
         ApiResponse(success = true, data = pending.map { it.toDto() })
     }
 
-    override suspend fun adminVerifySellerDecision(shopId: String, decision: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+    override suspend fun adminVerifySellerDecision(
+        shopId: String,
+        decision: String,
+        reason: String?,
+        failedKeys: String?
+    ): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         val shop = db.shopDao().getShopById(shopId)
         if (shop != null) {
-            val isApproved = decision.equals("APPROVE", ignoreCase = true)
+            val parsed = VerificationDocsCodec.parse(shop.verificationDocsJson)
+            val now = VerificationDocsCodec.nowLabel()
+            val normalizedDecision = decision.uppercase()
+            val isApproved = normalizedDecision == "APPROVE"
+            val nextStatus = when (normalizedDecision) {
+                "APPROVE" -> "VERIFIED"
+                "REQUEST_CHANGES" -> "CHANGES_REQUESTED"
+                else -> "REJECTED"
+            }
+            val failedList = failedKeys?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }.orEmpty()
+            val cleanedReason = reason?.trim().orEmpty()
+            val historyNote = when (normalizedDecision) {
+                "APPROVE" -> cleanedReason.ifBlank { "Verified by platform admin" }
+                "REQUEST_CHANGES" -> cleanedReason.ifBlank { "Changes requested on selected verification items" }
+                else -> cleanedReason.ifBlank { "Verification rejected by platform admin" }
+            }
+            val updatedSubmission = parsed.copy(
+                failedKeys = if (isApproved) emptyList() else failedList,
+                history = parsed.history + VerificationHistoryEntry(
+                    status = nextStatus,
+                    at = now,
+                    note = historyNote,
+                    failedKeys = if (isApproved) emptyList() else failedList
+                )
+            )
             db.shopDao().updateShop(
                 shop.copy(
                     isVerified = isApproved,
-                    verificationStatus = if (isApproved) "VERIFIED" else "REJECTED"
+                    verificationStatus = nextStatus,
+                    verificationDocsJson = VerificationDocsCodec.toJson(updatedSubmission),
+                    verificationRejectionReason = if (isApproved) null else cleanedReason.ifBlank { historyNote }
                 )
             )
             ApiResponse(success = true, data = true)

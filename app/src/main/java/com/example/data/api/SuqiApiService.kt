@@ -235,7 +235,9 @@ interface SuqiApiService {
     @POST(SuqiEndpoints.ADMIN_VERIFY_SELLER)
     suspend fun adminVerifySellerDecision(
         @Path("shopId") shopId: String,
-        @Query("decision") decision: String
+        @Query("decision") decision: String,
+        @Query("reason") reason: String? = null,
+        @Query("failedKeys") failedKeys: String? = null
     ): ApiResponse<Boolean>
 
     @POST(SuqiEndpoints.ADMIN_CATEGORIES)

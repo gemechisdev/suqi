@@ -28,6 +28,9 @@ import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.SuqiBottomNavContentPadding
 import com.example.ui.components.SuqiOfflineBanner
+import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.localizedName
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -59,6 +62,8 @@ fun CategoriesScreen(
     }
 
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val pageBg = if (colors.isDark) colors.surfaceBackground else SuqiCream
 
     Scaffold(
@@ -77,7 +82,7 @@ fun CategoriesScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Categories",
+                        text = strings.categoriesTitle,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 28.sp,
@@ -169,19 +174,23 @@ fun CategoriesScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    val leftTitle = pair[0].localizedName(lang)
                     CategoryCardItem(
                         category = pair[0],
+                        localizedTitle = leftTitle,
                         onClick = {
-                            viewModel.navigate(ScreenDestination.CategoryListing(pair[0].id, pair[0].name))
+                            viewModel.navigate(ScreenDestination.CategoryListing(pair[0].id, leftTitle))
                         },
                         modifier = Modifier.weight(1f)
                     )
 
                     if (pair.size > 1) {
+                        val rightTitle = pair[1].localizedName(lang)
                         CategoryCardItem(
                             category = pair[1],
+                            localizedTitle = rightTitle,
                             onClick = {
-                                viewModel.navigate(ScreenDestination.CategoryListing(pair[1].id, pair[1].name))
+                                viewModel.navigate(ScreenDestination.CategoryListing(pair[1].id, rightTitle))
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -197,6 +206,7 @@ fun CategoriesScreen(
 @Composable
 private fun CategoryCardItem(
     category: CategoryDto,
+    localizedTitle: String = category.name,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -226,7 +236,7 @@ private fun CategoryCardItem(
                     .data(resolvedImageUrl)
                     .crossfade(true)
                     .build(),
-                contentDescription = category.name,
+                contentDescription = localizedTitle,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -240,7 +250,7 @@ private fun CategoryCardItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = category.name,
+                    text = localizedTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,

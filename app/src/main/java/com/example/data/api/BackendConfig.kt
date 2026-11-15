@@ -11,4 +11,11 @@ object BackendConfig {
     var useBuiltinSqliteBackend: Boolean = true
 
     var customBaseUrl: String = SuqiEndpoints.BASE_URL
+
+    /**
+     * Frontend-first flag controlling demo shortcuts (visible admin credentials card,
+     * OTP "123456" hints, fake Telegram/Google fallback values, developer tools shortcuts,
+     * and sample image helpers). Flip to false when wiring production APIs.
+     */
+    const val DemoMode: Boolean = true
 }

@@ -270,4 +270,108 @@ class ExampleRobolectricTest {
         assertTrue(cats.none { it.id == "cat_toys" })
         assertTrue(cats.all { it.imageUrl.startsWith("https://cdn.jsdelivr.net/gh/gamistudios/myfiles@") })
     }
+
+    @Test
+    fun testSuqiStringCatalogHasNoMissingTranslations() {
+        val missing = com.example.ui.i18n.SuqiStringCatalog.findMissingTranslations()
+        assertTrue("Missing translations found: $missing", missing.isEmpty())
+    }
+
+    @Test
+    fun testVerificationDocsCodecRoundTripAndFailedKeys() {
+        val submission = com.example.data.model.VerificationSubmission(
+            docs = mapOf(
+                "idFront" to "https://example.com/id_front.jpg",
+                "tradeLicense" to "https://example.com/license.jpg"
+            ),
+            licenseRef = "ETH-LIC-1002",
+            tin = "0045678912",
+            submittedAt = "2026-11-14 10:00",
+            failedKeys = listOf("idBack", "shopPhoto"),
+            history = listOf(
+                com.example.data.model.VerificationHistoryEntry(
+                    status = "CHANGES_REQUESTED",
+                    at = "2026-11-14 10:30",
+                    note = "Please retake blurry ID back and shop photo",
+                    failedKeys = listOf("idBack", "shopPhoto")
+                )
+            )
+        )
+        val json = com.example.data.model.VerificationDocsCodec.toJson(submission)
+        val parsed = com.example.data.model.VerificationDocsCodec.parse(json)
+        assertEquals(submission.docs, parsed.docs)
+        assertEquals("ETH-LIC-1002", parsed.licenseRef)
+        assertEquals("0045678912", parsed.tin)
+        assertEquals(listOf("idBack", "shopPhoto"), parsed.failedKeys)
+        assertEquals(1, parsed.history.size)
+        assertEquals("CHANGES_REQUESTED", parsed.history.first().status)
+    }
+
+    @Test
+    fun testSellerVerificationSubmitRequestChangesResubmitApprove() = runBlocking {
+        // Ensure a seller user & shop exist in DB
+        val signIn = backend.loginWithPhoneOtp(
+            mapOf("phone" to "+251911000001", "otp" to "123456", "name" to "Test Seller")
+        )
+        assertTrue(signIn.success)
+        val openShopRes = backend.upgradeToSeller(
+            mapOf(
+                "shopName" to "Addis Craft Studio",
+                "city" to "Addis Ababa",
+                "subCity" to "Bole",
+                "description" to "Handmade Ethiopian crafts",
+                "phone" to "+251911000001"
+            )
+        )
+        assertTrue(openShopRes.success)
+        val shopId = openShopRes.data!!.id
+
+        val submitRes = backend.submitSellerVerification(
+            mapOf(
+                "idFront" to "content://doc/id_front",
+                "idBack" to "content://doc/id_back",
+                "tradeLicense" to "content://doc/license",
+                "shopPhoto" to "content://doc/shop",
+                "selfieWithId" to "content://doc/selfie",
+                "license" to "LIC-8899",
+                "tin" to "0011223344"
+            )
+        )
+        assertTrue(submitRes.success)
+
+        val queue1 = backend.getAdminSellerVerificationQueue().data.orEmpty()
+        assertTrue(queue1.any { it.id == shopId && it.verificationStatus == "PENDING_REVIEW" })
+
+        val reqChangesRes = backend.adminVerifySellerDecision(
+            shopId = shopId,
+            decision = "REQUEST_CHANGES",
+            reason = "Back of ID is cropped",
+            failedKeys = "idBack"
+        )
+        assertTrue(reqChangesRes.success)
+
+        val afterReq = backend.getShopDetails(shopId).data!!
+        assertEquals("CHANGES_REQUESTED", afterReq.verificationStatus)
+        val parsedAfterReq = com.example.data.model.VerificationDocsCodec.parse(afterReq.verificationDocsJson)
+        assertEquals(listOf("idBack"), parsedAfterReq.failedKeys)
+
+        val resubmitRes = backend.submitSellerVerification(
+            mapOf("idBack" to "content://doc/id_back_clear")
+        )
+        assertTrue(resubmitRes.success)
+        val afterResubmit = backend.getShopDetails(shopId).data!!
+        assertEquals("RESUBMITTED", afterResubmit.verificationStatus)
+
+        val approveRes = backend.adminVerifySellerDecision(
+            shopId = shopId,
+            decision = "APPROVE",
+            reason = "All documents verified",
+            failedKeys = null
+        )
+        assertTrue(approveRes.success)
+        val verifiedShop = backend.getShopDetails(shopId).data!!
+        assertTrue(verifiedShop.isVerified)
+        assertEquals("VERIFIED", verifiedShop.verificationStatus)
+    }
 }
+
