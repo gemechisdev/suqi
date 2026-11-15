@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlin.math.roundToInt
 
@@ -108,6 +109,7 @@ fun SuqiHeader(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -128,7 +130,7 @@ fun SuqiHeader(
             ) {
                 Icon(
                     imageVector = LucideIcons.ArrowLeft,
-                    contentDescription = "Back",
+                    contentDescription = strings.common.backLabel,
                     tint = colors.primaryText,
                     modifier = Modifier.size(20.dp)
                 )
@@ -588,6 +590,8 @@ fun SuqiSearchField(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val effectivePlaceholder = if (placeholder == "Search products or shops...") strings.searchPlaceholder else placeholder
     val shape = RoundedCornerShape(20.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -600,7 +604,7 @@ fun SuqiSearchField(
     ) {
         Icon(
             imageVector = LucideIcons.Search,
-            contentDescription = "Search",
+            contentDescription = strings.navSearch,
             tint = colors.secondaryText,
             modifier = Modifier.size(20.dp)
         )
@@ -608,7 +612,7 @@ fun SuqiSearchField(
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (value.isEmpty()) {
                 Text(
-                    text = placeholder,
+                    text = effectivePlaceholder,
                     fontFamily = SuqiFontFamily,
                     fontSize = 15.sp,
                     color = colors.mutedText,
@@ -646,7 +650,7 @@ fun SuqiSearchField(
             ) {
                 Icon(
                     imageVector = LucideIcons.X,
-                    contentDescription = "Clear search",
+                    contentDescription = strings.common.clearSearchDesc,
                     tint = colors.secondaryText,
                     modifier = Modifier.size(18.dp)
                 )
@@ -673,6 +677,7 @@ fun SuqiStepper(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -690,7 +695,7 @@ fun SuqiStepper(
         ) {
             Icon(
                 imageVector = LucideIcons.Minus,
-                contentDescription = "Decrease quantity",
+                contentDescription = strings.common.decreaseQtyDesc,
                 tint = if (quantity > minValue) colors.primaryText else colors.mutedText,
                 modifier = Modifier.size(16.dp)
             )
@@ -712,7 +717,7 @@ fun SuqiStepper(
         ) {
             Icon(
                 imageVector = LucideIcons.Plus,
-                contentDescription = "Increase quantity",
+                contentDescription = strings.common.increaseQtyDesc,
                 tint = if (quantity < maxValue) SuqiPrimary else colors.mutedText,
                 modifier = Modifier.size(16.dp)
             )
@@ -998,6 +1003,7 @@ fun SuqiOfflineBanner(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -1014,7 +1020,7 @@ fun SuqiOfflineBanner(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "You're offline — showing cached marketplace data",
+            text = strings.offlineBannerTitle,
             fontFamily = SuqiFontFamily,
             fontWeight = FontWeight.Medium,
             fontSize = 12.sp,
@@ -1023,7 +1029,7 @@ fun SuqiOfflineBanner(
         )
         if (onRetry != null) {
             Text(
-                text = "Retry",
+                text = strings.retryLabel,
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
@@ -1047,6 +1053,7 @@ fun SuqiErrorCard(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     SuqiSectionCard(
         containerColor = colors.errorBg,
         modifier = modifier
@@ -1069,7 +1076,7 @@ fun SuqiErrorCard(
             Spacer(modifier = Modifier.width(8.dp))
             TextButton(onClick = onRetry) {
                 Text(
-                    text = "Retry",
+                    text = strings.retryLabel,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     color = SuqiError
@@ -1093,12 +1100,13 @@ fun SuqiRestrictedState(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(colors.surfaceBackground)
     ) {
-        SuqiHeader(title = "Access Restricted", onBackClick = onBackClick)
+        SuqiHeader(title = strings.common.accessRestrictedTitle, onBackClick = onBackClick)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -1112,7 +1120,7 @@ fun SuqiRestrictedState(
                     subtitle = subtitle,
                     ctaText = primaryButtonText,
                     onCtaClick = onPrimaryClick,
-                    secondaryText = "Go Back",
+                    secondaryText = strings.common.goBackLabel,
                     onSecondaryClick = onBackClick,
                     testTag = "${testTag}_inner"
                 )
@@ -1132,12 +1140,13 @@ fun SuqiSellerFloatingBottomNav(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val tabs = listOf(
-        Triple("seller_dashboard", "Dashboard", LucideIcons.BarChart2),
-        Triple("seller_orders", "Orders", LucideIcons.Package),
-        Triple("seller_products", "Products", LucideIcons.ShoppingBag),
-        Triple("seller_inbox", "Inbox", LucideIcons.MessageCircle),
-        Triple("seller_more", "More", LucideIcons.Menu)
+        Triple("seller_dashboard", strings.seller.navDashboard, LucideIcons.BarChart2),
+        Triple("seller_orders", strings.seller.navOrders, LucideIcons.Package),
+        Triple("seller_products", strings.seller.navProducts, LucideIcons.ShoppingBag),
+        Triple("seller_inbox", strings.seller.navInbox, LucideIcons.MessageCircle),
+        Triple("seller_more", strings.seller.navMore, LucideIcons.Menu)
     )
     Box(
         modifier = modifier
@@ -1222,11 +1231,12 @@ fun SuqiAdminSegmentedTabs(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val tabs = buildList {
-        add("overview" to "Overview")
-        add("queues" to "Queues")
-        add("manage" to "Manage")
-        if (isDeveloperVisible) add("tools" to "Tools")
+        add("overview" to strings.admin.tabOverview)
+        add("queues" to strings.admin.tabQueues)
+        add("manage" to strings.admin.tabManage)
+        if (isDeveloperVisible) add("tools" to strings.admin.tabTools)
     }
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1272,14 +1282,15 @@ fun SuqiGuestGateSheet(
     onSignInClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    SuqiBottomSheet(onDismissRequest = onDismiss, title = "Sign in to continue") {
+    val strings = suqiStrings()
+    SuqiBottomSheet(onDismissRequest = onDismiss, title = strings.common.signInToContinue) {
         SuqiEmptyState(
             icon = LucideIcons.CircleUser,
-            title = "Account required to $actionLabel",
-            subtitle = "Create a free Suqi shopper account with your Ethiopian phone number or Google/Telegram to save items, track orders, and chat with sellers.",
-            ctaText = "Sign In or Create Account",
+            title = strings.buyer.guestGateAccountRequiredTemplate.replace("%s", actionLabel),
+            subtitle = strings.buyer.guestGateSubtitle,
+            ctaText = strings.common.signInOrCreateAccount,
             onCtaClick = onSignInClick,
-            secondaryText = "Continue browsing as Guest",
+            secondaryText = strings.common.continueAsGuest,
             onSecondaryClick = onDismiss,
             testTag = "guest_gate_sheet"
         )

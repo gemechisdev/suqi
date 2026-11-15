@@ -37,8 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.data.model.CategoryDto
+import com.example.data.model.MarketplaceCategories
 import com.example.data.model.ProductDto
 import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.SuqiLanguage
 import com.example.ui.i18n.localizedName
 import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.LocalSuqiColors
@@ -54,14 +57,9 @@ import java.util.Locale
 
 private val LowStockText = Color(0xFFB45309)
 
-private fun categoryLabel(categoryId: String): String = when (categoryId) {
-    "cat_electronics" -> "Electronics"
-    "cat_fashion" -> "Fashion"
-    "cat_home" -> "Home & Living"
-    "cat_beauty" -> "Beauty & Care"
-    "cat_sports" -> "Sports"
-    "cat_groceries" -> "Groceries"
-    else -> ""
+private fun categoryLabel(categoryId: String, language: SuqiLanguage): String {
+    val spec = MarketplaceCategories.byId(categoryId) ?: return ""
+    return spec.toDto().localizedName(language)
 }
 
 private fun plainNumber(amount: Double): String =
@@ -94,7 +92,7 @@ fun SuqiProductCard(
     val lowStock = !soldOut && product.stockQuantity <= 3
     val hasDiscount = product.discountPercent > 0
     val localizedTitle = product.localizedName(lang)
-    val subtitle = listOf(categoryLabel(product.categoryId), product.subCategory)
+    val subtitle = listOf(categoryLabel(product.categoryId, lang), product.subCategory)
         .filter { it.isNotBlank() }
         .joinToString(" · ")
 
@@ -120,7 +118,7 @@ fun SuqiProductCard(
                     .data(product.primaryImageUrl)
                     .crossfade(true)
                     .build(),
-                contentDescription = product.name,
+                contentDescription = localizedTitle,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -180,7 +178,7 @@ fun SuqiProductCard(
                     .background(Color.White)
                     .clickable(
                         role = Role.Button,
-                        onClickLabel = if (product.isWishlisted) "Remove from wishlist" else "Add to wishlist",
+                        onClickLabel = if (product.isWishlisted) strings.common.removeFromWishlistDesc else strings.common.addToWishlistDesc,
                         onClick = onToggleWishlist
                     )
                     .testTag("btn_wishlist_${product.id}"),
@@ -188,7 +186,7 @@ fun SuqiProductCard(
             ) {
                 Icon(
                     imageVector = if (product.isWishlisted) LucideIcons.HeartFilled else LucideIcons.Heart,
-                    contentDescription = if (product.isWishlisted) "Remove from wishlist" else "Add to wishlist",
+                    contentDescription = if (product.isWishlisted) strings.common.removeFromWishlistDesc else strings.common.addToWishlistDesc,
                     tint = if (product.isWishlisted) SuqiPrimary else SuqiPrimaryTextLight,
                     modifier = Modifier.size(19.dp)
                 )
@@ -205,7 +203,7 @@ fun SuqiProductCard(
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = "Only ${product.stockQuantity} left",
+                        text = strings.common.onlyNLeftTemplate.replace("%d", product.stockQuantity.toString()),
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Medium,
                         fontSize = 10.sp,
@@ -304,7 +302,7 @@ fun SuqiProductCard(
                     Spacer(modifier = Modifier.width(3.dp))
                     Icon(
                         imageVector = LucideIcons.BadgeCheck,
-                        contentDescription = "Verified shop",
+                        contentDescription = strings.common.verifiedShopDesc,
                         tint = SuqiPrimary,
                         modifier = Modifier.size(13.dp)
                     )

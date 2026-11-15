@@ -61,6 +61,7 @@ import com.example.data.model.MediaItem
 import com.example.data.model.ProductDetails
 import com.example.data.model.ProductTemplates
 import com.example.data.model.ProductVariant
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.LocalSuqiColors
 import com.example.ui.theme.LucideIcons
 import com.example.ui.theme.SuqiFontFamily
@@ -166,10 +167,10 @@ class ProductFormState {
     }
 
     /** Rebuilds the variant list from the buyer options. Returns a message when it can't. */
-    fun regenerateVariants(): String? {
+    fun regenerateVariants(tooManyMsg: String = "Too many combinations (over $MAX_VARIANTS). Reduce the options buyers choose from."): String? {
         val combos = combos()
         if (combos.size > MAX_VARIANTS) {
-            return "Too many combinations (over $MAX_VARIANTS). Reduce the options buyers choose from."
+            return tooManyMsg
         }
         val opts = buyerOptions().filter { it.type != AttrType.BOOLEAN }
         val rebuilt = combos.map { combo ->
@@ -277,19 +278,20 @@ fun ItemTypeSelector(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var showPicker by remember { mutableStateOf(false) }
     val current = state.itemType.takeIf { it.isNotBlank() }?.let { ProductTemplates.byId(it) }
 
     SectionCard(modifier) {
         Text(
-            text = "What are you selling?",
+            text = strings.seller.whatAreYouSelling,
             fontFamily = SuqiFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
             color = colors.primaryText
         )
         Text(
-            text = "Pick an item type to get the right parameters (specs, sizes, colors…). You can change anything afterwards.",
+            text = strings.seller.pickItemTypeDesc,
             fontFamily = SuqiFontFamily,
             fontSize = 12.sp,
             color = colors.secondaryText
@@ -308,7 +310,7 @@ fun ItemTypeSelector(
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = current?.label ?: "Choose item type",
+                    text = current?.label ?: strings.seller.chooseItemType,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp,
@@ -316,7 +318,7 @@ fun ItemTypeSelector(
                 )
                 if (current != null) {
                     Text(
-                        text = "${current.attributes.size} predefined parameters",
+                        text = strings.seller.predefinedParamsTemplate.replace("%d", current.attributes.size.toString()),
                         fontFamily = SuqiFontFamily,
                         fontSize = 11.sp,
                         color = colors.secondaryText
@@ -324,7 +326,7 @@ fun ItemTypeSelector(
                 }
             }
             Text(
-                text = if (current == null) "Select" else "Change",
+                text = if (current == null) strings.common.chooseLabel else strings.common.changeLabel,
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp,
@@ -348,6 +350,7 @@ fun ItemTypeSelector(
 @Composable
 private fun ItemTypeDialog(currentId: String, onPick: (ItemType) -> Unit, onDismiss: () -> Unit) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var query by remember { mutableStateOf("") }
     val types = ProductTemplates.pickerTypes.filter {
         query.isBlank() || it.label.contains(query, ignoreCase = true) || it.group.contains(query, ignoreCase = true)
@@ -369,21 +372,21 @@ private fun ItemTypeDialog(currentId: String, onPick: (ItemType) -> Unit, onDism
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Choose item type",
+                    text = strings.seller.chooseItemType,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = colors.primaryText,
                     modifier = Modifier.weight(1f)
                 )
-                SmallIconButton(LucideIcons.X, "Close", onClick = onDismiss)
+                SmallIconButton(LucideIcons.X, strings.common.closeLabel, onClick = onDismiss)
             }
             Spacer(Modifier.height(8.dp))
             SuqiTextField(
                 value = query,
                 onValueChange = { query = it },
                 label = "",
-                placeholder = "Search (laptop, shoes, coffee, car…)",
+                placeholder = strings.seller.searchItemTypesHint,
                 leadingIcon = LucideIcons.Search
             )
             Spacer(Modifier.height(8.dp))
@@ -418,7 +421,7 @@ private fun ItemTypeDialog(currentId: String, onPick: (ItemType) -> Unit, onDism
                 if (types.isEmpty()) {
                     item {
                         Text(
-                            "No match — choose “Custom / Other” and build your own parameters.",
+                            strings.seller.noItemTypeMatch,
                             fontFamily = SuqiFontFamily,
                             fontSize = 13.sp,
                             color = colors.secondaryText
@@ -438,20 +441,21 @@ private fun ItemTypeDialog(currentId: String, onPick: (ItemType) -> Unit, onDism
 @Composable
 fun ParametersEditor(state: ProductFormState, modifier: Modifier = Modifier) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var dialogFor by remember { mutableStateOf<AttributeDef?>(null) }
     var showAdd by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column {
             Text(
-                text = "Product parameters",
+                text = strings.seller.productParametersTitle,
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
                 color = colors.primaryText
             )
             Text(
-                text = "Switch off what doesn't apply. Turn on “Buyers choose” for things like size or color that shoppers pick when buying.",
+                text = strings.seller.productParametersDesc,
                 fontFamily = SuqiFontFamily,
                 fontSize = 12.sp,
                 color = colors.secondaryText
@@ -460,7 +464,7 @@ fun ParametersEditor(state: ProductFormState, modifier: Modifier = Modifier) {
 
         if (state.attributes.isEmpty()) {
             Text(
-                text = "No parameters yet. Choose an item type above or add your own below.",
+                text = strings.seller.noParametersYet,
                 fontFamily = SuqiFontFamily,
                 fontSize = 12.sp,
                 color = colors.mutedText
@@ -492,7 +496,7 @@ fun ParametersEditor(state: ProductFormState, modifier: Modifier = Modifier) {
         ) {
             Icon(LucideIcons.Plus, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Add parameter", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+            Text(strings.seller.addParameterBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
         }
     }
 
@@ -529,6 +533,7 @@ private fun AttributeCard(
     onRemove: () -> Unit
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val shape = RoundedCornerShape(20.dp)
     Column(
         modifier = Modifier
@@ -550,8 +555,8 @@ private fun AttributeCard(
                 Text(
                     text = buildString {
                         append(AttrType.label(def.type))
-                        if (def.selectable) append(" • buyers choose")
-                        if (!def.enabled && selected.isNotEmpty()) append(" • value kept")
+                        if (def.selectable) append(strings.seller.buyersChooseSuffix)
+                        if (!def.enabled && selected.isNotEmpty()) append(strings.seller.valueKeptSuffix)
                     },
                     fontFamily = SuqiFontFamily,
                     fontSize = 11.sp,
@@ -570,7 +575,7 @@ private fun AttributeCard(
             AttributeValueInput(def, selected, onValues)
             if (def.required && selected.isEmpty()) {
                 Text(
-                    text = "Required",
+                    text = strings.common.requiredLabel,
                     fontFamily = SuqiFontFamily,
                     fontSize = 11.sp,
                     color = Color(0xFFD92D20),
@@ -581,23 +586,23 @@ private fun AttributeCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (def.type != AttrType.BOOLEAN && def.type != AttrType.DATE) {
                     PillChip(
-                        text = "Buyers choose",
+                        text = strings.seller.buyersChooseChip,
                         selected = def.selectable,
                         onClick = { onSelectable(!def.selectable) }
                     )
                 }
                 Spacer(Modifier.weight(1f))
-                SmallIconButton(LucideIcons.ChevronUp, "Move up", canMoveUp) { onMove(-1) }
-                SmallIconButton(LucideIcons.ChevronDown, "Move down", canMoveDown) { onMove(1) }
-                SmallIconButton(LucideIcons.Pencil, "Edit parameter", onClick = onEdit)
-                SmallIconButton(LucideIcons.Trash2, "Remove parameter", tint = Color(0xFFD92D20), onClick = onRemove)
+                SmallIconButton(LucideIcons.ChevronUp, strings.common.moveUpDesc, canMoveUp) { onMove(-1) }
+                SmallIconButton(LucideIcons.ChevronDown, strings.common.moveDownDesc, canMoveDown) { onMove(1) }
+                SmallIconButton(LucideIcons.Pencil, strings.common.editParamDesc, onClick = onEdit)
+                SmallIconButton(LucideIcons.Trash2, strings.common.removeParamDesc, tint = Color(0xFFD92D20), onClick = onRemove)
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
-                SmallIconButton(LucideIcons.ChevronUp, "Move up", canMoveUp) { onMove(-1) }
-                SmallIconButton(LucideIcons.ChevronDown, "Move down", canMoveDown) { onMove(1) }
-                SmallIconButton(LucideIcons.Trash2, "Remove parameter", tint = Color(0xFFD92D20), onClick = onRemove)
+                SmallIconButton(LucideIcons.ChevronUp, strings.common.moveUpDesc, canMoveUp) { onMove(-1) }
+                SmallIconButton(LucideIcons.ChevronDown, strings.common.moveDownDesc, canMoveDown) { onMove(1) }
+                SmallIconButton(LucideIcons.Trash2, strings.common.removeParamDesc, tint = Color(0xFFD92D20), onClick = onRemove)
             }
         }
     }
@@ -612,6 +617,7 @@ private val multilineKeys = setOf("ingredients", "care", "notes", "description",
 /** Renders the right input for an attribute definition. Values are always a list of strings. */
 @Composable
 fun AttributeValueInput(def: AttributeDef, selected: List<String>, onChange: (List<String>) -> Unit) {
+    val strings = suqiStrings()
     if (def.selectable) {
         when (def.type) {
             AttrType.COLOR -> ColorPaletteInput(selected, multi = true, onChange = onChange)
@@ -620,9 +626,9 @@ fun AttributeValueInput(def: AttributeDef, selected: List<String>, onChange: (Li
                 selected = selected,
                 multi = true,
                 placeholder = when (def.type) {
-                    AttrType.MEASUREMENT -> "Add value, e.g. 250 ${def.options.firstOrNull() ?: def.unit}"
-                    AttrType.NUMBER -> "Add a number"
-                    else -> "Add another option"
+                    AttrType.MEASUREMENT -> "${strings.common.addLabel} (${def.options.firstOrNull() ?: def.unit})"
+                    AttrType.NUMBER -> strings.seller.addNumberHint
+                    else -> strings.seller.addOptionHint
                 },
                 onChange = onChange
             )
@@ -641,11 +647,11 @@ fun AttributeValueInput(def: AttributeDef, selected: List<String>, onChange: (Li
         )
         AttrType.BOOLEAN -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val v = selected.firstOrNull()
-            PillChip("Yes", selected = v == "true") { onChange(if (v == "true") emptyList() else listOf("true")) }
-            PillChip("No", selected = v == "false") { onChange(if (v == "false") emptyList() else listOf("false")) }
+            PillChip(strings.common.yesLabel, selected = v == "true") { onChange(if (v == "true") emptyList() else listOf("true")) }
+            PillChip(strings.common.noLabel, selected = v == "false") { onChange(if (v == "false") emptyList() else listOf("false")) }
         }
-        AttrType.SELECT -> ChoiceListInput(def.options, selected, multi = false, placeholder = "Other…", onChange = onChange)
-        AttrType.MULTI_SELECT -> ChoiceListInput(def.options, selected, multi = true, placeholder = "Other…", onChange = onChange)
+        AttrType.SELECT -> ChoiceListInput(def.options, selected, multi = false, placeholder = strings.common.otherLabel, onChange = onChange)
+        AttrType.MULTI_SELECT -> ChoiceListInput(def.options, selected, multi = true, placeholder = strings.common.otherLabel, onChange = onChange)
         AttrType.COLOR -> ColorPaletteInput(selected, multi = false, onChange = onChange)
         AttrType.DATE -> DateInput(selected.firstOrNull().orEmpty()) { onChange(if (it.isBlank()) emptyList() else listOf(it)) }
         AttrType.MEASUREMENT -> MeasurementInput(def, selected.firstOrNull().orEmpty()) {
@@ -706,7 +712,7 @@ private fun ChoiceListInput(
                     if (v.isNotBlank() && v !in selected) onChange(if (multi) selected + v else listOf(v))
                     custom = ""
                 }
-            ) { Text("+ Add", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary) }
+            ) { Text("+ ${suqiStrings().common.addLabel}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary) }
         }
     }
 }
@@ -760,7 +766,7 @@ private fun ColorPaletteInput(selected: List<String>, multi: Boolean, onChange: 
             OutlinedTextField(
                 value = hex,
                 onValueChange = { hex = it.take(7) },
-                placeholder = { Text("Custom color #RRGGBB", fontSize = 12.sp) },
+                placeholder = { Text(suqiStrings().seller.customColorHexHint, fontSize = 12.sp) },
                 singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, fontFamily = SuqiFontFamily),
                 shape = RoundedCornerShape(14.dp),
@@ -774,7 +780,7 @@ private fun ColorPaletteInput(selected: List<String>, multi: Boolean, onChange: 
                         hex = ""
                     }
                 }
-            ) { Text("+ Add", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary) }
+            ) { Text("+ ${suqiStrings().common.addLabel}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary) }
         }
     }
 }
@@ -783,6 +789,7 @@ private fun ColorPaletteInput(selected: List<String>, multi: Boolean, onChange: 
 private fun DateInput(value: String, onChange: (String) -> Unit) {
     var show by remember { mutableStateOf(false) }
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(
             onClick = { show = true },
@@ -792,14 +799,14 @@ private fun DateInput(value: String, onChange: (String) -> Unit) {
             Icon(LucideIcons.Calendar, null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
             Text(
-                text = value.ifBlank { "Pick a date" },
+                text = value.ifBlank { strings.seller.pickADate },
                 fontFamily = SuqiFontFamily,
                 fontSize = 13.sp,
                 color = if (value.isBlank()) colors.mutedText else colors.primaryText
             )
         }
         if (value.isNotBlank()) {
-            SmallIconButton(LucideIcons.X, "Clear date") { onChange("") }
+            SmallIconButton(LucideIcons.X, strings.common.clearSearchDesc) { onChange("") }
         }
     }
     if (show) {
@@ -813,9 +820,9 @@ private fun DateInput(value: String, onChange: (String) -> Unit) {
                         onChange(fmt.format(Date(millis)))
                     }
                     show = false
-                }) { Text("OK", color = SuqiPrimary) }
+                }) { Text(strings.common.okLabel, color = SuqiPrimary) }
             },
-            dismissButton = { TextButton(onClick = { show = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { show = false }) { Text(strings.cancelLabel) } }
         ) { DatePicker(state = pickerState) }
     }
 }
@@ -860,6 +867,7 @@ private fun MeasurementInput(def: AttributeDef, value: String, onChange: (String
 @Composable
 private fun AddParameterDialog(state: ProductFormState, onDismiss: () -> Unit) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var tab by remember { mutableStateOf(0) }
     var query by remember { mutableStateOf("") }
     val existing = state.attributes.map { it.key }.toSet()
@@ -879,19 +887,19 @@ private fun AddParameterDialog(state: ProductFormState, onDismiss: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Add parameter",
+                    strings.seller.addParameterBtn,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = colors.primaryText,
                     modifier = Modifier.weight(1f)
                 )
-                SmallIconButton(LucideIcons.X, "Close", onClick = onDismiss)
+                SmallIconButton(LucideIcons.X, strings.common.closeLabel, onClick = onDismiss)
             }
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PillChip("Choose from list", tab == 0) { tab = 0 }
-                PillChip("Create custom", tab == 1) { tab = 1 }
+                PillChip(strings.seller.chooseFromList, tab == 0) { tab = 0 }
+                PillChip(strings.seller.createCustom, tab == 1) { tab = 1 }
             }
             Spacer(Modifier.height(10.dp))
 
@@ -900,7 +908,7 @@ private fun AddParameterDialog(state: ProductFormState, onDismiss: () -> Unit) {
                     value = query,
                     onValueChange = { query = it },
                     label = "",
-                    placeholder = "Search parameters",
+                    placeholder = strings.seller.searchParametersHint,
                     leadingIcon = LucideIcons.Search
                 )
                 Spacer(Modifier.height(8.dp))
@@ -928,7 +936,7 @@ private fun AddParameterDialog(state: ProductFormState, onDismiss: () -> Unit) {
                     if (library.isEmpty()) {
                         item {
                             Text(
-                                "Nothing left to add from the list. Try “Create custom”.",
+                                strings.seller.noLibraryParamsLeft,
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 12.sp,
                                 color = colors.secondaryText
@@ -939,7 +947,7 @@ private fun AddParameterDialog(state: ProductFormState, onDismiss: () -> Unit) {
             } else {
                 CustomParameterForm(
                     initial = null,
-                    saveLabel = "Add parameter",
+                    saveLabel = strings.seller.addParameterBtn,
                     onSave = { def ->
                         state.add(def.copy(key = state.uniqueKey(def.label)))
                         onDismiss()
@@ -958,6 +966,7 @@ private fun CustomParameterDialog(
     onSave: (AttributeDef) -> Unit
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             modifier = Modifier
@@ -969,17 +978,17 @@ private fun CustomParameterDialog(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Edit parameter",
+                    strings.seller.editParameterTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = colors.primaryText,
                     modifier = Modifier.weight(1f)
                 )
-                SmallIconButton(LucideIcons.X, "Close", onClick = onDismiss)
+                SmallIconButton(LucideIcons.X, strings.common.closeLabel, onClick = onDismiss)
             }
             Spacer(Modifier.height(10.dp))
-            CustomParameterForm(initial = initial, saveLabel = "Save changes", onSave = { onSave(it.copy(key = initial.key)) })
+            CustomParameterForm(initial = initial, saveLabel = strings.seller.saveChangesBtn, onSave = { onSave(it.copy(key = initial.key)) })
         }
     }
 }
@@ -987,6 +996,7 @@ private fun CustomParameterDialog(
 @Composable
 private fun CustomParameterForm(initial: AttributeDef?, saveLabel: String, onSave: (AttributeDef) -> Unit) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var label by remember { mutableStateOf(initial?.label.orEmpty()) }
     var type by remember { mutableStateOf(initial?.type ?: AttrType.TEXT) }
     var optionsText by remember { mutableStateOf(initial?.options?.joinToString(", ").orEmpty()) }
@@ -1001,12 +1011,12 @@ private fun CustomParameterForm(initial: AttributeDef?, saveLabel: String, onSav
         SuqiTextField(
             value = label,
             onValueChange = { label = it; error = null },
-            label = "Name *",
-            placeholder = "e.g. Warranty, Thread count, Mileage",
+            label = strings.seller.paramNameRequiredLabel,
+            placeholder = strings.seller.paramNamePlaceholder,
             isError = error != null,
             errorMessage = error
         )
-        Text("Input type", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primaryText)
+        Text(strings.seller.inputTypeLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primaryText)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AttrType.all.forEach { t -> PillChip(AttrType.label(t), type == t) { type = t } }
         }
@@ -1014,20 +1024,20 @@ private fun CustomParameterForm(initial: AttributeDef?, saveLabel: String, onSav
             SuqiTextField(
                 value = optionsText,
                 onValueChange = { optionsText = it },
-                label = if (type == AttrType.MEASUREMENT) "Units (comma separated)" else "Choices (comma separated)",
-                placeholder = if (type == AttrType.MEASUREMENT) "cm, m, kg" else "Small, Medium, Large"
+                label = if (type == AttrType.MEASUREMENT) strings.seller.unitsCommaLabel else strings.seller.choicesCommaLabel,
+                placeholder = if (type == AttrType.MEASUREMENT) "cm, m, kg" else "S, M, L"
             )
         }
-        SuqiTextField(value = section, onValueChange = { section = it }, label = "Section on details page", placeholder = "General")
+        SuqiTextField(value = section, onValueChange = { section = it }, label = strings.seller.detailsSectionLabel, placeholder = "General")
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Required", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.primaryText, modifier = Modifier.weight(1f))
+            Text(strings.common.requiredLabel, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.primaryText, modifier = Modifier.weight(1f))
             Switch(checked = required, onCheckedChange = { required = it }, colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary))
         }
         if (type != AttrType.BOOLEAN && type != AttrType.DATE) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Buyers choose this", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.primaryText)
-                    Text("Shown as a selector (like size or color)", fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.mutedText)
+                    Text(strings.seller.buyersChooseChip, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.primaryText)
+                    Text(strings.seller.buyersChooseSub, fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.mutedText)
                 }
                 Switch(checked = selectable, onCheckedChange = { selectable = it }, colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary))
             }
@@ -1035,7 +1045,7 @@ private fun CustomParameterForm(initial: AttributeDef?, saveLabel: String, onSav
         Button(
             onClick = {
                 if (label.isBlank()) {
-                    error = "Enter a name"
+                    error = strings.seller.enterNameError
                     return@Button
                 }
                 val opts = optionsText.split(",", "\n").map { it.trim() }.filter { it.isNotBlank() }
@@ -1073,25 +1083,26 @@ fun VariantsEditor(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     if (state.buyerOptions().isEmpty()) return
 
     SectionCard(modifier) {
         Text(
-            "Variants (optional)",
+            strings.seller.variantsTitle,
             fontFamily = SuqiFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
             color = colors.primaryText
         )
         Text(
-            "Give specific combinations their own price, stock, SKU or photo. Anything left empty uses the product's main price and stock.",
+            strings.seller.variantsDesc,
             fontFamily = SuqiFontFamily,
             fontSize = 12.sp,
             color = colors.secondaryText
         )
         Spacer(Modifier.height(10.dp))
         OutlinedButton(
-            onClick = { state.regenerateVariants()?.let(onMessage) },
+            onClick = { state.regenerateVariants(strings.seller.tooManyVariantsMsg)?.let(onMessage) },
             shape = RoundedCornerShape(999.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, SuqiPrimary),
             modifier = Modifier.fillMaxWidth().height(44.dp)
@@ -1099,7 +1110,7 @@ fun VariantsEditor(
             Icon(LucideIcons.RefreshCw, null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text(
-                if (state.variants.isEmpty()) "Generate combinations" else "Refresh combinations",
+                if (state.variants.isEmpty()) strings.seller.generateCombosBtn else strings.seller.refreshCombosBtn,
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 color = SuqiPrimary
@@ -1129,6 +1140,7 @@ private fun VariantRow(
     onChange: (ProductVariant) -> Unit
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var price by remember(variant.id) { mutableStateOf(variant.price?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() }.orEmpty()) }
     var stock by remember(variant.id) { mutableStateOf(variant.stock?.toString().orEmpty()) }
     var sku by remember(variant.id) { mutableStateOf(variant.sku) }
@@ -1150,7 +1162,7 @@ private fun VariantRow(
                     price = raw.filter { it.isDigit() || it == '.' }
                     onChange(variant.copy(price = price.toDoubleOrNull()))
                 },
-                label = { Text("Price (ETB)", fontSize = 11.sp) },
+                label = { Text(strings.seller.priceEtbLabel, fontSize = 11.sp) },
                 singleLine = true, textStyle = textStyle, shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.weight(1f)
             )
@@ -1160,7 +1172,7 @@ private fun VariantRow(
                     stock = raw.filter { it.isDigit() }.take(6)
                     onChange(variant.copy(stock = stock.toIntOrNull()))
                 },
-                label = { Text("Stock", fontSize = 11.sp) },
+                label = { Text(strings.seller.stockLabel, fontSize = 11.sp) },
                 singleLine = true, textStyle = textStyle, shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.weight(1f)
             )
@@ -1172,13 +1184,13 @@ private fun VariantRow(
                 sku = it.take(40)
                 onChange(variant.copy(sku = sku))
             },
-            label = { Text("SKU", fontSize = 11.sp) },
+            label = { Text(strings.seller.skuLabel, fontSize = 11.sp) },
             singleLine = true, textStyle = textStyle, shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
         )
         if (media.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            Text("Photo for this variant", fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.secondaryText)
+            Text(strings.seller.variantPhotoLabel, fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.secondaryText)
             Spacer(Modifier.height(6.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(media) { item ->

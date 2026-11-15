@@ -36,6 +36,7 @@ import com.example.data.model.ShopPaymentMethodDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -44,10 +45,11 @@ import org.json.JSONObject
 @Composable
 private fun CheckoutStepIndicator(currentStep: Int) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val steps = listOf(
-        1 to "Delivery",
-        2 to "Payment",
-        3 to "Done"
+        1 to strings.checkout.stepDelivery,
+        2 to strings.checkout.stepPayment,
+        3 to strings.checkout.stepDone
     )
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -163,7 +165,7 @@ fun CheckoutDeliveryScreen(
     val totalAmount = maxOf(0.0, subtotal + deliveryFee - discount)
 
     SuqiScreen(
-        title = "Checkout",
+        title = strings.checkoutDeliveryTitle,
         subtitle = viewModel.activeCheckoutShopName.value,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -183,7 +185,7 @@ fun CheckoutDeliveryScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Order Total",
+                            text = strings.totalLabel,
                             fontFamily = SuqiFontFamily,
                             fontSize = 13.sp,
                             color = colors.secondaryText
@@ -201,7 +203,7 @@ fun CheckoutDeliveryScreen(
                         text = strings.continueToPayment,
                         onClick = {
                             if (recipientName.isBlank() || recipientPhone.isBlank() || deliveryAddress.isBlank()) {
-                                viewModel.showToast("Please add recipient & delivery address")
+                                viewModel.showToast(strings.checkout.selectAddressToast)
                                 showAddressDialog = true
                                 return@SuqiButton
                             }
@@ -245,21 +247,21 @@ fun CheckoutDeliveryScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = recipientName.ifBlank { "Add Recipient Name" },
+                                    text = recipientName.ifBlank { strings.buyer.recipientNameField },
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 15.sp,
                                     color = colors.primaryText
                                 )
                                 Text(
-                                    text = recipientPhone.ifBlank { "Add Phone Number" },
+                                    text = recipientPhone.ifBlank { strings.buyer.phoneNumberLabel },
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 13.sp,
                                     color = colors.secondaryText
                                 )
                             }
                             TextButton(onClick = { showAddressDialog = true }) {
-                                Text("Edit", color = SuqiPrimary, fontWeight = FontWeight.Bold)
+                                Text(strings.editLabel, color = SuqiPrimary, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -274,7 +276,7 @@ fun CheckoutDeliveryScreen(
                             Icon(LucideIcons.MapPin, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = deliveryAddress.ifBlank { "Tap below to choose a delivery address" },
+                                text = deliveryAddress.ifBlank { strings.checkout.noAddressSelected },
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 14.sp,
                                 color = colors.primaryText,
@@ -293,7 +295,7 @@ fun CheckoutDeliveryScreen(
                         ) {
                             Icon(LucideIcons.MapPinPlus, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Choose Another Address", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.primaryText)
+                            Text(strings.checkout.selectAddressTitle, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.primaryText)
                         }
                     }
                 }
@@ -301,7 +303,7 @@ fun CheckoutDeliveryScreen(
 
             item {
                 Text(
-                    text = "Delivery Option",
+                    text = strings.checkout.deliveryOptionTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
@@ -312,11 +314,16 @@ fun CheckoutDeliveryScreen(
 
             items(deliveryOptions) { option ->
                 val isSel = selectedOption?.id == option.id
+                val optionDisplayTitle = when (option.optionType) {
+                    "EXPRESS" -> strings.checkout.expressDeliveryTitle
+                    "PICKUP" -> strings.checkout.pickupDeliveryTitle
+                    else -> strings.checkout.standardDeliveryTitle
+                }
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SuqiSelectionCard(
                         selected = isSel,
-                        title = option.title,
-                        subtitle = "${option.estimatedTime} • ${formatEtb(option.fee)}",
+                        title = optionDisplayTitle,
+                        subtitle = "${option.estimatedTime} • ${if (option.fee <= 0.0) strings.checkout.freeLabel else formatEtb(option.fee)}",
                         icon = when (option.optionType) {
                             "EXPRESS" -> LucideIcons.Zap
                             "PICKUP" -> LucideIcons.Store
@@ -330,7 +337,7 @@ fun CheckoutDeliveryScreen(
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
-                        text = "Order Summary",
+                        text = strings.checkout.paymentSummaryTitle,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
@@ -342,7 +349,7 @@ fun CheckoutDeliveryScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Products (${items.sumOf { it.quantity }} items)", fontFamily = SuqiFontFamily, color = colors.secondaryText)
+                            Text("${strings.productsTab} ${String.format(strings.checkout.itemCountPluralTemplate, items.sumOf { it.quantity })}", fontFamily = SuqiFontFamily, color = colors.secondaryText)
                             Text(formatEtb(subtotal), fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
                         }
 
@@ -352,7 +359,7 @@ fun CheckoutDeliveryScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Shop Discount (${promo?.code})", fontFamily = SuqiFontFamily, color = SuqiSuccess)
+                                Text("${strings.discountLabel} (${promo?.code})", fontFamily = SuqiFontFamily, color = SuqiSuccess)
                                 Text("-${formatEtb(discount)}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiSuccess)
                             }
                         }
@@ -398,7 +405,7 @@ fun CheckoutDeliveryScreen(
 
         SuqiBottomSheet(
             onDismissRequest = { showAddressDialog = false },
-            title = "Select Delivery Address"
+            title = strings.checkout.selectAddressTitle
         ) {
             Row(
                 modifier = Modifier
@@ -408,7 +415,7 @@ fun CheckoutDeliveryScreen(
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                listOf("Saved Addresses", "Custom Address").forEachIndexed { idx, label ->
+                listOf(strings.savedAddresses, strings.checkout.addAddressBtn).forEachIndexed { idx, label ->
                     val selected = selectedMode == idx
                     Box(
                         modifier = Modifier
@@ -424,6 +431,8 @@ fun CheckoutDeliveryScreen(
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
+                            maxLines = 2,
+                            textAlign = TextAlign.Center,
                             color = if (selected) Color.White else colors.primaryText
                         )
                     }
@@ -436,9 +445,9 @@ fun CheckoutDeliveryScreen(
                 if (savedAddresses.isEmpty()) {
                     SuqiEmptyState(
                         icon = LucideIcons.MapPin,
-                        title = "No saved addresses",
-                        subtitle = "Switch to Custom Address to enter your delivery details.",
-                        ctaText = "Enter Custom Address",
+                        title = strings.buyer.noAddressesTitle,
+                        subtitle = strings.buyer.noAddressesSub,
+                        ctaText = strings.checkout.addAddressBtn,
                         onCtaClick = { selectedMode = 1 }
                     )
                 } else {
@@ -461,7 +470,7 @@ fun CheckoutDeliveryScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(addr.fullName, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
-                                    if (addr.isDefault) SuqiStatusBadge("Default", StatusType.SUCCESS)
+                                    if (addr.isDefault) SuqiStatusBadge(strings.buyer.defaultBadge, StatusType.SUCCESS)
                                 }
                                 Text(addr.phone, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                                 Spacer(modifier = Modifier.height(2.dp))
@@ -472,12 +481,12 @@ fun CheckoutDeliveryScreen(
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SuqiTextField(value = tempName, onValueChange = { tempName = it }, label = "Full Name")
-                    SuqiTextField(value = tempPhone, onValueChange = { tempPhone = it }, label = "Phone (+251)")
-                    SuqiTextField(value = tempAddress, onValueChange = { tempAddress = it }, label = "Street & Sub-City")
+                    SuqiTextField(value = tempName, onValueChange = { tempName = it }, label = strings.buyer.fullNameLabel)
+                    SuqiTextField(value = tempPhone, onValueChange = { tempPhone = it }, label = strings.buyer.phoneNumberLabel)
+                    SuqiTextField(value = tempAddress, onValueChange = { tempAddress = it }, label = strings.buyer.landmarkField)
                     Spacer(modifier = Modifier.height(8.dp))
                     SuqiButton(
-                        text = "Use This Address",
+                        text = strings.confirmLabel,
                         isPill = true,
                         onClick = {
                             viewModel.activeCheckoutRecipientName.value = tempName.trim()
@@ -562,7 +571,7 @@ fun CheckoutPaymentScreen(
     fun copyToClipboard(label: String, text: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-        viewModel.showToast("Copied $label to clipboard!")
+        viewModel.showToast(strings.checkout.accountCopiedToast)
     }
 
     SuqiScreen(
@@ -583,19 +592,19 @@ fun CheckoutPaymentScreen(
                     Button(
                         onClick = {
                             if (transactionReference.isBlank()) {
-                                errorMessage = "Please enter the transaction reference number"
+                                errorMessage = strings.checkout.enterTxRefToast
                                 return@Button
                             }
                             if (!com.example.util.EthiopianMarketplaceUtils.isValidPaymentReference(transactionReference)) {
-                                errorMessage = "Invalid reference format. Enter at least 6 alphanumeric characters from your bank receipt/SMS."
+                                errorMessage = strings.checkout.enterTxRefToast
                                 return@Button
                             }
                             if (isReceiptRequired && receiptUri.isBlank()) {
-                                errorMessage = "This shop requires a payment receipt screenshot before submitting."
+                                errorMessage = strings.checkout.uploadReceiptToast
                                 return@Button
                             }
                             if (selectedMethod == null) {
-                                errorMessage = "Please select a payment method"
+                                errorMessage = strings.checkout.paymentMethodTitle
                                 return@Button
                             }
 
@@ -703,7 +712,7 @@ fun CheckoutPaymentScreen(
                         .testTag("checkout_pay_to_card")
                 ) {
                     Text(
-                        text = "Amount to Transfer",
+                        text = strings.checkout.transferAmountLabel,
                         fontFamily = SuqiFontFamily,
                         fontSize = 12.sp,
                         color = colors.secondaryText
@@ -717,7 +726,7 @@ fun CheckoutPaymentScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Suggested memo: $orderRefPreview",
+                        text = "${strings.checkout.txRefLabel}: $orderRefPreview",
                         fontFamily = SuqiFontFamily,
                         fontSize = 12.sp,
                         color = colors.secondaryText
@@ -734,7 +743,7 @@ fun CheckoutPaymentScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Pay to ${selectedMethod!!.bankName}",
+                                    text = selectedMethod!!.bankName,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
@@ -757,9 +766,9 @@ fun CheckoutPaymentScreen(
                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                                 modifier = Modifier.testTag("btn_copy_account")
                             ) {
-                                Icon(LucideIcons.Copy, contentDescription = "Copy", tint = SuqiPrimary, modifier = Modifier.size(14.dp))
+                                Icon(LucideIcons.Copy, contentDescription = strings.common.copyLabel, tint = SuqiPrimary, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Copy", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SuqiPrimary)
+                                Text(strings.common.copyLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SuqiPrimary)
                             }
                         }
                     }
@@ -769,7 +778,7 @@ fun CheckoutPaymentScreen(
             // Payment Method List
             item {
                 Text(
-                    text = "Select Payment Method",
+                    text = strings.checkout.paymentMethodTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
@@ -799,18 +808,11 @@ fun CheckoutPaymentScreen(
             item {
                 SuqiSectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
-                        text = "Transaction Reference *",
+                        text = strings.checkout.txRefRequiredLabel,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = colors.primaryText
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Enter the transaction ID from your Telebirr / CBE / Bank SMS receipt.",
-                        fontFamily = SuqiFontFamily,
-                        fontSize = 12.sp,
-                        color = colors.secondaryText
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     SuqiTextField(
@@ -820,14 +822,14 @@ fun CheckoutPaymentScreen(
                             errorMessage = null
                         },
                         label = "",
-                        placeholder = "e.g., TXN8492041",
+                        placeholder = "TXN8492041",
                         isError = errorMessage != null && transactionReference.isBlank(),
                         testTag = "input_transaction_reference"
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "Payer Phone / Account Name (Optional)",
+                        text = strings.checkout.senderPhoneLabel,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
@@ -838,7 +840,7 @@ fun CheckoutPaymentScreen(
                         value = payerIdentifier,
                         onValueChange = { payerIdentifier = it },
                         label = "",
-                        placeholder = "e.g., 0911234567 or Account Holder Name",
+                        placeholder = "0911234567",
                         testTag = "input_payer_identifier"
                     )
                 }
@@ -854,18 +856,14 @@ fun CheckoutPaymentScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isReceiptRequired) "Payment Receipt Screenshot *" else "Payment Receipt Screenshot (Optional)",
+                                text = strings.checkout.receiptScreenshotRequired,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
                                 color = colors.primaryText
                             )
                             Text(
-                                text = if (isReceiptRequired) {
-                                    "Required by this shop for faster verification"
-                                } else {
-                                    "Upload your bank/Telebirr confirmation screenshot"
-                                },
+                                text = strings.checkout.receiptRequiredHint,
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 12.sp,
                                 color = if (isReceiptRequired) SuqiPrimary else colors.secondaryText
@@ -894,23 +892,17 @@ fun CheckoutPaymentScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
                                     imageVector = LucideIcons.Upload,
-                                    contentDescription = "Upload receipt screenshot",
+                                    contentDescription = strings.uploadReceipt,
                                     tint = SuqiPrimary,
                                     modifier = Modifier.size(28.dp)
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "Tap to attach receipt screenshot",
+                                    text = strings.common.tapToPickPhoto,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 13.sp,
                                     color = colors.primaryText
-                                )
-                                Text(
-                                    text = "PNG or JPG via Android Photo Picker",
-                                    fontFamily = SuqiFontFamily,
-                                    fontSize = 11.sp,
-                                    color = colors.secondaryText
                                 )
                             }
                         }
@@ -926,7 +918,7 @@ fun CheckoutPaymentScreen(
                         ) {
                             AsyncImage(
                                 model = receiptUri,
-                                contentDescription = "Payment receipt preview",
+                                contentDescription = strings.uploadReceipt,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -946,7 +938,7 @@ fun CheckoutPaymentScreen(
                                     }
                                 ) {
                                     Text(
-                                        text = "Replace",
+                                        text = strings.seller.replaceLabel,
                                         fontFamily = SuqiFontFamily,
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 12.sp,
@@ -999,6 +991,7 @@ fun OrderSubmittedScreen(
 ) {
     val context = LocalContext.current
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
 
     val shopName by viewModel.activeCheckoutShopName.collectAsState()
     val totalAmount by viewModel.activeCheckoutTotalAmount.collectAsState()
@@ -1042,7 +1035,7 @@ fun OrderSubmittedScreen(
                         ) {
                             Icon(
                                 imageVector = LucideIcons.Check,
-                                contentDescription = "Success",
+                                contentDescription = strings.orderSubmittedTitle,
                                 tint = Color.White,
                                 modifier = Modifier.size(30.dp)
                             )
@@ -1051,7 +1044,7 @@ fun OrderSubmittedScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "Order Submitted!",
+                        text = strings.orderSubmittedTitle,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp,
@@ -1059,7 +1052,7 @@ fun OrderSubmittedScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Your order has been placed with ${shopName.ifBlank { "the shop" }}.\nPlease wait for the seller to verify your payment.",
+                        text = strings.checkout.orderSubmittedSubtitle,
                         fontFamily = SuqiFontFamily,
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
@@ -1077,7 +1070,7 @@ fun OrderSubmittedScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Order Reference", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
+                            Text(strings.checkout.txRefLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(orderReference, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -1085,15 +1078,15 @@ fun OrderSubmittedScreen(
                                     onClick = {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                         clipboard.setPrimaryClip(ClipData.newPlainText("Order Ref", orderReference))
-                                        viewModel.showToast("Order Reference copied!")
+                                        viewModel.showToast(strings.common.copiedToast)
                                     },
                                     modifier = Modifier.size(28.dp)
                                 ) {
-                                    Icon(LucideIcons.Copy, contentDescription = "Copy", tint = SuqiPrimary, modifier = Modifier.size(15.dp))
+                                    Icon(LucideIcons.Copy, contentDescription = strings.common.copyLabel, tint = SuqiPrimary, modifier = Modifier.size(15.dp))
                                 }
                             }
                         }
-                        SuqiStatusBadge("Awaiting Payment Confirmation", StatusType.WARNING)
+                        SuqiStatusBadge(strings.checkout.statusPendingVerif, StatusType.WARNING)
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -1101,30 +1094,30 @@ fun OrderSubmittedScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Merchant / Shop", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
-                        Text(shopName.ifBlank { "Verified Shop" }, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
+                        Text(strings.shopsTab, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                        Text(shopName.ifBlank { strings.verifiedLabel }, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total Amount", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                        Text(strings.checkout.totalAmountLabel, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                         Text(formatEtb(totalAmount), fontFamily = SuqiFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = SuqiPrimary)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Payment Method", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
-                        Text(paymentMethod?.bankName ?: "Telebirr", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primaryText)
+                        Text(strings.checkout.paymentMethodTitle, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                        Text(paymentMethod?.bankName ?: strings.checkout.telebirrLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primaryText)
                     }
                     if (transactionRef.isNotBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Transaction Ref", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                            Text(strings.checkout.txRefLabel, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                             Text(transactionRef, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
                         }
                     }
                     if (payerIdentifier.isNotBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Payer Identifier", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                            Text(strings.checkout.senderPhoneLabel, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                             Text(payerIdentifier, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.primaryText)
                         }
                     }
@@ -1147,14 +1140,14 @@ fun OrderSubmittedScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     SuqiButton(
-                        text = "View Order Details",
+                        text = strings.checkout.viewDetailsBtn,
                         isPill = true,
                         onClick = { viewModel.navigate(ScreenDestination.OrderDetails(orderId)) },
                         modifier = Modifier.fillMaxWidth(),
                         testTag = "btn_view_order"
                     )
                     SuqiButton(
-                        text = "Continue Shopping",
+                        text = strings.checkout.continueShoppingBtn,
                         isPrimary = false,
                         isPill = true,
                         onClick = { viewModel.popToRoot(ScreenDestination.Home) },
@@ -1167,7 +1160,7 @@ fun OrderSubmittedScreen(
                     ) {
                         Icon(LucideIcons.MessageCircle, contentDescription = null, tint = colors.secondaryText, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Chat with Shop about this order", fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.secondaryText)
+                        Text(strings.chatWithSeller, fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.secondaryText)
                     }
                 }
             }

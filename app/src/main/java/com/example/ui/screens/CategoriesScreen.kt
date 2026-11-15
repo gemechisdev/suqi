@@ -98,14 +98,14 @@ fun CategoriesScreen(
                             onClick = { viewModel.navigate(ScreenDestination.Search) },
                             modifier = Modifier
                                 .suqiWarmShadow(CircleShape, elevation = 6.dp)
-                                .size(42.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(colors.cardBackground)
                                 .testTag("categories_search_btn")
                         ) {
                             Icon(
                                 imageVector = LucideIcons.Search,
-                                contentDescription = "Search",
+                                contentDescription = strings.navSearch,
                                 tint = colors.primaryText,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -114,7 +114,7 @@ fun CategoriesScreen(
                         Box(
                             modifier = Modifier
                                 .suqiWarmShadow(CircleShape, elevation = 6.dp)
-                                .size(42.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(colors.cardBackground)
                                 .clickable { viewModel.navigate(ScreenDestination.Cart) }
@@ -123,7 +123,7 @@ fun CategoriesScreen(
                         ) {
                             Icon(
                                 imageVector = LucideIcons.ShoppingCart,
-                                contentDescription = "Cart",
+                                contentDescription = strings.cartTitle,
                                 tint = colors.primaryText,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -211,9 +211,10 @@ private fun CategoryCardItem(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val lang = LocalSuqiLanguage.current
     val cardShape = RoundedCornerShape(SuqiRadius.Card)
     val resolvedImageUrl = category.imageUrl.ifBlank { MarketplaceCategories.imageUrlForId(category.id) }
-    val subtitle = MarketplaceCategories.subtitleForId(category.id, category.subCategories)
+    val subtitle = MarketplaceCategories.subtitleForId(category.id, category.subCategories, lang)
 
     Column(
         modifier = modifier

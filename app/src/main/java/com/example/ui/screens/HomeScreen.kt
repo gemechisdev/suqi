@@ -71,19 +71,19 @@ fun HomeScreen(
     var isLoading by remember { mutableStateOf(true) }
     var showLocationSheet by remember { mutableStateOf(false) }
 
-    val fallbackBanners = remember {
+    val fallbackBanners = remember(strings) {
         listOf(
             PromoBanner(
                 id = "1",
-                badge = "Hot Deal",
+                badge = strings.checkout.hotDealBadge,
                 badgeIcon = LucideIcons.Flame,
-                title = "Up to 50% Off",
+                title = strings.checkout.upTo50OffTitle,
                 highlight = "50%",
-                subtitle = "On Selected Items",
-                buttonText = "Shop Now",
+                subtitle = strings.checkout.onSelectedItemsSub,
+                buttonText = strings.checkout.shopNowCta,
                 imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
                 targetCategory = "cat_electronics",
-                targetName = "Electronics"
+                targetName = strings.checkout.electronicsLabel
             )
         )
     }
@@ -198,7 +198,7 @@ fun HomeScreen(
                         text = listOfNotNull(
                             selectedSubCity.takeIf { it.isNotBlank() },
                             selectedCity.takeIf { it.isNotBlank() }
-                        ).joinToString(", ").ifBlank { selectedCity.ifBlank { "Addis Ababa" } },
+                        ).joinToString(", ").ifBlank { selectedCity.ifBlank { strings.checkout.defaultCityAddis } },
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp,
@@ -229,7 +229,7 @@ fun HomeScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = LucideIcons.Search,
-                            contentDescription = "Search",
+                            contentDescription = strings.navSearch,
                             tint = colors.secondaryText,
                             modifier = Modifier.size(20.dp)
                         )
@@ -353,7 +353,7 @@ fun HomeScreen(
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "NEW",
+                                    text = strings.checkout.newBadge,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp,
@@ -734,7 +734,7 @@ fun FeaturedShopCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = LucideIcons.CheckCircle,
-                        contentDescription = "Verified",
+                        contentDescription = com.example.ui.i18n.suqiStrings().verifiedLabel,
                         tint = SuqiPrimary,
                         modifier = Modifier.size(14.dp)
                     )
@@ -799,7 +799,7 @@ fun LocationPickerContent(
             color = colors.primaryText
         )
         Text(
-            text = "See products, shops and delivery fees tailored to your area across Ethiopia.",
+            text = strings.buyer.locationSheetSubtitle,
             fontFamily = SuqiFontFamily,
             fontSize = 13.sp,
             color = colors.secondaryText
@@ -808,7 +808,7 @@ fun LocationPickerContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Region",
+            text = strings.buyer.regionLabel,
             fontFamily = SuqiFontFamily,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
@@ -849,7 +849,7 @@ fun LocationPickerContent(
 
         if (selectedRegion == "Addis Ababa") {
             Text(
-                text = "Addis Ababa Sub-City (All 11 Kifle Ketemas)",
+                text = strings.buyer.addisSubCityLabel,
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
@@ -879,7 +879,7 @@ fun LocationPickerContent(
             }
         } else {
             Text(
-                text = "Commercial Hub City",
+                text = strings.buyer.commercialHubCityLabel,
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,

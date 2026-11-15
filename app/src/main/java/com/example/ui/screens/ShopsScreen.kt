@@ -27,12 +27,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.data.model.MarketplaceCategories
 import com.example.data.model.ProductDto
 import com.example.data.model.ReviewDto
 import com.example.data.model.ShopDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.localizedName
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -43,6 +47,8 @@ fun ShopsScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isOffline by viewModel.isOffline.collectAsState()
 
@@ -51,8 +57,22 @@ fun ShopsScreen(
     var selectedFilter by remember { mutableStateOf("All") }
     var selectedCategory by remember { mutableStateOf("All Categories") }
 
-    val filterOptions = listOf("All" to "All", "Verified" to "Verified", "Top Rated" to "Top Rated", "Following" to "Following", "Nearby" to "Nearby")
-    val categoryOptions = listOf("All Categories", "Electronics", "Fashion", "Home & Living", "Beauty & Care", "Groceries", "Sports")
+    val filterOptions = listOf(
+        "All" to strings.allLabel,
+        "Verified" to strings.verifiedLabel,
+        "Top Rated" to strings.checkout.filterTopRated,
+        "Following" to strings.checkout.filterFollowing,
+        "Nearby" to strings.checkout.filterNearby
+    )
+    val categoryOptions = listOf(
+        "All Categories" to strings.allLabel,
+        "Electronics" to (MarketplaceCategories.byId("cat_electronics")?.toDto()?.localizedName(lang) ?: "Electronics"),
+        "Fashion" to (MarketplaceCategories.byId("cat_fashion")?.toDto()?.localizedName(lang) ?: "Fashion"),
+        "Home & Living" to (MarketplaceCategories.byId("cat_home")?.toDto()?.localizedName(lang) ?: "Home & Living"),
+        "Beauty & Care" to (MarketplaceCategories.byId("cat_beauty")?.toDto()?.localizedName(lang) ?: "Beauty & Care"),
+        "Groceries" to (MarketplaceCategories.byId("cat_groceries")?.toDto()?.localizedName(lang) ?: "Groceries"),
+        "Sports" to (MarketplaceCategories.byId("cat_sports")?.toDto()?.localizedName(lang) ?: "Sports")
+    )
 
     fun loadShops() {
         coroutineScope.launch {
@@ -87,21 +107,21 @@ fun ShopsScreen(
                 .padding(paddingValues)
         ) {
             SuqiTopHeader(
-                title = "Shops",
+                title = strings.shopsTab,
                 cartCount = cartCount,
                 onCartClick = { viewModel.navigate(ScreenDestination.Cart) },
                 actions = {
                     IconButton(
                         onClick = { viewModel.navigate(ScreenDestination.Search) },
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .background(colors.secondaryBackground)
                             .testTag("shops_search_button")
                     ) {
                         Icon(
                             imageVector = LucideIcons.Search,
-                            contentDescription = "Search shops",
+                            contentDescription = strings.buyer.searchShopsHint,
                             tint = colors.primaryText,
                             modifier = Modifier.size(20.dp)
                         )
@@ -119,20 +139,21 @@ fun ShopsScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(categoryOptions) { cat ->
-                            val isSel = cat == selectedCategory
+                        items(categoryOptions) { (catKey, catLabel) ->
+                            val isSel = catKey == selectedCategory
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(999.dp))
                                     .background(if (isSel) SuqiPrimary else colors.secondaryBackground)
-                                    .clickable { selectedCategory = cat }
+                                    .clickable { selectedCategory = catKey }
                                     .padding(horizontal = 14.dp, vertical = 8.dp)
                             ) {
                                 Text(
-                                    text = cat,
+                                    text = catLabel,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                                     fontSize = 12.sp,
+                                    maxLines = 2,
                                     color = if (isSel) Color.White else colors.primaryText
                                 )
                             }
@@ -158,9 +179,9 @@ fun ShopsScreen(
                     item {
                         SuqiEmptyState(
                             icon = LucideIcons.Store,
-                            title = "No matching shops",
-                            subtitle = "Try resetting category or status filters to see all Ethiopian shops.",
-                            ctaText = "Reset Filters",
+                            title = strings.buyer.noMatchingShops,
+                            subtitle = strings.buyer.noProductsFilterSub,
+                            ctaText = strings.buyer.resetFiltersTitle,
                             onCtaClick = {
                                 selectedFilter = "All"
                                 selectedCategory = "All Categories"
@@ -196,6 +217,7 @@ fun ShopListItemRow(
     onToggleFollow: () -> Unit
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     SuqiSectionCard(
         padding = 14.dp,
         onClick = onClick,
@@ -235,7 +257,7 @@ fun ShopListItemRow(
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             imageVector = LucideIcons.CheckCircle,
-                            contentDescription = "Verified",
+                            contentDescription = strings.verifiedLabel,
                             tint = SuqiPrimary,
                             modifier = Modifier.size(16.dp)
                         )
@@ -257,7 +279,7 @@ fun ShopListItemRow(
                     Text(text = "•", fontSize = 11.sp, color = colors.mutedText)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "${shop.productCount} Products",
+                        text = strings.buyer.productsCountTemplate.format(shop.productCount),
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
@@ -287,10 +309,11 @@ fun ShopListItemRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (shop.isFollowing) "Following" else "Follow",
+                    text = if (shop.isFollowing) strings.buyer.followingLabel else strings.buyer.followLabel,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 12.sp,
+                    maxLines = 2,
                     color = if (shop.isFollowing) colors.secondaryText else SuqiPrimary
                 )
             }
@@ -306,6 +329,8 @@ fun ShopStorefrontScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val isOffline by viewModel.isOffline.collectAsState()
@@ -336,7 +361,7 @@ fun ShopStorefrontScreen(
     val currentShop = shop
     if (currentShop == null) {
         SuqiScreen(
-            title = "Shop Storefront",
+            title = strings.checkout.shopStorefrontTitle,
             onBackClick = { viewModel.goBack() },
             isOffline = isOffline,
             modifier = modifier
@@ -351,6 +376,13 @@ fun ShopStorefrontScreen(
         return
     }
 
+    fun collectionDisplayTitle(key: String): String = when (key) {
+        "Best Sellers" -> strings.popularNow
+        "Discount Deals" -> strings.hotDeals
+        "In Stock Ready" -> strings.inStock
+        else -> strings.recommendedForYou
+    }
+
     SuqiScreen(
         title = currentShop.name,
         subtitle = "${currentShop.subCity}, ${currentShop.city}",
@@ -360,22 +392,22 @@ fun ShopStorefrontScreen(
             IconButton(
                 onClick = { showShareSheet = true },
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(colors.secondaryBackground)
                     .testTag("shop_share_button")
             ) {
-                Icon(LucideIcons.Share2, contentDescription = "Share Shop", tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                Icon(LucideIcons.Share2, contentDescription = strings.checkout.shareShopTitle, tint = colors.primaryText, modifier = Modifier.size(18.dp))
             }
             IconButton(
                 onClick = { viewModel.navigate(ScreenDestination.Cart) },
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(colors.secondaryBackground)
                     .testTag("shop_cart_button")
             ) {
-                Icon(LucideIcons.ShoppingCart, contentDescription = "Cart", tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                Icon(LucideIcons.ShoppingCart, contentDescription = strings.cartTitle, tint = colors.primaryText, modifier = Modifier.size(18.dp))
             }
         },
         modifier = modifier
@@ -438,15 +470,15 @@ fun ShopStorefrontScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Shop Temporarily on Vacation",
+                                    text = strings.checkout.vacationNoticeTitle,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
                                     color = colors.primaryText
                                 )
                                 val note = currentShop.vacationNote.ifBlank {
-                                    if (currentShop.vacationReturnDate.isNotBlank()) "Returning ${currentShop.vacationReturnDate}"
-                                    else "New orders are temporarily paused."
+                                    if (currentShop.vacationReturnDate.isNotBlank()) currentShop.vacationReturnDate
+                                    else strings.checkout.vacationNoticeBody
                                 }
                                 Text(text = note, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                             }
@@ -471,7 +503,7 @@ fun ShopStorefrontScreen(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Icon(
                                         imageVector = LucideIcons.CheckCircle,
-                                        contentDescription = "Verified",
+                                        contentDescription = strings.verifiedLabel,
                                         tint = SuqiPrimary,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -482,14 +514,14 @@ fun ShopStorefrontScreen(
                                 Icon(LucideIcons.StarFilled, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "${currentShop.rating} (${currentShop.reviewCount} reviews)",
+                                    text = "${currentShop.rating} (${strings.checkout.reviewsCountTemplate.format(currentShop.reviewCount)})",
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 13.sp,
                                     color = colors.secondaryText
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "• ${currentShop.followersCount} followers",
+                                    text = "• ${strings.buyer.followersCountTemplate.format(currentShop.followersCount)}",
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 12.sp,
                                     color = colors.mutedText
@@ -498,7 +530,7 @@ fun ShopStorefrontScreen(
                         }
 
                         if (currentShop.isVerified) {
-                            SuqiStatusBadge("Verified", StatusType.SUCCESS)
+                            SuqiStatusBadge(strings.verifiedLabel, StatusType.SUCCESS)
                         }
                     }
 
@@ -534,7 +566,7 @@ fun ShopStorefrontScreen(
                             border = BorderStroke(1.dp, SuqiPrimary),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .heightIn(min = 48.dp)
                         ) {
                             Icon(
                                 imageVector = if (currentShop.isFollowing) LucideIcons.HeartFilled else LucideIcons.Heart,
@@ -544,9 +576,10 @@ fun ShopStorefrontScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (currentShop.isFollowing) "Following" else "Follow",
+                                text = if (currentShop.isFollowing) strings.buyer.followingLabel else strings.buyer.followLabel,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.SemiBold,
+                                maxLines = 2,
                                 color = SuqiPrimary
                             )
                         }
@@ -561,7 +594,7 @@ fun ShopStorefrontScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .heightIn(min = 48.dp)
                         ) {
                             Icon(
                                 imageVector = LucideIcons.MessageCircle,
@@ -571,9 +604,10 @@ fun ShopStorefrontScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Chat",
+                                text = strings.buyer.chatTabLabel,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.SemiBold,
+                                maxLines = 2,
                                 color = Color.White
                             )
                         }
@@ -584,7 +618,7 @@ fun ShopStorefrontScreen(
                     SuqiSearchField(
                         value = shopSearchQuery,
                         onValueChange = { shopSearchQuery = it },
-                        placeholder = "Search in ${currentShop.name}...",
+                        placeholder = strings.checkout.searchProductsHint,
                         testTag = "shop_storefront_search"
                     )
 
@@ -595,17 +629,17 @@ fun ShopStorefrontScreen(
                         horizontalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
                         TabLabel(
-                            title = "Products (${products.size})",
+                            title = "${strings.productsTab} (${products.size})",
                             isSelected = selectedTab == 0,
                             onClick = { selectedTab = 0 }
                         )
                         TabLabel(
-                            title = "Collections",
+                            title = strings.buyer.collectionsTabLabel,
                             isSelected = selectedTab == 1,
                             onClick = { selectedTab = 1 }
                         )
                         TabLabel(
-                            title = "Reviews (${reviews.size})",
+                            title = "${strings.customerReviews} (${reviews.size})",
                             isSelected = selectedTab == 2,
                             onClick = { selectedTab = 2 }
                         )
@@ -622,14 +656,14 @@ fun ShopStorefrontScreen(
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = "Collection: $activeCollectionFilter",
+                                text = "${strings.buyer.collectionsTabLabel}: ${collectionDisplayTitle(activeCollectionFilter!!)}",
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp,
                                 color = SuqiPrimary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Icon(LucideIcons.X, contentDescription = "Clear collection", tint = SuqiPrimary, modifier = Modifier.size(14.dp))
+                            Icon(LucideIcons.X, contentDescription = strings.common.clearSearchDesc, tint = SuqiPrimary, modifier = Modifier.size(14.dp))
                         }
                     }
 
@@ -648,16 +682,21 @@ fun ShopStorefrontScreen(
                 val filteredProducts = if (shopSearchQuery.isBlank()) {
                     collectionFiltered
                 } else {
-                    collectionFiltered.filter { it.name.contains(shopSearchQuery, ignoreCase = true) }
+                    collectionFiltered.filter {
+                        it.localizedName(lang).contains(shopSearchQuery, ignoreCase = true) ||
+                            it.name.contains(shopSearchQuery, ignoreCase = true) ||
+                            it.nameAmharic.contains(shopSearchQuery, ignoreCase = true) ||
+                            it.nameAfaanOromo.contains(shopSearchQuery, ignoreCase = true)
+                    }
                 }
 
                 if (filteredProducts.isEmpty()) {
                     item {
                         SuqiEmptyState(
                             icon = LucideIcons.ShoppingBag,
-                            title = "No products match",
-                            subtitle = "Clear your shop search or collection filter to view all items.",
-                            ctaText = "Show All Products",
+                            title = strings.buyer.noMatchingProducts,
+                            subtitle = strings.buyer.noMatchingProductsSub,
+                            ctaText = strings.sellerOps.showAllProductsBtn,
                             onCtaClick = {
                                 shopSearchQuery = ""
                                 activeCollectionFilter = null
@@ -701,17 +740,17 @@ fun ShopStorefrontScreen(
                 }
             } else if (selectedTab == 1) {
                 val collections = listOf(
-                    Triple("Best Sellers", "Top-rated items trusted by verified buyers", products.firstOrNull()?.primaryImageUrl ?: currentShop.coverUrl),
-                    Triple("Discount Deals", "Markdown offers and seasonal savings", products.firstOrNull { it.discountPercent > 0 }?.primaryImageUrl ?: currentShop.coverUrl),
-                    Triple("In Stock Ready", "Available now for immediate dispatch", products.firstOrNull { it.stockQuantity > 0 }?.primaryImageUrl ?: currentShop.logoUrl),
-                    Triple("Premium Picks", "Flagship & curated high-value items", products.maxByOrNull { it.price }?.primaryImageUrl ?: currentShop.coverUrl)
+                    Triple("Best Sellers", strings.popularNow, products.firstOrNull()?.primaryImageUrl ?: currentShop.coverUrl),
+                    Triple("Discount Deals", strings.hotDeals, products.firstOrNull { it.discountPercent > 0 }?.primaryImageUrl ?: currentShop.coverUrl),
+                    Triple("In Stock Ready", strings.inStock, products.firstOrNull { it.stockQuantity > 0 }?.primaryImageUrl ?: currentShop.logoUrl),
+                    Triple("Premium Picks", strings.recommendedForYou, products.maxByOrNull { it.price }?.primaryImageUrl ?: currentShop.coverUrl)
                 )
 
-                items(collections) { (title, subtitle, img) ->
+                items(collections) { (key, title, img) ->
                     SuqiSectionCard(
                         padding = 14.dp,
                         onClick = {
-                            activeCollectionFilter = title
+                            activeCollectionFilter = key
                             selectedTab = 0
                         },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
@@ -741,18 +780,9 @@ fun ShopStorefrontScreen(
                                     fontSize = 15.sp,
                                     color = colors.primaryText
                                 )
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = subtitle,
-                                    fontFamily = SuqiFontFamily,
-                                    fontSize = 12.sp,
-                                    color = colors.secondaryText,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "Filter Collection →",
+                                    text = strings.seeAllArrow,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
@@ -767,8 +797,8 @@ fun ShopStorefrontScreen(
                     item {
                         SuqiEmptyState(
                             icon = LucideIcons.Star,
-                            title = "No shop reviews yet",
-                            subtitle = "Verified customer reviews for ${currentShop.name} will appear here."
+                            title = strings.buyer.noReviewsTitle,
+                            subtitle = strings.buyer.noReviewsSub
                         )
                     }
                 } else {
@@ -784,7 +814,7 @@ fun ShopStorefrontScreen(
         val shareUrl = "https://suqi.et/shop/${currentShop.slug.ifBlank { currentShop.id }}"
         SuqiBottomSheet(
             onDismissRequest = { showShareSheet = false },
-            title = "Share Shop"
+            title = strings.checkout.shareShopTitle
         ) {
             SuqiSectionCard(containerColor = colors.secondaryBackground, padding = 14.dp) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -807,18 +837,18 @@ fun ShopStorefrontScreen(
             Spacer(modifier = Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 SuqiButton(
-                    text = "Copy Link",
+                    text = strings.common.copyLinkLabel,
                     isPrimary = false,
                     icon = LucideIcons.Copy,
                     onClick = {
                         clipboardManager.setText(AnnotatedString(shareUrl))
                         showShareSheet = false
-                        viewModel.showToast("Shop link copied to clipboard")
+                        viewModel.showToast(strings.common.copiedToast)
                     },
                     modifier = Modifier.weight(1f)
                 )
                 SuqiButton(
-                    text = "Share",
+                    text = strings.shareProduct,
                     icon = LucideIcons.Share2,
                     onClick = {
                         showShareSheet = false
@@ -827,7 +857,7 @@ fun ShopStorefrontScreen(
                             putExtra(Intent.EXTRA_SUBJECT, currentShop.name)
                             putExtra(Intent.EXTRA_TEXT, "Check out ${currentShop.name} on Suqi: $shareUrl")
                         }
-                        context.startActivity(Intent.createChooser(intent, "Share ${currentShop.name}"))
+                        context.startActivity(Intent.createChooser(intent, currentShop.name))
                     },
                     modifier = Modifier.weight(1f)
                 )

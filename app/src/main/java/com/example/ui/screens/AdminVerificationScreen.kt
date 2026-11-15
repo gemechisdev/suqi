@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +29,7 @@ import coil.compose.AsyncImage
 import com.example.data.model.*
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -38,6 +40,7 @@ fun AdminVerificationV2Screen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
     var allShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
@@ -57,6 +60,37 @@ fun AdminVerificationV2Screen(
 
     var showRejectDialog by remember { mutableStateOf(false) }
     var rejectReason by remember { mutableStateOf("") }
+
+    BackHandler(enabled = selectedShop != null) {
+        selectedShop = null
+    }
+
+    fun slotLabel(key: String, fallback: String): String = when (key) {
+        "idFront" -> strings.seller.docIdFront
+        "idBack" -> strings.seller.docIdBack
+        "tradeLicense" -> strings.seller.docTradeLicense
+        "shopPhoto" -> strings.seller.docShopPhoto
+        "selfieWithId" -> strings.seller.docSelfieWithId
+        else -> fallback
+    }
+
+    fun slotGuide(key: String, fallback: String): String = when (key) {
+        "idFront" -> strings.sellerOps.docIdFrontGuide
+        "idBack" -> strings.sellerOps.docIdBackGuide
+        "tradeLicense" -> strings.sellerOps.docTradeLicenseGuide
+        "shopPhoto" -> strings.sellerOps.docShopPhotoGuide
+        "selfieWithId" -> strings.sellerOps.docSelfieWithIdGuide
+        else -> fallback
+    }
+
+    fun checklistLabel(key: String, fallback: String): String = when (key) {
+        "id_readable" -> strings.adminOps.checkIdReadable
+        "name_matches" -> strings.adminOps.checkNameMatches
+        "license_valid" -> strings.adminOps.checkLicenseValid
+        "shop_authentic" -> strings.adminOps.checkShopAuthentic
+        "address_plausible" -> strings.adminOps.checkAddressPlausible
+        else -> fallback
+    }
 
     fun loadShops() {
         coroutineScope.launch {
@@ -108,8 +142,8 @@ fun AdminVerificationV2Screen(
     }
 
     SuqiScreen(
-        title = "Seller Verification 2.0",
-        subtitle = "${pendingAll.size} needing attention · ${verifiedList.size} verified",
+        title = if (selectedShop != null) strings.adminOps.reviewShopTitle else strings.admin.adminVerificationTitle,
+        subtitle = "${pendingAll.size} ${strings.admin.queuePending} · ${verifiedList.size} ${strings.admin.queueVerified}",
         onBackClick = {
             if (selectedShop != null) selectedShop = null else viewModel.goBack()
         },
@@ -121,11 +155,11 @@ fun AdminVerificationV2Screen(
             val submission = remember(reviewing.verificationDocsJson) {
                 VerificationDocsCodec.parse(reviewing.verificationDocsJson)
             }
-            val docPages = remember(submission) {
+            val docPages = remember(submission, strings) {
                 VerificationDocsCodec.docSlots.mapNotNull { slot ->
                     val uri = submission.docs[slot.key]
                     if (uri.isNullOrBlank()) null
-                    else SuqiDocumentPage(slot.label, uri, slot.guidance)
+                    else SuqiDocumentPage(slotLabel(slot.key, slot.label), uri, slotGuide(slot.key, slot.guidance))
                 }
             }
 
@@ -160,7 +194,13 @@ fun AdminVerificationV2Screen(
                                 Text("${reviewing.subCity}, ${reviewing.city} · ${reviewing.phone}", fontSize = 12.sp, color = colors.mutedText)
                             }
                             SuqiStatusBadge(
-                                statusText = reviewing.verificationStatus.replace("_", " "),
+                                statusText = when (reviewing.verificationStatus) {
+                                    "VERIFIED" -> strings.admin.queueVerified
+                                    "REJECTED" -> strings.admin.queueRejected
+                                    "CHANGES_REQUESTED" -> strings.admin.queueWaitingInfo
+                                    "RESUBMITTED" -> strings.admin.queueResubmitted
+                                    else -> strings.admin.queuePending
+                                },
                                 type = when (reviewing.verificationStatus) {
                                     "VERIFIED" -> StatusType.SUCCESS
                                     "REJECTED", "CHANGES_REQUESTED" -> StatusType.ERROR
@@ -174,14 +214,14 @@ fun AdminVerificationV2Screen(
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 if (submission.licenseRef.isNotBlank()) {
-                                    Text("License Ref: ${submission.licenseRef}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = colors.primaryText)
+                                    Text("${strings.seller.licenseNumberLabel}: ${submission.licenseRef}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = colors.primaryText)
                                 }
                                 if (submission.tin.isNotBlank()) {
-                                    Text("TIN: ${submission.tin}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = colors.primaryText)
+                                    Text("${strings.seller.tinNumberLabel}: ${submission.tin}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = colors.primaryText)
                                 }
                             }
                             if (submission.submittedAt.isNotBlank()) {
-                                Text("Submitted: ${submission.submittedAt}", fontSize = 11.sp, color = colors.mutedText)
+                                Text(submission.submittedAt, fontSize = 11.sp, color = colors.mutedText)
                             }
                         }
                     }
@@ -194,7 +234,7 @@ fun AdminVerificationV2Screen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Submitted Documents (${docPages.size}/${VerificationDocsCodec.docSlots.size})",
+                                text = "${strings.adminOps.submittedDocsTitle} (${docPages.size}/${VerificationDocsCodec.docSlots.size})",
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
@@ -202,7 +242,7 @@ fun AdminVerificationV2Screen(
                             )
                             if (docPages.isNotEmpty()) {
                                 Text(
-                                    text = "Open Viewer",
+                                    text = strings.common.viewAllLabel,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
@@ -220,7 +260,7 @@ fun AdminVerificationV2Screen(
                         Spacer(Modifier.height(10.dp))
                         if (docPages.isEmpty()) {
                             Text(
-                                text = "Legacy reference submission (no photo attachments uploaded yet).",
+                                text = strings.admin.noShopsInQueue,
                                 fontSize = 12.sp,
                                 color = colors.secondaryText
                             )
@@ -266,7 +306,7 @@ fun AdminVerificationV2Screen(
                     // 5-Point Verification Checklist
                     SuqiSectionCard(padding = 16.dp) {
                         Text(
-                            text = "Admin Verification Checklist",
+                            text = strings.admin.checklistTitle,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
@@ -290,7 +330,7 @@ fun AdminVerificationV2Screen(
                                     colors = CheckboxDefaults.colors(checkedColor = SuqiPrimary)
                                 )
                                 Text(
-                                    text = label,
+                                    text = checklistLabel(key, label),
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 13.sp,
                                     color = colors.primaryText,
@@ -304,7 +344,7 @@ fun AdminVerificationV2Screen(
                     if (submission.history.isNotEmpty()) {
                         SuqiSectionCard(padding = 16.dp) {
                             Text(
-                                text = "Verification History",
+                                text = strings.adminOps.decisionNotesTitle,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
@@ -349,9 +389,9 @@ fun AdminVerificationV2Screen(
                             },
                             shape = RoundedCornerShape(999.dp),
                             border = BorderStroke(1.5.dp, SuqiError),
-                            modifier = Modifier.weight(1f).height(48.dp).testTag("admin_verify_reject_btn")
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("admin_verify_reject_btn")
                         ) {
-                            Text("Reject", color = SuqiError, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(strings.admin.rejectBtn, color = SuqiError, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 2)
                         }
                         OutlinedButton(
                             onClick = {
@@ -361,9 +401,9 @@ fun AdminVerificationV2Screen(
                             },
                             shape = RoundedCornerShape(999.dp),
                             border = BorderStroke(1.5.dp, colors.border),
-                            modifier = Modifier.weight(1.15f).height(48.dp).testTag("admin_verify_changes_btn")
+                            modifier = Modifier.weight(1.15f).heightIn(min = 48.dp).testTag("admin_verify_changes_btn")
                         ) {
-                            Text("Request info", color = colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1)
+                            Text(strings.admin.requestChangesBtn, color = colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 2)
                         }
                         Button(
                             onClick = {
@@ -373,15 +413,15 @@ fun AdminVerificationV2Screen(
                                         decision = "APPROVE",
                                         reason = "All verification checks passed"
                                     )
-                                    viewModel.showToast("${reviewing.name} verified!")
+                                    viewModel.showToast(strings.adminOps.verifyActionToast)
                                     loadShops()
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
                             shape = RoundedCornerShape(999.dp),
-                            modifier = Modifier.weight(1.1f).height(48.dp).testTag("admin_verify_approve_btn")
+                            modifier = Modifier.weight(1.1f).heightIn(min = 48.dp).testTag("admin_verify_approve_btn")
                         ) {
-                            Text("Approve", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(strings.admin.approveBtn, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 2)
                         }
                     }
                 }
@@ -394,9 +434,9 @@ fun AdminVerificationV2Screen(
             ) {
                 SuqiTabs(
                     tabs = listOf(
-                        SuqiTabItem("pending", "Pending", count = pendingAll.size, showDot = pendingAll.isNotEmpty()),
-                        SuqiTabItem("verified", "Verified", count = verifiedList.size),
-                        SuqiTabItem("rejected", "Rejected", count = rejectedList.size)
+                        SuqiTabItem("pending", strings.admin.queuePending, count = pendingAll.size, showDot = pendingAll.isNotEmpty()),
+                        SuqiTabItem("verified", strings.admin.queueVerified, count = verifiedList.size),
+                        SuqiTabItem("rejected", strings.admin.queueRejected, count = rejectedList.size)
                     ),
                     selectedIndex = selectedMainTab,
                     onSelectTab = { selectedMainTab = it },
@@ -407,10 +447,10 @@ fun AdminVerificationV2Screen(
                     Spacer(Modifier.height(6.dp))
                     SuqiFilterChips(
                         items = listOf(
-                            "ALL" to "All (${pendingAll.size})",
-                            "NEW" to "New",
-                            "RESUBMITTED" to "Resubmitted",
-                            "WAITING_INFO" to "Waiting for info"
+                            "ALL" to "${strings.allLabel} (${pendingAll.size})",
+                            "NEW" to strings.checkout.newBadge,
+                            "RESUBMITTED" to strings.admin.queueResubmitted,
+                            "WAITING_INFO" to strings.admin.queueWaitingInfo
                         ),
                         selectedKey = pendingSubFilter,
                         onSelect = { pendingSubFilter = it },
@@ -424,8 +464,8 @@ fun AdminVerificationV2Screen(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         SuqiEmptyState(
                             icon = LucideIcons.BadgeCheck,
-                            title = if (selectedMainTab == 0) "Verification queue clear" else "No shops in this tab",
-                            subtitle = if (selectedMainTab == 0) "All submitted Ethiopian merchant verification requests have been reviewed." else "Processed seller verification decisions will appear here."
+                            title = strings.admin.noShopsInQueue,
+                            subtitle = strings.admin.clearBadge
                         )
                     }
                 } else {
@@ -457,7 +497,7 @@ fun AdminVerificationV2Screen(
                                         Spacer(Modifier.height(4.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text(
-                                                text = "${sub.docs.size}/5 docs",
+                                                text = "${sub.docs.size}/5",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = SuqiPrimary
@@ -469,11 +509,11 @@ fun AdminVerificationV2Screen(
                                     }
                                     SuqiStatusBadge(
                                         statusText = when (shop.verificationStatus) {
-                                            "VERIFIED" -> "Verified"
-                                            "RESUBMITTED" -> "Resubmitted"
-                                            "CHANGES_REQUESTED" -> "Waiting Info"
-                                            "REJECTED" -> "Rejected"
-                                            else -> "New"
+                                            "VERIFIED" -> strings.admin.queueVerified
+                                            "RESUBMITTED" -> strings.admin.queueResubmitted
+                                            "CHANGES_REQUESTED" -> strings.admin.queueWaitingInfo
+                                            "REJECTED" -> strings.admin.queueRejected
+                                            else -> strings.checkout.newBadge
                                         },
                                         type = when (shop.verificationStatus) {
                                             "VERIFIED" -> StatusType.SUCCESS
@@ -503,10 +543,9 @@ fun AdminVerificationV2Screen(
         val target = selectedShop!!
         AlertDialog(
             onDismissRequest = { showRequestChangesDialog = false },
-            title = { Text("Request Document Changes", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
+            title = { Text(strings.admin.requestChangesBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Select failed items that the seller must re-upload:", fontSize = 12.sp, color = colors.secondaryText)
                     VerificationDocsCodec.docSlots.forEach { slot ->
                         val picked = slot.key in selectedFailedKeys
                         Row(
@@ -524,14 +563,14 @@ fun AdminVerificationV2Screen(
                                 },
                                 colors = CheckboxDefaults.colors(checkedColor = SuqiPrimary)
                             )
-                            Text(slot.label, fontSize = 12.sp, color = colors.primaryText)
+                            Text(slotLabel(slot.key, slot.label), fontSize = 12.sp, color = colors.primaryText)
                         }
                     }
                     SuqiTextField(
                         value = changeNote,
                         onValueChange = { changeNote = it },
-                        label = "Instructions to seller *",
-                        placeholder = "e.g. Trade license corners are cropped"
+                        label = strings.admin.reviewReasonHint,
+                        placeholder = strings.adminOps.rejectReasonPlaceholder
                     )
                 }
             },
@@ -539,7 +578,7 @@ fun AdminVerificationV2Screen(
                 Button(
                     onClick = {
                         if (changeNote.isBlank()) {
-                            viewModel.showToast("Add a note explaining what needs to be fixed")
+                            viewModel.showToast(strings.adminOps.rejectReasonPlaceholder)
                             return@Button
                         }
                         coroutineScope.launch {
@@ -550,17 +589,17 @@ fun AdminVerificationV2Screen(
                                 failedKeys = selectedFailedKeys.joinToString(",")
                             )
                             showRequestChangesDialog = false
-                            viewModel.showToast("Requested updated documents from ${target.name}")
+                            viewModel.showToast(strings.adminOps.verifyActionToast)
                             loadShops()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary)
                 ) {
-                    Text("Send Request", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(strings.admin.requestChangesBtn, color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRequestChangesDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showRequestChangesDialog = false }) { Text(strings.cancelLabel) }
             },
             containerColor = colors.cardBackground,
             shape = RoundedCornerShape(24.dp)
@@ -571,15 +610,14 @@ fun AdminVerificationV2Screen(
         val target = selectedShop!!
         AlertDialog(
             onDismissRequest = { showRejectDialog = false },
-            title = { Text("Reject Verification", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = SuqiError) },
+            title = { Text(strings.admin.rejectBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = SuqiError) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Enter a mandatory rejection reason:", fontSize = 12.sp, color = colors.secondaryText)
                     SuqiTextField(
                         value = rejectReason,
                         onValueChange = { rejectReason = it },
-                        label = "Rejection Reason *",
-                        placeholder = "e.g. Expired trade license or mismatching ID"
+                        label = strings.sellerOps.rejectReasonRequired,
+                        placeholder = strings.adminOps.rejectReasonPlaceholder
                     )
                 }
             },
@@ -587,7 +625,7 @@ fun AdminVerificationV2Screen(
                 Button(
                     onClick = {
                         if (rejectReason.isBlank()) {
-                            viewModel.showToast("Rejection reason is required")
+                            viewModel.showToast(strings.sellerOps.rejectReasonRequired)
                             return@Button
                         }
                         coroutineScope.launch {
@@ -597,17 +635,17 @@ fun AdminVerificationV2Screen(
                                 reason = rejectReason.trim()
                             )
                             showRejectDialog = false
-                            viewModel.showToast("${target.name} verification rejected")
+                            viewModel.showToast(strings.adminOps.verifyActionToast)
                             loadShops()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SuqiError)
                 ) {
-                    Text("Confirm Reject", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(strings.sellerOps.confirmRejectionBtn, color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRejectDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showRejectDialog = false }) { Text(strings.cancelLabel) }
             },
             containerColor = colors.cardBackground,
             shape = RoundedCornerShape(24.dp)

@@ -69,7 +69,7 @@ fun CartScreen(
 
     SuqiScreen(
         title = strings.cartTitle,
-        subtitle = if (cartItems.isNotEmpty()) "${cartItems.sumOf { it.quantity }} items across ${groupedByShop.size} shop(s)" else null,
+        subtitle = if (cartItems.isNotEmpty()) strings.checkout.itemsAcrossShopsTemplate.format(cartItems.sumOf { it.quantity }, groupedByShop.size) else null,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         headerActions = {
@@ -85,7 +85,7 @@ fun CartScreen(
                 ) {
                     Icon(
                         imageVector = LucideIcons.Trash2,
-                        contentDescription = "Clear Cart",
+                        contentDescription = strings.checkout.clearCartLabel,
                         tint = SuqiError,
                         modifier = Modifier.size(18.dp)
                     )
@@ -176,7 +176,7 @@ fun CartScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Multi-Vendor Checkout",
+                                    text = strings.checkout.multiVendorCheckoutTitle,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 13.sp,
@@ -184,7 +184,7 @@ fun CartScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Each shop handles its own Telebirr/CBE/Bank transfer and delivery options. Check out any shop independently.",
+                                    text = strings.checkout.multiVendorCheckoutBody,
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 12.sp,
                                     color = colors.secondaryText,
@@ -204,7 +204,7 @@ fun CartScreen(
             onDismissRequest = { showClearDialog = false },
             title = {
                 Text(
-                    text = "Clear Cart?",
+                    text = strings.checkout.clearCartDialogTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     color = colors.primaryText
@@ -212,7 +212,7 @@ fun CartScreen(
             },
             text = {
                 Text(
-                    text = "Are you sure you want to remove all items from your cart?",
+                    text = strings.checkout.clearCartDialogBody,
                     fontFamily = SuqiFontFamily,
                     color = colors.secondaryText
                 )
@@ -227,12 +227,12 @@ fun CartScreen(
                         }
                     }
                 ) {
-                    Text("Clear All", color = SuqiError, fontWeight = FontWeight.Bold)
+                    Text(strings.clearAll, color = SuqiError, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel", color = colors.primaryText)
+                    Text(strings.cancelLabel, color = colors.primaryText)
                 }
             },
             containerColor = colors.cardBackground,
@@ -310,14 +310,15 @@ fun ShopCartGroupCard(
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = LucideIcons.CheckCircle,
-                    contentDescription = "Verified",
+                    contentDescription = strings.verifiedLabel,
                     tint = SuqiPrimary,
                     modifier = Modifier.size(16.dp)
                 )
             }
 
+            val qtySum = items.sumOf { it.quantity }
             Text(
-                text = "(${items.sumOf { it.quantity }} ${if (items.sumOf { it.quantity } == 1) "item" else "items"})",
+                text = if (qtySum == 1) strings.checkout.itemCountSingularTemplate.format(qtySum) else strings.checkout.itemCountPluralTemplate.format(qtySum),
                 fontFamily = SuqiFontFamily,
                 fontSize = 13.sp,
                 color = colors.secondaryText
@@ -352,8 +353,9 @@ fun ShopCartGroupCard(
             ) {
                 Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
+                val minStock = items.filter { it.stockAvailable in 1..3 }.minOfOrNull { it.stockAvailable } ?: 1
                 Text(
-                    text = "Limited stock available. Inventory is held when you submit payment.",
+                    text = strings.checkout.limitedStockTemplate.format(minStock),
                     fontFamily = SuqiFontFamily,
                     fontSize = 12.sp,
                     color = SuqiWarning
@@ -382,7 +384,7 @@ fun ShopCartGroupCard(
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "Use ${promo.code}",
+                            text = strings.checkout.useCodeTemplate.format(promo.code),
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp,
@@ -434,7 +436,7 @@ fun ShopCartGroupCard(
                 onClick = {
                     val code = promoCodeInput.trim()
                     if (code.isBlank()) {
-                        promoError = "Enter a promo code first"
+                        promoError = strings.checkout.enterPromoFirstToast
                         return@Button
                     }
                     val matched = availablePromos.firstOrNull {
@@ -463,8 +465,8 @@ fun ShopCartGroupCard(
                         else -> null
                     }
                     when {
-                        matched == null -> promoError = "Invalid or expired promo code"
-                        subtotal < matched.minOrderAmount -> promoError = "Minimum order ${formatEtb(matched.minOrderAmount)} required"
+                        matched == null -> promoError = strings.checkout.invalidPromoToast
+                        subtotal < matched.minOrderAmount -> promoError = strings.checkout.minOrderPromoTemplate.format(formatEtb(matched.minOrderAmount))
                         else -> {
                             appliedPromo = matched
                             promoError = null
@@ -477,7 +479,7 @@ fun ShopCartGroupCard(
                     .height(48.dp)
                     .testTag("promo_apply_$shopId")
             ) {
-                Text(strings.applyLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text(strings.applyLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2)
             }
         }
 
@@ -496,7 +498,7 @@ fun ShopCartGroupCard(
                     Icon(LucideIcons.Check, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${appliedPromo!!.code} applied (-${formatEtb(discountAmount)})",
+                        text = "${strings.checkout.promoAppliedTemplate.format(appliedPromo!!.code)} (-${formatEtb(discountAmount)})",
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
@@ -505,7 +507,7 @@ fun ShopCartGroupCard(
                 }
                 Icon(
                     imageVector = LucideIcons.X,
-                    contentDescription = "Remove promo",
+                    contentDescription = strings.checkout.removePromoDesc,
                     tint = SuqiSuccess,
                     modifier = Modifier
                         .size(16.dp)
@@ -552,7 +554,7 @@ fun ShopCartGroupCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Promo Discount",
+                    text = strings.checkout.promoDiscountLabel,
                     fontFamily = SuqiFontFamily,
                     fontSize = 14.sp,
                     color = SuqiSuccess
@@ -575,14 +577,15 @@ fun ShopCartGroupCard(
             colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .heightIn(min = 52.dp)
                 .testTag("checkout_shop_${shopId}")
         ) {
             Text(
-                text = "Checkout • ${formatEtb(shopTotal)}",
+                text = strings.checkout.checkoutWithTotalTemplate.format(formatEtb(shopTotal)),
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
+                maxLines = 2,
                 color = Color.White
             )
         }

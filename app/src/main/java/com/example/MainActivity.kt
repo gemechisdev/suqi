@@ -62,6 +62,7 @@ fun SuqiAppRoot(
     val guestGateAction by viewModel.guestGateAction.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val strings = com.example.ui.i18n.suqiStrings()
 
     var sellerPendingCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(currentScreen, currentUser?.id) {
@@ -165,7 +166,7 @@ fun SuqiAppRoot(
                             coroutineScope.launch {
                                 viewModel.setOfflineMode(false)
                                 viewModel.refreshSession()
-                                viewModel.showToast("Back online — synced marketplace data")
+                                viewModel.showToast(strings.common.backOnlineSynced)
                             }
                         }
                     )
@@ -219,9 +220,9 @@ fun SuqiAppRoot(
                         is ScreenDestination.SellerStudio -> {
                             if (!hasSellerAccess) {
                                 SuqiRestrictedState(
-                                    title = "Seller Studio Requires a Shop",
-                                    subtitle = "Open a shop or sign in to a seller account to manage products, verify receipts, and view analytics.",
-                                    primaryButtonText = if (activeRole == "GUEST") "Sign In" else "Become a Seller",
+                                    title = strings.seller.sellerRestrictedTitle,
+                                    subtitle = strings.seller.sellerRestrictedSub,
+                                    primaryButtonText = if (activeRole == "GUEST") strings.signIn else strings.becomeSellerLabel,
                                     onPrimaryClick = {
                                         viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
                                     },
@@ -276,9 +277,9 @@ fun SuqiAppRoot(
                         is ScreenDestination.AdminConsole -> {
                             if (!hasAdminAccess) {
                                 SuqiRestrictedState(
-                                    title = "Admin Access Required",
-                                    subtitle = "Sign in with an Owner, Admin, or Developer staff account to open platform governance tools.",
-                                    primaryButtonText = "Admin Sign In",
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
                                     onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
                                     onBackClick = { viewModel.goBack() },
                                     testTag = "admin_restricted"

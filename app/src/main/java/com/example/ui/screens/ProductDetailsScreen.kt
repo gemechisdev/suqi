@@ -143,7 +143,7 @@ fun ProductDetailsScreen(
                         onClick = {
                             coroutineScope.launch {
                                 val res = viewModel.repository.addToCart(currentProd.id, 1, variationLabel)
-                                viewModel.showToast(if (res.success) "Added to Cart!" else (res.message ?: "Failed to add"))
+                                viewModel.showToast(if (res.success) strings.addedToCart else (res.message ?: strings.common.failedToAddToast))
                             }
                         },
                         shape = RoundedCornerShape(999.dp),
@@ -153,12 +153,12 @@ fun ProductDetailsScreen(
                             .height(50.dp)
                             .testTag("btn_add_to_cart")
                     ) {
-                        Text(strings.addToCart, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = SuqiPrimary)
+                        Text(strings.addToCart, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = SuqiPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
 
                     Button(
                         onClick = {
-                            viewModel.requireSignedInOrPrompt("complete your order") {
+                            viewModel.requireSignedInOrPrompt(strings.buyNow) {
                                 viewModel.activeCheckoutShopId.value = currentProd.shopId
                                 viewModel.activeCheckoutShopName.value = currentProd.shopName
                                 viewModel.activeCheckoutItems.value = listOf(
@@ -169,7 +169,7 @@ fun ProductDetailsScreen(
                                         shopId = currentProd.shopId,
                                         shopName = currentProd.shopName,
                                         shopVerified = currentProd.shopVerified,
-                                        productName = currentProd.name,
+                                        productName = currentProd.localizedName(lang),
                                         productImageUrl = selectedVariant?.imageUrl?.takeIf { it.isNotBlank() } ?: currentProd.primaryImageUrl,
                                         unitPrice = displayPrice,
                                         quantity = 1,
@@ -221,7 +221,7 @@ fun ProductDetailsScreen(
                             .testTag("product_back_btn"),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = colors.primaryText, modifier = Modifier.size(20.dp))
+                        Icon(LucideIcons.ArrowLeft, contentDescription = strings.common.backLabel, tint = colors.primaryText, modifier = Modifier.size(20.dp))
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -242,7 +242,7 @@ fun ProductDetailsScreen(
                         ) {
                             Icon(
                                 imageVector = if (currentProd.isWishlisted) LucideIcons.HeartFilled else LucideIcons.Heart,
-                                contentDescription = "Wishlist",
+                                contentDescription = strings.wishlistTitle,
                                 tint = if (currentProd.isWishlisted) SuqiPrimary else colors.primaryText,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -258,7 +258,7 @@ fun ProductDetailsScreen(
                                 .testTag("product_share_btn"),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(LucideIcons.Share2, contentDescription = "Share product", tint = colors.primaryText, modifier = Modifier.size(20.dp))
+                            Icon(LucideIcons.Share2, contentDescription = strings.shareProduct, tint = colors.primaryText, modifier = Modifier.size(20.dp))
                         }
 
                         Box(
@@ -271,7 +271,7 @@ fun ProductDetailsScreen(
                                 .testTag("product_report_btn"),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(LucideIcons.Flag, contentDescription = "Report listing", tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                            Icon(LucideIcons.Flag, contentDescription = strings.reportListing, tint = colors.primaryText, modifier = Modifier.size(18.dp))
                         }
 
                         Box(
@@ -293,7 +293,7 @@ fun ProductDetailsScreen(
                                     }
                                 }
                             ) {
-                                Icon(LucideIcons.ShoppingCart, contentDescription = "Cart", tint = colors.primaryText, modifier = Modifier.size(20.dp))
+                                Icon(LucideIcons.ShoppingCart, contentDescription = strings.cartTitle, tint = colors.primaryText, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
@@ -304,7 +304,7 @@ fun ProductDetailsScreen(
             item {
                 SuqiMediaGallery(
                     media = details.media,
-                    contentDescription = currentProd.name,
+                    contentDescription = currentProd.localizedName(lang),
                     jumpToUrl = selectedVariant?.imageUrl?.takeIf { it.isNotBlank() },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
@@ -323,7 +323,7 @@ fun ProductDetailsScreen(
                         ) {
                             Icon(LucideIcons.Flame, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Low Stock – Only $displayStock left", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SuqiWarning)
+                            Text(String.format(strings.checkout.lowStockLeftTemplate, displayStock), fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SuqiWarning)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -339,7 +339,7 @@ fun ProductDetailsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(LucideIcons.StarFilled, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("${currentProd.rating} (${currentProd.reviewCount} reviews)", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primaryText)
+                        Text("${currentProd.rating} (${String.format(strings.checkout.reviewsCountTemplate, currentProd.reviewCount)})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primaryText)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("|  ${currentProd.soldCount}", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                     }
@@ -471,10 +471,10 @@ fun ProductDetailsScreen(
                                 Text(currentProd.shopName, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                 if (currentProd.shopVerified) {
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(LucideIcons.CheckCircle, contentDescription = "Verified", tint = SuqiPrimary, modifier = Modifier.size(15.dp))
+                                    Icon(LucideIcons.CheckCircle, contentDescription = strings.common.verifiedShopDesc, tint = SuqiPrimary, modifier = Modifier.size(15.dp))
                                 }
                             }
-                            val followerText = shopDetails?.let { "${it.followersCount} followers • ${it.subCity}, ${it.city}" } ?: "Addis Ababa • Verified Merchant"
+                            val followerText = shopDetails?.let { "${String.format(strings.buyer.followersCountTemplate, it.followersCount)} • ${it.subCity}, ${it.city}" } ?: "${strings.checkout.defaultCityAddis} • ${strings.verifiedLabel}"
                             Text(followerText, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                         }
                         Icon(LucideIcons.ChevronRight, contentDescription = null, tint = colors.secondaryText)
@@ -494,14 +494,14 @@ fun ProductDetailsScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = primaryDelivery?.let { "${it.title}: ${it.estimatedTime}" } ?: "Delivery: 1–2 business days",
+                                text = primaryDelivery?.let { "${it.title}: ${it.estimatedTime}" } ?: "${strings.checkout.deliveryPromiseTitle}: ${strings.checkout.deliveryPromiseEta}",
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp,
                                 color = colors.primaryText
                             )
                             Text(
-                                text = primaryDelivery?.let { "Fee ${formatEtb(it.fee)} • Verified payment protection" } ?: "Starting from ETB 50 • Store pickup available",
+                                text = String.format(strings.checkout.deliveryFeeProtectionTemplate, formatEtb(primaryDelivery?.fee ?: 50.0)),
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 11.sp,
                                 color = colors.secondaryText
@@ -513,11 +513,11 @@ fun ProductDetailsScreen(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(
                             onClick = {
-                                viewModel.requireSignedInOrPrompt("chat with the shop") {
+                                viewModel.requireSignedInOrPrompt(strings.chatWithSeller) {
                                     viewModel.navigate(
                                         ScreenDestination.ChatThread(
                                             shopId = currentProd.shopId,
-                                            productContextName = currentProd.name,
+                                            productContextName = currentProd.localizedName(lang),
                                             productContextPrice = formatEtb(displayPrice),
                                             productContextImage = currentProd.primaryImageUrl
                                         )
@@ -530,7 +530,7 @@ fun ProductDetailsScreen(
                         ) {
                             Icon(LucideIcons.MessageCircle, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Chat", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+                            Text(strings.checkout.chatShortBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         SuqiButton(
                             text = strings.visitShop,
@@ -557,10 +557,12 @@ fun ProductDetailsScreen(
                     Text(strings.specifications, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(10.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SpecRowItem(label = "Category", value = com.example.data.model.MarketplaceCategories.nameForId(currentProd.categoryId))
-                        SpecRowItem(label = "Stock Availability", value = "$displayStock in stock")
+                        val localizedCategory = MarketplaceCategories.all.firstOrNull { it.id == currentProd.categoryId }?.toDto()?.localizedName(lang)
+                            ?: MarketplaceCategories.nameForId(currentProd.categoryId)
+                        SpecRowItem(label = strings.buyer.categoryLabel, value = localizedCategory)
+                        SpecRowItem(label = strings.checkout.stockAvailabilityLabel, value = String.format(strings.seller.stockUnitsTemplate, displayStock))
                         selectedVariant?.sku?.takeIf { it.isNotBlank() }?.let {
-                            SpecRowItem(label = "SKU", value = it)
+                            SpecRowItem(label = strings.seller.skuLabel, value = it)
                         }
                         DynamicSpecGroups(details)
                     }
@@ -577,14 +579,14 @@ fun ProductDetailsScreen(
                     ) {
                         Text("${strings.customerReviews} (${reviews.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                         Text(
-                            text = "Write a Review",
+                            text = strings.buyer.writeReviewTitle,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = SuqiPrimary,
                             modifier = Modifier.clickable {
-                                viewModel.requireSignedInOrPrompt("write a review") {
-                                    viewModel.navigate(ScreenDestination.Reviews(currentProd.id, currentProd.name, "PRODUCT"))
+                                viewModel.requireSignedInOrPrompt(strings.buyer.writeReviewTitle) {
+                                    viewModel.navigate(ScreenDestination.Reviews(currentProd.id, currentProd.localizedName(lang), "PRODUCT"))
                                 }
                             }
                         )
@@ -612,7 +614,7 @@ fun ProductDetailsScreen(
                                     )
                                 }
                             }
-                            Text("${currentProd.reviewCount} ratings", fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.secondaryText)
+                            Text(String.format(strings.checkout.ratingsCountTemplate, currentProd.reviewCount), fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.secondaryText)
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -637,7 +639,7 @@ fun ProductDetailsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
                     if (reviews.isEmpty()) {
-                        Text("No written reviews yet. Be the first to review!", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.mutedText)
+                        Text(strings.buyer.noReviewsSub, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.mutedText)
                     } else {
                         reviews.take(3).forEach { rev ->
                             ReviewItemCard(review = rev)
@@ -655,16 +657,16 @@ fun ProductDetailsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Questions & Answers (${questions.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                        Text("${strings.questionsAnswers} (${questions.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                         Text(
-                            text = "Ask a Question",
+                            text = strings.checkout.askQuestionBtn,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = SuqiPrimary,
                             modifier = Modifier
                                 .clickable {
-                                    viewModel.requireSignedInOrPrompt("ask a seller question") {
+                                    viewModel.requireSignedInOrPrompt(strings.checkout.askQuestionBtn) {
                                         showAskQuestionSheet = true
                                     }
                                 }
@@ -673,14 +675,14 @@ fun ProductDetailsScreen(
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     if (questions.isEmpty()) {
-                        Text("No questions yet — ask the seller about sizing, warranty, or delivery.", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.mutedText)
+                        Text(strings.checkout.awaitingSellerReply, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.mutedText)
                     } else {
                         questions.forEachIndexed { index, qa ->
                             if (index > 0) {
                                 HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 10.dp))
                             }
                             Text("Q: ${qa.question}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
-                            Text("Asked by ${qa.askerName} • ${qa.createdAt}", fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.mutedText)
+                            Text("${qa.askerName} • ${qa.createdAt}", fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.mutedText)
                             if (qa.answer.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Row(verticalAlignment = Alignment.Top) {
@@ -690,14 +692,14 @@ fun ProductDetailsScreen(
                                             .background(colors.primaryTint)
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
                                     ) {
-                                        Text("Shop", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 10.sp, color = SuqiPrimary)
+                                        Text(strings.shopsTab, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 10.sp, color = SuqiPrimary)
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(qa.answer, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                                 }
                             } else {
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text("Awaiting seller reply", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.mutedText)
+                                Text(strings.checkout.awaitingSellerReply, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.mutedText)
                             }
                         }
                     }
@@ -715,9 +717,10 @@ fun ProductDetailsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("More from ${currentProd.shopName}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                            Text("${strings.moreFromShop}: ${currentProd.shopName}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "See shop →",
+                                text = strings.checkout.seeShopArrow,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp,
@@ -753,7 +756,7 @@ fun ProductDetailsScreen(
                 item {
                     Column {
                         Text(
-                            text = "Similar Products",
+                            text = strings.similarProducts,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
@@ -788,19 +791,19 @@ fun ProductDetailsScreen(
     // Real Share Bottom Sheet (replaces toast-only stub)
     if (showShareSheet) {
         val shareLink = "https://suqi.et/p/${currentProd.id}"
-        val shareText = "${currentProd.name} — ${formatEtb(displayPrice)} at ${currentProd.shopName} on Suqi!\n$shareLink"
-        SuqiBottomSheet(onDismissRequest = { showShareSheet = false }, title = "Share Product") {
+        val shareText = "${currentProd.localizedName(lang)} — ${formatEtb(displayPrice)} • ${currentProd.shopName}\n$shareLink"
+        SuqiBottomSheet(onDismissRequest = { showShareSheet = false }, title = strings.shareProduct) {
             SuqiSectionCard(containerColor = colors.secondaryBackground, padding = 12.dp) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AsyncImage(
                         model = currentProd.primaryImageUrl,
-                        contentDescription = currentProd.name,
+                        contentDescription = currentProd.localizedName(lang),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp))
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(currentProd.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(currentProd.localizedName(lang), fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("${formatEtb(displayPrice)} • ${currentProd.shopName}", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
                     }
                 }
@@ -808,30 +811,30 @@ fun ProductDetailsScreen(
             Spacer(modifier = Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 SuqiButton(
-                    text = "Copy Link",
+                    text = strings.common.copyLinkLabel,
                     icon = LucideIcons.Copy,
                     isPrimary = false,
                     isPill = true,
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("Suqi Product", shareLink))
-                        viewModel.showToast("Product link copied!")
+                        viewModel.showToast(strings.common.copiedToast)
                         showShareSheet = false
                     },
                     modifier = Modifier.weight(1f),
                     testTag = "btn_copy_product_link"
                 )
                 SuqiButton(
-                    text = "Share App",
+                    text = strings.shareProduct,
                     icon = LucideIcons.Share2,
                     isPill = true,
                     onClick = {
                         val intent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, currentProd.name)
+                            putExtra(Intent.EXTRA_SUBJECT, currentProd.localizedName(lang))
                             putExtra(Intent.EXTRA_TEXT, shareText)
                         }
-                        context.startActivity(Intent.createChooser(intent, "Share via"))
+                        context.startActivity(Intent.createChooser(intent, strings.shareProduct))
                         showShareSheet = false
                     },
                     modifier = Modifier.weight(1f),
@@ -843,7 +846,7 @@ fun ProductDetailsScreen(
 
     // Size Guide Bottom Sheet
     if (showSizeGuideSheet) {
-        SuqiBottomSheet(onDismissRequest = { showSizeGuideSheet = false }, title = "Ethiopian Size Guide") {
+        SuqiBottomSheet(onDismissRequest = { showSizeGuideSheet = false }, title = strings.sizeGuide) {
             val rows = listOf(
                 Triple("EU / Intl", "Chest (cm)", "Shoe (cm)"),
                 Triple("S / 38–39", "88 – 94", "24.5"),
@@ -872,29 +875,29 @@ fun ProductDetailsScreen(
     // Ask Question Sheet
     if (showAskQuestionSheet) {
         var qText by remember { mutableStateOf("") }
-        SuqiBottomSheet(onDismissRequest = { showAskQuestionSheet = false }, title = "Ask ${currentProd.shopName}") {
+        SuqiBottomSheet(onDismissRequest = { showAskQuestionSheet = false }, title = "${strings.checkout.askQuestionBtn} — ${currentProd.shopName}") {
             SuqiTextField(
                 value = qText,
                 onValueChange = { qText = it },
-                label = "Your Question",
-                placeholder = "e.g., Does this come with a local warranty?",
+                label = strings.checkout.questionRequiredLabel,
+                placeholder = strings.checkout.questionRequiredLabel,
                 singleLine = false,
                 testTag = "input_product_question"
             )
             Spacer(modifier = Modifier.height(14.dp))
             SuqiButton(
-                text = "Submit Question",
+                text = strings.checkout.sendQuestionBtn,
                 isPill = true,
                 enabled = qText.isNotBlank(),
                 onClick = {
                     coroutineScope.launch {
                         val res = viewModel.repository.submitProductQuestion(currentProd.id, qText.trim())
                         if (res.success) {
-                            viewModel.showToast("Question posted!")
+                            viewModel.showToast(strings.common.doneLabel)
                             showAskQuestionSheet = false
                             loadAll()
                         } else {
-                            viewModel.showToast(res.message ?: "Failed to submit question")
+                            viewModel.showToast(res.message ?: strings.common.failedToAddToast)
                         }
                     }
                 },
@@ -914,7 +917,7 @@ fun ProductDetailsScreen(
             "Prohibited item on Suqi",
             "Suspicious payment instructions"
         )
-        SuqiBottomSheet(onDismissRequest = { showReportSheet = false }, title = "Report Listing") {
+        SuqiBottomSheet(onDismissRequest = { showReportSheet = false }, title = strings.reportListing) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 reasons.forEach { r ->
                     Row(
@@ -934,12 +937,12 @@ fun ProductDetailsScreen(
                 SuqiTextField(
                     value = extraDetails,
                     onValueChange = { extraDetails = it },
-                    label = "Details (Optional)",
-                    placeholder = "Share what looks wrong..."
+                    label = strings.checkout.reportDetailsLabel,
+                    placeholder = strings.checkout.reportDetailsLabel
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 SuqiButton(
-                    text = "Submit Report",
+                    text = strings.checkout.submitReportBtn,
                     isPill = true,
                     onClick = {
                         coroutineScope.launch {
@@ -951,7 +954,7 @@ fun ProductDetailsScreen(
                                     "reviewText" to "${currentProd.name}: ${extraDetails.ifBlank { selectedReason }}"
                                 )
                             )
-                            viewModel.showToast("Report sent to Suqi moderation team")
+                            viewModel.showToast(strings.common.doneLabel)
                             showReportSheet = false
                         }
                     },

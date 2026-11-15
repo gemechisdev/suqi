@@ -111,15 +111,16 @@ fun SuqiButton(
             }
         }
     } else {
+        val colors = LocalSuqiColors.current
         OutlinedButton(
             onClick = onClick,
             enabled = enabled,
             shape = shape,
             colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = LocalSuqiColors.current.cardBackground,
-                contentColor = SuqiPrimaryText
+                containerColor = colors.cardBackground,
+                contentColor = colors.primaryText
             ),
-            border = BorderStroke(1.dp, SuqiBorder),
+            border = BorderStroke(1.dp, colors.border),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
             modifier = modifier
                 .heightIn(min = 48.dp)
@@ -138,7 +139,7 @@ fun SuqiButton(
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
-                    color = SuqiPrimaryText
+                    color = colors.primaryText
                 )
                 if (trailingIcon != null) {
                     Spacer(modifier = Modifier.width(8.dp))
@@ -164,6 +165,7 @@ fun SuqiTextField(
     errorMessage: String? = null,
     testTag: String = "suqi_text_field"
 ) {
+    val colors = LocalSuqiColors.current
     Column(modifier = modifier) {
         if (label.isNotBlank()) {
             Text(
@@ -171,7 +173,7 @@ fun SuqiTextField(
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 14.sp,
-                color = SuqiPrimaryText,
+                color = colors.primaryText,
                 modifier = Modifier.padding(bottom = 6.dp)
             )
         }
@@ -184,25 +186,25 @@ fun SuqiTextField(
                     text = placeholder,
                     fontFamily = SuqiFontFamily,
                     fontSize = 15.sp,
-                    color = SuqiMutedText
+                    color = colors.mutedText
                 )
             },
             leadingIcon = if (leadingIcon != null) {
-                { Icon(leadingIcon, contentDescription = null, tint = SuqiSecondaryText) }
+                { Icon(leadingIcon, contentDescription = null, tint = colors.secondaryText) }
             } else null,
             trailingIcon = trailingIcon,
             singleLine = singleLine,
             isError = isError,
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = SuqiSecondaryBackground,
-                unfocusedContainerColor = SuqiSecondaryBackground,
-                disabledContainerColor = SuqiSecondaryBackground,
+                focusedContainerColor = colors.secondaryBackground,
+                unfocusedContainerColor = colors.secondaryBackground,
+                disabledContainerColor = colors.secondaryBackground,
                 focusedBorderColor = SuqiPrimary,
-                unfocusedBorderColor = SuqiBorder,
+                unfocusedBorderColor = colors.border,
                 errorBorderColor = SuqiError,
-                focusedTextColor = SuqiPrimaryText,
-                unfocusedTextColor = SuqiPrimaryText
+                focusedTextColor = colors.primaryText,
+                unfocusedTextColor = colors.primaryText
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -256,12 +258,13 @@ fun SuqiStatusBadge(
     type: StatusType = StatusType.SUCCESS,
     modifier: Modifier = Modifier
 ) {
+    val colors = LocalSuqiColors.current
     val (bgColor, textColor) = when (type) {
-        StatusType.PRIMARY -> Pair(LocalSuqiColors.current.primaryTint, SuqiPrimary)
-        StatusType.SUCCESS -> Pair(SuqiSuccessBg, SuqiSuccess)
-        StatusType.WARNING -> Pair(SuqiWarningBg, SuqiWarning)
-        StatusType.ERROR -> Pair(SuqiErrorBg, SuqiError)
-        StatusType.NEUTRAL -> Pair(SuqiSecondaryBackground, SuqiSecondaryText)
+        StatusType.PRIMARY -> Pair(colors.primaryTint, SuqiPrimary)
+        StatusType.SUCCESS -> Pair(colors.successBg, SuqiSuccess)
+        StatusType.WARNING -> Pair(colors.warningBg, SuqiWarning)
+        StatusType.ERROR -> Pair(colors.errorBg, SuqiError)
+        StatusType.NEUTRAL -> Pair(colors.secondaryBackground, colors.secondaryText)
     }
 
     Box(
@@ -305,7 +308,7 @@ fun SuqiSelectionCard(
     val shape = RoundedCornerShape(16.dp)
     val colors = LocalSuqiColors.current
     val bgColor = if (selected) colors.primaryTint else colors.cardBackground
-    val borderColor = if (selected) SuqiPrimary else SuqiBorder
+    val borderColor = if (selected) SuqiPrimary else colors.border
 
     Box(
         modifier = modifier
@@ -325,13 +328,13 @@ fun SuqiSelectionCard(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (selected) LocalSuqiColors.current.cardBackground else SuqiSecondaryBackground),
+                        .background(if (selected) colors.cardBackground else colors.secondaryBackground),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = if (selected) SuqiPrimary else SuqiPrimaryText,
+                        tint = if (selected) SuqiPrimary else colors.primaryText,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -345,14 +348,14 @@ fun SuqiSelectionCard(
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp,
-                        color = SuqiPrimaryText
+                        color = colors.primaryText
                     )
                     if (badgeText != null) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(SuqiSuccessBg)
+                                .background(colors.successBg)
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
@@ -371,7 +374,7 @@ fun SuqiSelectionCard(
                         text = subtitle,
                         fontFamily = SuqiFontFamily,
                         fontSize = 13.sp,
-                        color = SuqiSecondaryText
+                        color = colors.secondaryText
                     )
                 }
             }
@@ -382,7 +385,7 @@ fun SuqiSelectionCard(
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
-                    color = SuqiPrimaryText
+                    color = colors.primaryText
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
@@ -392,8 +395,8 @@ fun SuqiSelectionCard(
                 modifier = Modifier
                     .size(20.dp)
                     .clip(CircleShape)
-                    .border(2.dp, if (selected) SuqiPrimary else SuqiBorder, CircleShape)
-                    .background(LocalSuqiColors.current.cardBackground),
+                    .border(2.dp, if (selected) SuqiPrimary else colors.border, CircleShape)
+                    .background(colors.cardBackground),
                 contentAlignment = Alignment.Center
             ) {
                 if (selected) {
@@ -589,7 +592,7 @@ fun SuqiFloatingBottomNav(
                         }
                         Icon(
                             imageVector = LucideIcons.Search,
-                            contentDescription = "Search",
+                            contentDescription = strings.navSearch,
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
@@ -702,6 +705,7 @@ fun SuqiTopHeader(
     actions: @Composable (RowScope.() -> Unit)? = null
 ) {
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -721,7 +725,7 @@ fun SuqiTopHeader(
             ) {
                 Icon(
                     imageVector = LucideIcons.ArrowLeft,
-                    contentDescription = "Back",
+                    contentDescription = strings.common.backLabel,
                     tint = colors.primaryText,
                     modifier = Modifier.size(20.dp)
                 )
@@ -772,7 +776,7 @@ fun SuqiTopHeader(
                 ) {
                     Icon(
                         imageVector = if (isDarkTheme) LucideIcons.Sun else LucideIcons.Moon,
-                        contentDescription = if (isDarkTheme) "Switch to Light Mode" else "Switch to Dark Mode",
+                        contentDescription = if (isDarkTheme) strings.common.switchToLightMode else strings.common.switchToDarkMode,
                         tint = if (isDarkTheme) Color(0xFFFBBF24) else colors.primaryText,
                         modifier = Modifier.size(20.dp)
                     )
@@ -809,7 +813,7 @@ fun SuqiTopHeader(
                     ) {
                         Icon(
                             imageVector = LucideIcons.Bell,
-                            contentDescription = "Notifications",
+                            contentDescription = strings.notificationsTitle,
                             tint = colors.primaryText,
                             modifier = Modifier.size(20.dp)
                         )
@@ -846,7 +850,7 @@ fun SuqiTopHeader(
                 ) {
                     Icon(
                         imageVector = LucideIcons.ShoppingCart,
-                        contentDescription = "Cart",
+                        contentDescription = strings.cartTitle,
                         tint = colors.primaryText,
                         modifier = Modifier.size(20.dp)
                     )
@@ -870,7 +874,7 @@ fun MentionChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isProduct) SuqiPrimaryTint else LocalSuqiColors.current.secondaryBackground)
+            .background(if (isProduct) LocalSuqiColors.current.primaryTint else LocalSuqiColors.current.secondaryBackground)
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {

@@ -33,6 +33,9 @@ import com.example.data.model.ShopDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.localizedName
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -42,6 +45,7 @@ fun ChatListScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var conversations by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -56,8 +60,8 @@ fun ChatListScreen(
     }
 
     SuqiScreen(
-        title = "Chat Messages",
-        subtitle = "${conversations.size} active threads",
+        title = strings.buyer.messagesTitle,
+        subtitle = strings.checkout.activeThreadsTemplate.format(conversations.size),
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -78,9 +82,9 @@ fun ChatListScreen(
             ) {
                 SuqiEmptyState(
                     icon = LucideIcons.MessageCircle,
-                    title = "No active conversations",
-                    subtitle = "Ask a verified Ethiopian seller about stock, delivery times, or custom variations.",
-                    ctaText = "Browse Shops",
+                    title = strings.buyer.noChatsTitle,
+                    subtitle = strings.buyer.noChatsSub,
+                    ctaText = strings.checkout.browseShopsBtn,
                     onCtaClick = { viewModel.navigate(ScreenDestination.Shops) },
                     testTag = "chat_list_empty"
                 )
@@ -138,7 +142,7 @@ fun ChatListScreen(
                                 Spacer(modifier = Modifier.height(3.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = if (conv.imageUrl.isNotBlank() && conv.message.isBlank()) "Photo attachment" else conv.message,
+                                        text = if (conv.imageUrl.isNotBlank() && conv.message.isBlank()) strings.checkout.photoAttachmentLabel else conv.message,
                                         fontFamily = SuqiFontFamily,
                                         fontSize = 13.sp,
                                         color = colors.secondaryText,
@@ -177,10 +181,12 @@ fun ChatThreadScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
     var messages by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
     var inputMessage by remember { mutableStateOf("") }
-    var shopTitle by remember { mutableStateOf("Shop Chat") }
+    var shopTitle by remember { mutableStateOf(strings.checkout.shopStorefrontTitle) }
     var previewImageUrl by remember { mutableStateOf<String?>(null) }
 
     var allProducts by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
@@ -202,7 +208,7 @@ fun ChatThreadScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             pendingPhotoUri = uri
-            viewModel.showToast("Photo attached")
+            viewModel.showToast(strings.checkout.photoAttachmentLabel)
         }
     }
 
@@ -240,13 +246,13 @@ fun ChatThreadScreen(
 
     SuqiScreen(
         title = shopTitle,
-        subtitle = if (isOffline) "Offline · Cached messages" else "Verified Shop · Online",
+        subtitle = if (isOffline) strings.offlineBannerTitle else "${strings.verifiedLabel} · ${strings.common.openNowLabel}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         headerActions = {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(colors.secondaryBackground)
                     .clickable { viewModel.navigate(ScreenDestination.ShopStorefront(shopId)) },
@@ -254,7 +260,7 @@ fun ChatThreadScreen(
             ) {
                 Icon(
                     imageVector = LucideIcons.Store,
-                    contentDescription = "View Shop",
+                    contentDescription = strings.visitShop,
                     tint = colors.primaryText,
                     modifier = Modifier.size(18.dp)
                 )
@@ -279,7 +285,7 @@ fun ChatThreadScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Add:",
+                            text = strings.checkout.addQuickAttachLabel,
                             fontFamily = SuqiFontFamily,
                             fontSize = 11.sp,
                             color = colors.secondaryText,
@@ -295,7 +301,7 @@ fun ChatThreadScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(imageVector = LucideIcons.ShoppingBag, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "# Product", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = SuqiPrimary)
+                                Text(text = strings.checkout.attachProductTag, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = SuqiPrimary)
                             }
                         }
                         Box(
@@ -308,7 +314,7 @@ fun ChatThreadScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(imageVector = LucideIcons.Store, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "@ Shop", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = colors.primaryText)
+                                Text(text = strings.checkout.attachShopTag, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = colors.primaryText)
                             }
                         }
                     }
@@ -342,7 +348,7 @@ fun ChatThreadScreen(
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
                                         LucideIcons.X,
-                                        contentDescription = "Remove",
+                                        contentDescription = strings.common.removeLabel,
                                         tint = SuqiPrimary,
                                         modifier = Modifier.size(14.dp).clickable {
                                             pendingProductName = null
@@ -362,18 +368,18 @@ fun ChatThreadScreen(
                                 ) {
                                     AsyncImage(
                                         model = pendingPhotoUri,
-                                        contentDescription = "Pending photo",
+                                        contentDescription = strings.checkout.photoAttachmentLabel,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
                                             .size(28.dp)
                                             .clip(RoundedCornerShape(6.dp))
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(text = "Photo", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
+                                    Text(text = strings.checkout.attachPhotoTag, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
                                         LucideIcons.X,
-                                        contentDescription = "Remove photo",
+                                        contentDescription = strings.common.removeImageDesc,
                                         tint = colors.mutedText,
                                         modifier = Modifier.size(16.dp).clickable { pendingPhotoUri = null }
                                     )
@@ -399,7 +405,7 @@ fun ChatThreadScreen(
                                 .background(colors.secondaryBackground)
                                 .testTag("chat_attach_photo_button")
                         ) {
-                            Icon(LucideIcons.Plus, contentDescription = "Attach photo", tint = colors.primaryText)
+                            Icon(LucideIcons.Plus, contentDescription = strings.buyer.attachPhotoDesc, tint = colors.primaryText)
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
@@ -409,7 +415,7 @@ fun ChatThreadScreen(
                             onValueChange = { inputMessage = it },
                             placeholder = {
                                 Text(
-                                    text = "Type a message...",
+                                    text = strings.buyer.typeMessageHint,
                                     color = colors.mutedText,
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 14.sp
@@ -438,15 +444,15 @@ fun ChatThreadScreen(
                             onClick = { showEmojiPicker = true },
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(LucideIcons.Smile, contentDescription = "Emoji", tint = colors.secondaryText)
+                            Icon(LucideIcons.Smile, contentDescription = strings.checkout.emojiTitle, tint = colors.secondaryText)
                         }
 
                         IconButton(
                             onClick = {
-                                viewModel.requireSignedInOrPrompt("send a message") {
+                                viewModel.requireSignedInOrPrompt(strings.buyer.sendDesc.lowercase()) {
                                     if (inputMessage.isNotBlank() || pendingProductName != null || pendingPhotoUri != null) {
                                         val text = inputMessage.trim().ifBlank {
-                                            if (pendingPhotoUri != null) "Sent a photo" else ""
+                                            if (pendingPhotoUri != null) strings.checkout.sentPhotoMsg else ""
                                         }
                                         val photoString = pendingPhotoUri?.toString() ?: ""
                                         val prodName = pendingProductName ?: ""
@@ -479,7 +485,7 @@ fun ChatThreadScreen(
                                 .background(SuqiPrimary)
                                 .testTag("chat_send_button")
                         ) {
-                            Icon(LucideIcons.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(18.dp))
+                            Icon(LucideIcons.Send, contentDescription = strings.buyer.sendDesc, tint = Color.White, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -567,7 +573,7 @@ fun ChatThreadScreen(
                             if (msg.imageUrl.isNotBlank()) {
                                 AsyncImage(
                                     model = msg.imageUrl,
-                                    contentDescription = "Chat photo attachment",
+                                    contentDescription = strings.checkout.photoAttachmentLabel,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -597,10 +603,11 @@ fun ChatThreadScreen(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 val matched = allProducts.firstOrNull {
                                     it.name.equals(ctxName, ignoreCase = true) ||
+                                        it.localizedName(lang).equals(ctxName, ignoreCase = true) ||
                                         it.name.contains(ctxName, ignoreCase = true)
                                 }
                                 ChatEmbeddedProductCard(
-                                    name = ctxName,
+                                    name = matched?.localizedName(lang) ?: ctxName,
                                     price = ctxPrice ?: matched?.let { formatEtb(it.price) },
                                     imageUrl = ctxImage ?: matched?.primaryImageUrl,
                                     isOnPrimary = isCustomer,
@@ -641,7 +648,7 @@ fun ChatThreadScreen(
             ) {
                 AsyncImage(
                     model = previewImageUrl,
-                    contentDescription = "Full photo attachment",
+                    contentDescription = strings.checkout.photoAttachmentLabel,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -657,7 +664,7 @@ fun ChatThreadScreen(
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.2f))
                 ) {
-                    Icon(LucideIcons.X, contentDescription = "Close preview", tint = Color.White)
+                    Icon(LucideIcons.X, contentDescription = strings.common.closeViewerDesc, tint = Color.White)
                 }
             }
         }
@@ -674,11 +681,12 @@ fun ChatThreadScreen(
             containerColor = colors.cardBackground,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
-            val filteredProducts = remember(allProducts, productSearchQuery) {
+            val filteredProducts = remember(allProducts, productSearchQuery, lang) {
                 val q = productSearchQuery.trim()
                 if (q.isEmpty()) allProducts
                 else allProducts.filter {
-                    it.name.contains(q, ignoreCase = true) ||
+                    it.localizedName(lang).contains(q, ignoreCase = true) ||
+                        it.name.contains(q, ignoreCase = true) ||
                         it.shopName.contains(q, ignoreCase = true) ||
                         it.categoryId.contains(q, ignoreCase = true)
                 }
@@ -690,7 +698,7 @@ fun ChatThreadScreen(
                     .navigationBarsPadding()
             ) {
                 Text(
-                    text = "Select product",
+                    text = strings.checkout.selectProductTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
@@ -700,14 +708,14 @@ fun ChatThreadScreen(
                 OutlinedTextField(
                     value = productSearchQuery,
                     onValueChange = { productSearchQuery = it },
-                    placeholder = { Text(text = "Search products...", color = colors.mutedText) },
+                    placeholder = { Text(text = strings.checkout.searchProductsHint, color = colors.mutedText) },
                     leadingIcon = {
                         Icon(imageVector = LucideIcons.Search, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
                     },
                     trailingIcon = {
                         if (productSearchQuery.isNotBlank()) {
                             IconButton(onClick = { productSearchQuery = "" }) {
-                                Icon(imageVector = LucideIcons.X, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
+                                Icon(imageVector = LucideIcons.X, contentDescription = strings.common.clearSearchDesc, tint = colors.mutedText, modifier = Modifier.size(18.dp))
                             }
                         }
                     },
@@ -725,7 +733,7 @@ fun ChatThreadScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "${filteredProducts.size} products",
+                    text = String.format(strings.buyer.productsCountTemplate, filteredProducts.size),
                     fontFamily = SuqiFontFamily,
                     fontSize = 12.sp,
                     color = colors.mutedText
@@ -739,7 +747,7 @@ fun ChatThreadScreen(
                     if (filteredProducts.isEmpty()) {
                         item {
                             Text(
-                                "No products match \"$productSearchQuery\"",
+                                text = strings.buyer.noMatchingProducts,
                                 fontFamily = SuqiFontFamily,
                                 color = colors.secondaryText,
                                 modifier = Modifier.padding(24.dp)
@@ -753,7 +761,7 @@ fun ChatThreadScreen(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
                                 .clickable {
-                                    pendingProductName = productItem.name
+                                    pendingProductName = productItem.localizedName(lang)
                                     pendingProductPrice = formatEtb(productItem.price)
                                     pendingProductImage = productItem.primaryImageUrl
                                     productSearchQuery = ""
@@ -763,7 +771,7 @@ fun ChatThreadScreen(
                         ) {
                             AsyncImage(
                                 model = productItem.primaryImageUrl,
-                                contentDescription = productItem.name,
+                                contentDescription = productItem.localizedName(lang),
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .size(48.dp)
@@ -777,7 +785,7 @@ fun ChatThreadScreen(
                                     .fillMaxWidth()
                             ) {
                                 Text(
-                                    text = productItem.name,
+                                    text = productItem.localizedName(lang),
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
@@ -831,7 +839,7 @@ fun ChatThreadScreen(
                     .navigationBarsPadding()
             ) {
                 Text(
-                    text = "Select shop",
+                    text = strings.checkout.selectShopTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
@@ -841,14 +849,14 @@ fun ChatThreadScreen(
                 OutlinedTextField(
                     value = shopSearchQuery,
                     onValueChange = { shopSearchQuery = it },
-                    placeholder = { Text(text = "Search shops...", color = colors.mutedText) },
+                    placeholder = { Text(text = strings.buyer.searchShopsHint, color = colors.mutedText) },
                     leadingIcon = {
                         Icon(imageVector = LucideIcons.Search, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
                     },
                     trailingIcon = {
                         if (shopSearchQuery.isNotBlank()) {
                             IconButton(onClick = { shopSearchQuery = "" }) {
-                                Icon(imageVector = LucideIcons.X, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
+                                Icon(imageVector = LucideIcons.X, contentDescription = strings.common.clearSearchDesc, tint = colors.mutedText, modifier = Modifier.size(18.dp))
                             }
                         }
                     },
@@ -866,7 +874,7 @@ fun ChatThreadScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "${filteredShops.size} shops",
+                    text = "${filteredShops.size} ${strings.shopsTab}",
                     fontFamily = SuqiFontFamily,
                     fontSize = 12.sp,
                     color = colors.mutedText
@@ -880,7 +888,7 @@ fun ChatThreadScreen(
                     if (filteredShops.isEmpty()) {
                         item {
                             Text(
-                                "No shops match \"$shopSearchQuery\"",
+                                text = strings.buyer.noMatchingShops,
                                 fontFamily = SuqiFontFamily,
                                 color = colors.secondaryText,
                                 modifier = Modifier.padding(24.dp)
@@ -947,7 +955,7 @@ fun ChatThreadScreen(
                     .navigationBarsPadding()
             ) {
                 Text(
-                    text = "Emoji",
+                    text = strings.checkout.emojiTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
@@ -1002,6 +1010,7 @@ private fun ChatBubbleMessageContent(
     suppressProductKeys: Set<String> = emptySet()
 ) {
     val colors = LocalSuqiColors.current
+    val lang = LocalSuqiLanguage.current
     // Regex matching #[Title:id] or @[Title:id] or simple #Word or @Word
     val structuredMentionRegex = Regex("""([#@])\[([^:]+):([^\]]+)\]""")
 
@@ -1034,12 +1043,14 @@ private fun ChatBubbleMessageContent(
                         val name = token.removePrefix("#")
                         if (name.lowercase() in suppressProductKeys) return@forEach
                         val prod = allProducts.firstOrNull {
-                            it.name.contains(name, ignoreCase = true) || it.id.equals(name, ignoreCase = true)
+                            it.name.contains(name, ignoreCase = true) ||
+                                it.localizedName(lang).contains(name, ignoreCase = true) ||
+                                it.id.equals(name, ignoreCase = true)
                         }
                         if (prod != null) {
                             Spacer(modifier = Modifier.height(6.dp))
                             ChatEmbeddedProductCard(
-                                name = prod.name,
+                                name = prod.localizedName(lang),
                                 price = formatEtb(prod.price),
                                 imageUrl = prod.primaryImageUrl,
                                 isOnPrimary = isCustomer,
@@ -1088,10 +1099,10 @@ private fun ChatBubbleMessageContent(
                     val keyMatch = label.lowercase() in suppressProductKeys || id.lowercase() in suppressProductKeys
                     if (keyMatch) return@forEach // already shown as productContext card
                     val prod = allProducts.firstOrNull { it.id == id }
-                        ?: allProducts.firstOrNull { it.name.equals(label, ignoreCase = true) }
+                        ?: allProducts.firstOrNull { it.name.equals(label, ignoreCase = true) || it.localizedName(lang).equals(label, ignoreCase = true) }
                     Spacer(modifier = Modifier.height(8.dp))
                     ChatEmbeddedProductCard(
-                        name = prod?.name ?: label,
+                        name = prod?.localizedName(lang) ?: label,
                         price = prod?.let { formatEtb(it.price) },
                         imageUrl = prod?.primaryImageUrl,
                         isOnPrimary = isCustomer,

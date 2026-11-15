@@ -131,14 +131,14 @@ fun AccountHubScreen(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Welcome to Suqi",
+                                    text = strings.welcomeToSuqi,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 18.sp,
                                     color = colors.primaryText
                                 )
                                 Text(
-                                    text = "Sign in to sync cart, orders, addresses & chat",
+                                    text = strings.checkout.guestSignInSub,
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 13.sp,
                                     color = colors.secondaryText
@@ -155,7 +155,7 @@ fun AccountHubScreen(
                         )
                     }
                 } else {
-                    val displayName = currentUser?.name?.ifBlank { "Suqi Shopper" } ?: "Suqi Shopper"
+                    val displayName = currentUser?.name?.ifBlank { strings.welcomeToSuqi } ?: strings.welcomeToSuqi
                     val initials = displayName
                         .split(" ")
                         .filter { it.isNotBlank() }
@@ -163,10 +163,10 @@ fun AccountHubScreen(
                         .joinToString("") { it.first().uppercaseChar().toString() }
                         .ifBlank { "S" }
                     val roleBadgeLabel = when {
-                        isAdmin && activeRole == "ADMIN" -> adminTier.ifBlank { "ADMIN" }
-                        activeRole == "SELLER" -> "SELLER"
-                        isSeller -> "SELLER & BUYER"
-                        else -> "CUSTOMER"
+                        isAdmin && activeRole == "ADMIN" -> adminTier.ifBlank { strings.checkout.roleAdmin }
+                        activeRole == "SELLER" -> strings.checkout.roleSeller
+                        isSeller -> strings.checkout.roleSellerBuyer
+                        else -> strings.checkout.roleCustomer
                     }
 
                     SuqiSectionCard(
@@ -260,7 +260,7 @@ fun AccountHubScreen(
                                         }
                                     }
                                     Text(
-                                        text = "Edit profile",
+                                        text = strings.editProfile,
                                         fontFamily = SuqiFontFamily,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium,
@@ -271,7 +271,7 @@ fun AccountHubScreen(
 
                             Icon(
                                 imageVector = LucideIcons.Pencil,
-                                contentDescription = "Edit profile",
+                                contentDescription = strings.editProfile,
                                 tint = colors.secondaryText,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -327,7 +327,7 @@ fun AccountHubScreen(
                                             color = colors.primaryText
                                         )
                                         Text(
-                                            text = "Manage products, verification & orders",
+                                            text = strings.sellerOps.sellerDashboardSub,
                                             fontFamily = SuqiFontFamily,
                                             fontSize = 12.sp,
                                             color = colors.secondaryText
@@ -336,7 +336,7 @@ fun AccountHubScreen(
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 SuqiButton(
-                                    text = "Open",
+                                    text = strings.checkout.openLabel,
                                     onClick = {
                                         viewModel.setActiveRole("SELLER")
                                         viewModel.navigate(ScreenDestination.SellerStudio)
@@ -380,14 +380,14 @@ fun AccountHubScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
-                                            text = "Sell on Suqi",
+                                            text = strings.checkout.sellOnSuqiTitle,
                                             fontFamily = SuqiFontFamily,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 15.sp,
                                             color = colors.primaryText
                                         )
                                         Text(
-                                            text = "Open your verified Ethiopian shop in minutes",
+                                            text = strings.checkout.sellOnSuqiSub,
                                             fontFamily = SuqiFontFamily,
                                             fontSize = 12.sp,
                                             color = colors.secondaryText
@@ -396,7 +396,7 @@ fun AccountHubScreen(
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 SuqiButton(
-                                    text = "Start",
+                                    text = strings.checkout.startLabel,
                                     onClick = { viewModel.navigate(ScreenDestination.BecomeSeller) },
                                     isPill = true,
                                     testTag = "account_become_seller_btn"
@@ -413,9 +413,9 @@ fun AccountHubScreen(
                     SuqiListRow(
                         icon = LucideIcons.Receipt,
                         title = strings.myOrders,
-                        subtitle = "Track deliveries & payment status",
+                        subtitle = strings.checkout.noOrdersSub,
                         onClick = {
-                            viewModel.requireSignedInOrPrompt("view your orders") {
+                            viewModel.requireSignedInOrPrompt(strings.myOrders) {
                                 viewModel.navigate(ScreenDestination.MyOrders)
                             }
                         },
@@ -442,7 +442,7 @@ fun AccountHubScreen(
                         icon = LucideIcons.MapPin,
                         title = strings.savedAddresses,
                         onClick = {
-                            viewModel.requireSignedInOrPrompt("manage saved addresses") {
+                            viewModel.requireSignedInOrPrompt(strings.savedAddresses) {
                                 viewModel.navigate(ScreenDestination.SavedAddresses)
                             }
                         },
@@ -451,9 +451,9 @@ fun AccountHubScreen(
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                     SuqiListRow(
                         icon = LucideIcons.MessageCircle,
-                        title = "Messages & Shop Chat",
+                        title = strings.buyer.messagesTitle,
                         onClick = {
-                            viewModel.requireSignedInOrPrompt("view your messages") {
+                            viewModel.requireSignedInOrPrompt(strings.buyer.messagesTitle) {
                                 viewModel.navigate(ScreenDestination.ChatList)
                             }
                         },
@@ -483,7 +483,7 @@ fun AccountHubScreen(
                     SuqiListRow(
                         icon = LucideIcons.HelpCircle,
                         title = strings.helpSupportTitle,
-                        subtitle = "FAQs, returns & support tickets",
+                        subtitle = "${strings.buyer.myTicketsTitle} & ${strings.buyer.termsTitle}",
                         onClick = { viewModel.navigate(ScreenDestination.HelpLegal) },
                         testTag = "account_menu_help"
                     )
@@ -492,9 +492,9 @@ fun AccountHubScreen(
                         HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                         SuqiListRow(
                             icon = LucideIcons.ShieldCheck,
-                            title = "Admin Console",
-                            subtitle = "Tier: ${adminTier.ifBlank { "OWNER" }}",
-                            badge = adminTier.ifBlank { "ADMIN" },
+                            title = strings.checkout.adminConsoleRow,
+                            subtitle = adminTier.ifBlank { "OWNER" },
+                            badge = adminTier.ifBlank { strings.checkout.roleAdmin },
                             onClick = {
                                 viewModel.setActiveRole("ADMIN")
                                 viewModel.navigate(ScreenDestination.AdminConsole)
@@ -507,8 +507,8 @@ fun AccountHubScreen(
                         HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                         SuqiListRow(
                             icon = LucideIcons.Wrench,
-                            title = "Developer Tools",
-                            subtitle = "DB inspector, session & network simulator",
+                            title = strings.admin.devToolsTitle,
+                            subtitle = strings.adminOps.openDiagnosticsSub,
                             onClick = { viewModel.navigate(ScreenDestination.AdminDevTools) },
                             testTag = "account_menu_dev_tools"
                         )
@@ -537,14 +537,14 @@ fun AccountHubScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "Suqi Pro Seller",
+                                        text = strings.checkout.suqiProSellerRow,
                                         fontFamily = SuqiFontFamily,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp,
                                         color = colors.primaryText
                                     )
                                     Text(
-                                        text = "Priority placement & detailed analytics",
+                                        text = strings.sellerOps.subscriptionPlanSub,
                                         fontFamily = SuqiFontFamily,
                                         fontSize = 12.sp,
                                         color = colors.secondaryText
@@ -553,7 +553,7 @@ fun AccountHubScreen(
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Plans →",
+                                text = strings.checkout.plansArrow,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
@@ -572,7 +572,7 @@ fun AccountHubScreen(
                             coroutineScope.launch {
                                 viewModel.repository.loginAsGuest()
                                 viewModel.refreshSession()
-                                viewModel.showToast("Signed out — browsing as Guest")
+                                viewModel.showToast(strings.checkout.guestSessionLabel)
                             }
                         },
                         shape = RoundedCornerShape(16.dp),
@@ -628,26 +628,26 @@ fun AccountHubScreen(
     if (showRoleSheet) {
         SuqiBottomSheet(
             onDismissRequest = { showRoleSheet = false },
-            title = "Switch Workspace Role"
+            title = strings.checkout.switchWorkspaceRoleTitle
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SuqiListRow(
                     icon = LucideIcons.ShoppingBag,
-                    title = "Buyer Mode",
-                    subtitle = "Shop, checkout & manage orders",
-                    badge = if (activeRole == "CUSTOMER") "ACTIVE" else null,
+                    title = strings.checkout.roleCustomer,
+                    subtitle = strings.sellerOps.switchToBuyerSub,
+                    badge = if (activeRole == "CUSTOMER") strings.seller.statusActive else null,
                     onClick = {
                         viewModel.setActiveRole("CUSTOMER")
                         showRoleSheet = false
-                        viewModel.showToast("Switched to Buyer mode")
+                        viewModel.showToast(strings.sellerOps.switchToBuyerTitle)
                     }
                 )
                 if (isSeller || isAdmin) {
                     SuqiListRow(
                         icon = LucideIcons.Store,
-                        title = "Seller Studio",
-                        subtitle = "Manage your shop, products & orders",
-                        badge = if (activeRole == "SELLER") "ACTIVE" else null,
+                        title = strings.sellerStudioLabel,
+                        subtitle = strings.sellerOps.sellerDashboardSub,
+                        badge = if (activeRole == "SELLER") strings.seller.statusActive else null,
                         onClick = {
                             viewModel.setActiveRole("SELLER")
                             showRoleSheet = false
@@ -658,9 +658,9 @@ fun AccountHubScreen(
                 if (isAdmin) {
                     SuqiListRow(
                         icon = LucideIcons.ShieldCheck,
-                        title = "Admin Console ($adminTier)",
-                        subtitle = "Platform moderation, categories & banners",
-                        badge = if (activeRole == "ADMIN") "ACTIVE" else null,
+                        title = "${strings.admin.consoleTitle} ($adminTier)",
+                        subtitle = strings.admin.adminRestrictedSub,
+                        badge = if (activeRole == "ADMIN") strings.seller.statusActive else null,
                         onClick = {
                             viewModel.setActiveRole("ADMIN")
                             showRoleSheet = false
@@ -670,8 +670,8 @@ fun AccountHubScreen(
                 } else {
                     SuqiListRow(
                         icon = LucideIcons.Shield,
-                        title = "Admin / Staff Sign In",
-                        subtitle = "Authorized platform staff portal",
+                        title = strings.admin.staffSignInTitle,
+                        subtitle = strings.checkout.adminStaffSignInSub,
                         onClick = {
                             showRoleSheet = false
                             viewModel.navigate(ScreenDestination.AdminSignIn)
@@ -693,6 +693,7 @@ fun ProfileEditScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
     val currentUser by viewModel.currentUser.collectAsState()
 
     var fullName by remember(currentUser?.id) { mutableStateOf(currentUser?.name.orEmpty()) }
@@ -715,7 +716,7 @@ fun ProfileEditScreen(
     }
 
     SuqiScreen(
-        title = "Edit Profile",
+        title = strings.buyer.profileTitle,
         onBackClick = { viewModel.goBack() },
         bottomBar = {
             Surface(
@@ -727,7 +728,7 @@ fun ProfileEditScreen(
             ) {
                 Box(modifier = Modifier.padding(16.dp)) {
                     SuqiButton(
-                        text = if (isSaving) "Saving..." else "Save Profile",
+                        text = if (isSaving) strings.checkout.submittingLabel else strings.saveLabel,
                         enabled = !isSaving && fullName.isNotBlank(),
                         onClick = {
                             isSaving = true
@@ -747,10 +748,10 @@ fun ProfileEditScreen(
                                 if (res.success) {
                                     viewModel.setSelectedLanguage(preferredLanguage)
                                     viewModel.refreshSession()
-                                    viewModel.showToast("Profile updated!")
+                                    viewModel.showToast(strings.buyer.profileUpdatedToast)
                                     viewModel.goBack()
                                 } else {
-                                    viewModel.showToast(res.message ?: "Failed to update profile")
+                                    viewModel.showToast(res.message ?: strings.common.failedToAddToast)
                                 }
                             }
                         },
@@ -817,7 +818,7 @@ fun ProfileEditScreen(
                         ) {
                             Icon(
                                 imageVector = LucideIcons.Camera,
-                                contentDescription = "Change avatar",
+                                contentDescription = strings.buyer.changePhotoLabel,
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -825,7 +826,7 @@ fun ProfileEditScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Tap photo to update avatar",
+                        text = strings.buyer.changePhotoLabel,
                         fontFamily = SuqiFontFamily,
                         fontSize = 12.sp,
                         color = colors.secondaryText
@@ -838,8 +839,8 @@ fun ProfileEditScreen(
                     SuqiTextField(
                         value = fullName,
                         onValueChange = { fullName = it },
-                        label = "Full Name",
-                        placeholder = "Enter your full name",
+                        label = strings.buyer.fullNameLabel,
+                        placeholder = strings.buyer.fullNameLabel,
                         leadingIcon = LucideIcons.User,
                         testTag = "input_profile_name"
                     )
@@ -847,7 +848,7 @@ fun ProfileEditScreen(
                     SuqiTextField(
                         value = phone,
                         onValueChange = { phone = it },
-                        label = "Phone Number",
+                        label = strings.buyer.phoneNumberLabel,
                         placeholder = "+251 9XX XXX XXX",
                         leadingIcon = LucideIcons.Phone,
                         testTag = "input_profile_phone"
@@ -856,7 +857,7 @@ fun ProfileEditScreen(
                     SuqiTextField(
                         value = email,
                         onValueChange = { email = it },
-                        label = "Email Address",
+                        label = strings.buyer.emailOptionalLabel,
                         placeholder = "you@example.et",
                         leadingIcon = LucideIcons.Info,
                         testTag = "input_profile_email"
@@ -865,7 +866,7 @@ fun ProfileEditScreen(
                     SuqiTextField(
                         value = birthday,
                         onValueChange = { birthday = it },
-                        label = "Birthday (Optional)",
+                        label = strings.seller.pickADate,
                         placeholder = "YYYY-MM-DD",
                         leadingIcon = LucideIcons.Calendar,
                         testTag = "input_profile_birthday"
@@ -876,7 +877,7 @@ fun ProfileEditScreen(
             item {
                 SuqiSectionCard {
                     Text(
-                        text = "Gender",
+                        text = strings.checkout.preferredLanguageLabel,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
@@ -884,32 +885,31 @@ fun ProfileEditScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Male", "Female", "Other").forEach { option ->
-                            val selected = gender == option
+                        listOf(
+                            "English" to "English",
+                            "Amharic" to "አማርኛ",
+                            "Afaan Oromo" to "Afaan Oromoo"
+                        ).forEach { (key, label) ->
+                            val selected = preferredLanguage == key
                             FilterChip(
                                 selected = selected,
-                                onClick = { gender = option },
-                                label = { Text(option, fontFamily = SuqiFontFamily) }
+                                onClick = { preferredLanguage = key },
+                                label = { Text(label, fontFamily = SuqiFontFamily, fontSize = 12.sp) }
                             )
                         }
                     }
-
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Preferred Language",
-                        fontFamily = SuqiFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        color = colors.primaryText
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("English", "Amharic", "Afaan Oromo").forEach { lang ->
-                            val selected = preferredLanguage == lang
+                        listOf(
+                            "Male" to "♂",
+                            "Female" to "♀",
+                            "Other" to strings.common.otherLabel
+                        ).forEach { (optionKey, optionLabel) ->
+                            val selected = gender == optionKey
                             FilterChip(
                                 selected = selected,
-                                onClick = { preferredLanguage = lang },
-                                label = { Text(lang, fontFamily = SuqiFontFamily, fontSize = 12.sp) }
+                                onClick = { gender = optionKey },
+                                label = { Text(optionLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp) }
                             )
                         }
                     }

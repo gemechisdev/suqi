@@ -57,9 +57,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.data.api.BackendConfig
 import com.example.data.model.MediaItem
 import com.example.data.model.MediaKind
 import com.example.data.model.mediaTypeOfUrl
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.LocalSuqiColors
 import com.example.ui.theme.LucideIcons
 import com.example.ui.theme.SuqiFontFamily
@@ -163,6 +165,7 @@ fun SuqiMediaEditor(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
     var replaceIndex by remember { mutableStateOf<Int?>(null) }
     var showLink by remember { mutableStateOf(false) }
@@ -178,18 +181,18 @@ fun SuqiMediaEditor(
             var added = 0
             for (uri in uris) {
                 if (media.size >= MAX_MEDIA) {
-                    onMessage("You can add up to $MAX_MEDIA media files")
+                    onMessage(strings.seller.maxMediaMsgTemplate.replace("%d", MAX_MEDIA.toString()))
                     break
                 }
                 try {
                     media.add(importMedia(context, uri))
                     added++
                 } catch (e: Exception) {
-                    onMessage(e.message ?: "Could not add this file")
+                    onMessage(e.message ?: strings.common.failedToAddToast)
                 }
             }
             importing = false
-            if (added > 0) onMessage("$added file(s) added")
+            if (added > 0) onMessage(strings.seller.filesAddedMsgTemplate.replace("%d", added.toString()))
         }
     }
 
@@ -203,9 +206,9 @@ fun SuqiMediaEditor(
                 importing = true
                 try {
                     media[index] = importMedia(context, uri)
-                    onMessage("Media replaced")
+                    onMessage(strings.seller.mediaReplacedMsg)
                 } catch (e: Exception) {
-                    onMessage(e.message ?: "Could not replace this file")
+                    onMessage(e.message ?: strings.common.failedToAddToast)
                 }
                 importing = false
             }
@@ -214,7 +217,7 @@ fun SuqiMediaEditor(
 
     fun launchAdd() {
         if (media.size >= MAX_MEDIA) {
-            onMessage("You can add up to $MAX_MEDIA media files")
+            onMessage(strings.seller.maxMediaMsgTemplate.replace("%d", MAX_MEDIA.toString()))
             return
         }
         addLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
@@ -230,23 +233,27 @@ fun SuqiMediaEditor(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Photos, GIFs & Videos",
+                    text = strings.seller.mediaEditorTitle,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = colors.primaryText
                 )
                 Text(
-                    text = "${media.size}/$MAX_MEDIA • The cover is the first photo. Tap a file to manage it.",
+                    text = strings.seller.mediaEditorSubtitleTemplate
+                        .replaceFirst("%d", media.size.toString())
+                        .replaceFirst("%d", MAX_MEDIA.toString()),
                     fontFamily = SuqiFontFamily,
                     fontSize = 11.sp,
                     color = colors.secondaryText
                 )
             }
-            TextButton(onClick = { showLink = !showLink }) {
-                Icon(LucideIcons.Link, contentDescription = null, modifier = Modifier.size(16.dp), tint = SuqiPrimary)
-                Spacer(Modifier.width(4.dp))
-                Text("Link", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiPrimary)
+            if (BackendConfig.DemoMode) {
+                TextButton(onClick = { showLink = !showLink }) {
+                    Icon(LucideIcons.Link, contentDescription = null, modifier = Modifier.size(16.dp), tint = SuqiPrimary)
+                    Spacer(Modifier.width(4.dp))
+                    Text(strings.seller.linkBtnLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = SuqiPrimary)
+                }
             }
         }
 
@@ -267,8 +274,8 @@ fun SuqiMediaEditor(
                         CircularProgressIndicator(color = SuqiPrimary, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
                     } else {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(LucideIcons.ImagePlus, contentDescription = "Add media", tint = SuqiPrimary, modifier = Modifier.size(26.dp))
-                            Text("Add", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = SuqiPrimary)
+                            Icon(LucideIcons.ImagePlus, contentDescription = strings.seller.addMediaDesc, tint = SuqiPrimary, modifier = Modifier.size(26.dp))
+                            Text(strings.seller.addMediaBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = SuqiPrimary)
                         }
                     }
                 }
@@ -283,7 +290,7 @@ fun SuqiMediaEditor(
                 ) {
                     SuqiMediaThumb(item, Modifier.fillMaxSize())
                     if (index == coverIndex) {
-                        TileTag("Cover", SuqiPrimary, Modifier.align(Alignment.TopStart).padding(6.dp))
+                        TileTag(strings.seller.coverBadge, SuqiPrimary, Modifier.align(Alignment.TopStart).padding(6.dp))
                     }
                     when {
                         item.isGif -> TileTag("GIF", Color.Black.copy(alpha = 0.6f), Modifier.align(Alignment.BottomStart).padding(6.dp))
@@ -293,22 +300,22 @@ fun SuqiMediaEditor(
             }
         }
 
-        if (showLink) {
+        if (BackendConfig.DemoMode && showLink) {
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SuqiTextField(
                     value = linkText,
                     onValueChange = { linkText = it },
                     label = "",
-                    placeholder = "Paste image, GIF or video link (https://…)",
+                    placeholder = strings.seller.linkPlaceholder,
                     modifier = Modifier.weight(1f)
                 )
                 Button(
                     onClick = {
                         val url = linkText.trim()
                         when {
-                            !(url.startsWith("http://") || url.startsWith("https://")) -> onMessage("Enter a valid http(s) link")
-                            media.size >= MAX_MEDIA -> onMessage("You can add up to $MAX_MEDIA media files")
+                            !(url.startsWith("http://") || url.startsWith("https://")) -> onMessage(strings.seller.invalidHttpLinkMsg)
+                            media.size >= MAX_MEDIA -> onMessage(strings.seller.maxMediaMsgTemplate.replace("%d", MAX_MEDIA.toString()))
                             else -> {
                                 media.add(MediaItem(url, mediaTypeOfUrl(url)))
                                 linkText = ""
@@ -317,7 +324,7 @@ fun SuqiMediaEditor(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
                     shape = RoundedCornerShape(14.dp)
-                ) { Text("Add", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold) }
+                ) { Text(strings.seller.addMediaBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold) }
             }
         }
     }
@@ -345,10 +352,10 @@ fun SuqiMediaEditor(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = when {
-                        index == coverIndex -> "Cover image"
-                        item.isVideo -> "Video • position ${index + 1}"
-                        item.isGif -> "GIF • position ${index + 1}"
-                        else -> "Photo • position ${index + 1}"
+                        index == coverIndex -> strings.seller.coverImageTitle
+                        item.isVideo -> strings.seller.videoPosTemplate.replace("%d", (index + 1).toString())
+                        item.isGif -> strings.seller.gifPosTemplate.replace("%d", (index + 1).toString())
+                        else -> strings.seller.photoPosTemplate.replace("%d", (index + 1).toString())
                     },
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.SemiBold,
@@ -360,34 +367,34 @@ fun SuqiMediaEditor(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ActionChip("Set as cover", LucideIcons.Star, enabled = !item.isVideo && index != coverIndex) {
+                    ActionChip(strings.seller.setAsCover, LucideIcons.Star, enabled = !item.isVideo && index != coverIndex) {
                         val moved = media.removeAt(index)
                         media.add(0, moved)
                         selectedIndex = 0
                     }
-                    ActionChip("Move left", LucideIcons.ChevronLeft, enabled = index > 0) {
+                    ActionChip(strings.seller.moveLeft, LucideIcons.ChevronLeft, enabled = index > 0) {
                         val moved = media.removeAt(index)
                         media.add(index - 1, moved)
                         selectedIndex = index - 1
                     }
-                    ActionChip("Move right", LucideIcons.ChevronRight, enabled = index < media.lastIndex) {
+                    ActionChip(strings.seller.moveRight, LucideIcons.ChevronRight, enabled = index < media.lastIndex) {
                         val moved = media.removeAt(index)
                         media.add(index + 1, moved)
                         selectedIndex = index + 1
                     }
-                    ActionChip("Replace", LucideIcons.RefreshCw) {
+                    ActionChip(strings.seller.replaceLabel, LucideIcons.RefreshCw) {
                         replaceIndex = index
                         selectedIndex = null
                         replaceLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                     }
-                    ActionChip("Remove", LucideIcons.Trash2, danger = true) {
+                    ActionChip(strings.common.removeLabel, LucideIcons.Trash2, danger = true) {
                         media.removeAt(index)
                         selectedIndex = null
                     }
                 }
                 Spacer(Modifier.height(6.dp))
                 TextButton(onClick = { selectedIndex = null }, modifier = Modifier.align(Alignment.End)) {
-                    Text("Done", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+                    Text(strings.common.doneLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
                 }
             }
         }

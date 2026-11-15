@@ -61,6 +61,7 @@ import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import com.example.data.model.MediaItem
 import com.example.data.model.MediaKind
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.LocalSuqiColors
 import com.example.ui.theme.LucideIcons
 import com.example.ui.theme.SuqiFontFamily
@@ -136,6 +137,7 @@ private fun MediaBadge(text: String, modifier: Modifier = Modifier, small: Boole
 
 @Composable
 private fun PlayDisc(size: Dp, modifier: Modifier = Modifier) {
+    val strings = suqiStrings()
     Box(
         modifier = modifier
             .size(size)
@@ -145,7 +147,7 @@ private fun PlayDisc(size: Dp, modifier: Modifier = Modifier) {
     ) {
         Icon(
             imageVector = LucideIcons.Play,
-            contentDescription = "Play video",
+            contentDescription = strings.common.playVideoDesc,
             tint = Color.White,
             modifier = Modifier.size(size * 0.5f)
         )
@@ -156,7 +158,8 @@ private fun PlayDisc(size: Dp, modifier: Modifier = Modifier) {
 @Composable
 fun SuqiMediaThumb(item: MediaItem, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    Box(modifier = modifier.background(SuqiImageBackdrop), contentAlignment = Alignment.Center) {
+    val colors = LocalSuqiColors.current
+    Box(modifier = modifier.background(colors.imageBackdrop), contentAlignment = Alignment.Center) {
         if (item.isVideo) {
             val frame = rememberVideoThumbnail(item.url)
             if (frame != null) {
@@ -250,10 +253,11 @@ private fun VideoPlayer(url: String, isActive: Boolean, modifier: Modifier = Mod
             )
         } else {
             val frame = rememberVideoThumbnail(url)
+            val strings = suqiStrings()
             if (frame != null) {
                 Image(
                     bitmap = frame,
-                    contentDescription = "Video preview",
+                    contentDescription = strings.common.videoPreviewDesc,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -412,7 +416,7 @@ private fun FullscreenMediaViewer(media: List<MediaItem>, startIndex: Int, onDis
                     .clickable { onDismiss() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(LucideIcons.X, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(LucideIcons.X, contentDescription = suqiStrings().common.closeLabel, tint = Color.White, modifier = Modifier.size(20.dp))
             }
             if (media.size > 1) {
                 MediaBadge(

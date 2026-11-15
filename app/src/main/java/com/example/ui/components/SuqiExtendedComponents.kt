@@ -55,6 +55,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.example.data.api.BackendConfig
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -122,7 +123,8 @@ fun SuqiTabs(
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             fontSize = 13.sp,
                             color = if (selected) Color.White else colors.primaryText,
-                            maxLines = 1
+                            maxLines = 2,
+                            textAlign = TextAlign.Center
                         )
                         if (tab.showDot) {
                             Box(
@@ -165,7 +167,8 @@ fun SuqiTabs(
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 13.sp,
                                 color = if (selected) SuqiPrimary else colors.secondaryText,
-                                maxLines = 1
+                                maxLines = 2,
+                                textAlign = TextAlign.Center
                             )
                             if (tab.showDot) {
                                 Box(
@@ -604,6 +607,7 @@ fun SuqiTimeField(
     enabled: Boolean = true
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var showPicker by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
@@ -636,7 +640,7 @@ fun SuqiTimeField(
                 fontSize = 14.sp,
                 color = if (enabled) colors.primaryText else colors.mutedText
             )
-            Icon(LucideIcons.Clock, contentDescription = "Pick time", tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+            Icon(LucideIcons.Clock, contentDescription = strings.common.pickTime, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
         }
     }
 
@@ -647,7 +651,7 @@ fun SuqiTimeField(
         val state = rememberTimePickerState(initialHour = initHour, initialMinute = initMinute, is24Hour = true)
         AlertDialog(
             onDismissRequest = { showPicker = false },
-            title = { Text(label.ifBlank { "Select Time" }, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
+            title = { Text(label.ifBlank { strings.common.selectTime }, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
             text = { TimePicker(state = state) },
             confirmButton = {
                 TextButton(onClick = {
@@ -655,11 +659,11 @@ fun SuqiTimeField(
                     onTimeSelected(formatted)
                     showPicker = false
                 }) {
-                    Text("Confirm", color = SuqiPrimary, fontWeight = FontWeight.Bold)
+                    Text(strings.confirmLabel, color = SuqiPrimary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showPicker = false }) { Text(strings.cancelLabel) }
             },
             containerColor = colors.cardBackground,
             shape = RoundedCornerShape(24.dp)
@@ -677,6 +681,7 @@ fun SuqiDateField(
     enabled: Boolean = true
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var showPicker by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
@@ -703,13 +708,13 @@ fun SuqiDateField(
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Text(
-                text = dateText.ifBlank { "Select date" },
+                text = dateText.ifBlank { strings.common.selectDate },
                 fontFamily = SuqiFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 color = if (dateText.isNotBlank() && enabled) colors.primaryText else colors.mutedText
             )
-            Icon(LucideIcons.Calendar, contentDescription = "Pick date", tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+            Icon(LucideIcons.Calendar, contentDescription = strings.common.selectDate, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
         }
     }
 
@@ -726,11 +731,11 @@ fun SuqiDateField(
                     }
                     showPicker = false
                 }) {
-                    Text("Confirm", color = SuqiPrimary, fontWeight = FontWeight.Bold)
+                    Text(strings.confirmLabel, color = SuqiPrimary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showPicker = false }) { Text(strings.cancelLabel) }
             }
         ) {
             DatePicker(state = state)
@@ -795,6 +800,8 @@ fun SuqiCouponTicket(
     primaryActionLabel: String = "Use now"
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val effectiveActionLabel = if (primaryActionLabel == "Use now") strings.common.useNowLabel else primaryActionLabel
     val shape = RoundedCornerShape(22.dp)
     Box(
         modifier = modifier
@@ -917,9 +924,9 @@ fun SuqiCouponTicket(
                             border = BorderStroke(1.dp, colors.border),
                             modifier = Modifier.height(34.dp)
                         ) {
-                            Icon(LucideIcons.Copy, contentDescription = "Copy code", tint = colors.primaryText, modifier = Modifier.size(13.dp))
+                            Icon(LucideIcons.Copy, contentDescription = strings.common.copyLabel, tint = colors.primaryText, modifier = Modifier.size(13.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Copy", fontFamily = SuqiFontFamily, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
+                            Text(strings.common.copyLabel, fontFamily = SuqiFontFamily, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
                         }
                         Button(
                             onClick = onPrimaryAction,
@@ -928,7 +935,7 @@ fun SuqiCouponTicket(
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                             modifier = Modifier.height(34.dp)
                         ) {
-                            Text(primaryActionLabel, fontFamily = SuqiFontFamily, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(effectiveActionLabel, fontFamily = SuqiFontFamily, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
@@ -946,6 +953,8 @@ fun SuqiSwipeRow(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
+    val strings = suqiStrings()
+    val effectiveRightLabel = if (rightActionLabel == "Read") strings.common.readActionLabel else rightActionLabel
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
@@ -991,13 +1000,13 @@ fun SuqiSwipeRow(
                     .padding(horizontal = 20.dp)
             ) {
                 if (direction == SwipeToDismissBoxValue.StartToEnd && onSwipeRightAction != null) {
-                    Icon(LucideIcons.CheckCheck, contentDescription = rightActionLabel, tint = SuqiSuccess, modifier = Modifier.size(20.dp))
+                    Icon(LucideIcons.CheckCheck, contentDescription = effectiveRightLabel, tint = SuqiSuccess, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(rightActionLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiSuccess)
+                    Text(effectiveRightLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiSuccess)
                 } else if (direction == SwipeToDismissBoxValue.EndToStart && onSwipeLeftDelete != null) {
-                    Text("Delete", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiError)
+                    Text(strings.deleteLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiError)
                     Spacer(Modifier.width(6.dp))
-                    Icon(LucideIcons.Trash2, contentDescription = "Delete", tint = SuqiError, modifier = Modifier.size(20.dp))
+                    Icon(LucideIcons.Trash2, contentDescription = strings.deleteLabel, tint = SuqiError, modifier = Modifier.size(20.dp))
                 }
             }
         },
@@ -1093,6 +1102,7 @@ fun SuqiImagePickerTile(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     var isImporting by remember { mutableStateOf(false) }
     var localError by remember { mutableStateOf<String?>(null) }
     var showDemoLinkRow by remember { mutableStateOf(false) }
@@ -1135,7 +1145,7 @@ fun SuqiImagePickerTile(
                 color = colors.primaryText
             )
             if (isLockedVerified) {
-                SuqiStatusBadge("Verified", StatusType.SUCCESS)
+                SuqiStatusBadge(strings.verifiedLabel, StatusType.SUCCESS)
             }
         }
         Spacer(modifier = Modifier.height(6.dp))
@@ -1183,7 +1193,7 @@ fun SuqiImagePickerTile(
                                 }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text("Retake", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(strings.common.retakeLabel, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                         if (onRemove != null) {
                             Box(
@@ -1194,7 +1204,7 @@ fun SuqiImagePickerTile(
                                     .background(SuqiError)
                                     .clickable { onRemove() }
                             ) {
-                                Icon(LucideIcons.Trash2, contentDescription = "Remove image", tint = Color.White, modifier = Modifier.size(14.dp))
+                                Icon(LucideIcons.Trash2, contentDescription = strings.common.removeImageDesc, tint = Color.White, modifier = Modifier.size(14.dp))
                             }
                         }
                     }
@@ -1214,7 +1224,7 @@ fun SuqiImagePickerTile(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = SuqiPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
                         Spacer(Modifier.height(6.dp))
-                        Text("Processing...", fontSize = 12.sp, color = colors.secondaryText)
+                        Text(strings.common.processingLabel, fontSize = 12.sp, color = colors.secondaryText)
                     }
                 } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
@@ -1225,11 +1235,11 @@ fun SuqiImagePickerTile(
                                 .clip(CircleShape)
                                 .background(colors.primaryTint)
                         ) {
-                            Icon(LucideIcons.Camera, contentDescription = "Upload $label", tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                            Icon(LucideIcons.Camera, contentDescription = "${strings.common.uploadPhotoLabel} $label", tint = SuqiPrimary, modifier = Modifier.size(20.dp))
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            text = "Tap to pick or upload photo",
+                            text = strings.common.tapToPickPhoto,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp,
@@ -1252,7 +1262,7 @@ fun SuqiImagePickerTile(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                         modifier = Modifier.height(32.dp)
                     ) {
-                        Text("Use sample photo", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+                        Text(strings.common.useSamplePhoto, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
                     }
                 }
                 TextButton(
@@ -1260,7 +1270,7 @@ fun SuqiImagePickerTile(
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
-                    Text(if (showDemoLinkRow) "Hide URL" else "Paste URL", fontSize = 11.sp, color = colors.secondaryText)
+                    Text(if (showDemoLinkRow) strings.common.hideUrlLabel else strings.common.pasteUrlLabel, fontSize = 11.sp, color = colors.secondaryText)
                 }
             }
             if (showDemoLinkRow) {
@@ -1277,7 +1287,7 @@ fun SuqiImagePickerTile(
                         modifier = Modifier.weight(1f)
                     )
                     SuqiButton(
-                        text = "Set",
+                        text = strings.common.setLabel,
                         onClick = {
                             if (linkInput.isNotBlank()) {
                                 onImagePicked(linkInput.trim())
@@ -1314,6 +1324,7 @@ fun SuqiDocumentViewer(
     onDismiss: () -> Unit
 ) {
     if (documents.isEmpty()) return
+    val strings = suqiStrings()
     val pagerState = rememberPagerState(initialPage = initialIndex.coerceIn(0, documents.lastIndex)) { documents.size }
 
     Dialog(
@@ -1415,12 +1426,12 @@ fun SuqiDocumentViewer(
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.16f))
                 ) {
-                    Icon(LucideIcons.X, contentDescription = "Close viewer", tint = Color.White)
+                    Icon(LucideIcons.X, contentDescription = strings.common.closeViewerDesc, tint = Color.White)
                 }
             }
 
             Text(
-                text = "Pinch or double-tap to zoom · Swipe between documents",
+                text = strings.common.viewerGestureHint,
                 fontFamily = SuqiFontFamily,
                 fontSize = 11.sp,
                 color = Color.White.copy(alpha = 0.72f),
@@ -1445,6 +1456,7 @@ fun SuqiQrCard(
 ) {
     val context = LocalContext.current
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     SuqiSectionCard(modifier = modifier, padding = 18.dp) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
             if (!badgeText.isNullOrBlank()) {
@@ -1529,16 +1541,16 @@ fun SuqiQrCard(
                     onClick = {
                         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                         cm?.setPrimaryClip(ClipData.newPlainText("Suqi", codeValue))
-                        Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, strings.common.copiedToast, Toast.LENGTH_SHORT).show()
                         onCopyCode()
                     },
                     shape = RoundedCornerShape(999.dp),
                     border = BorderStroke(1.dp, colors.border),
                     modifier = Modifier.weight(1f).height(46.dp)
                 ) {
-                    Icon(LucideIcons.Copy, contentDescription = "Copy", tint = colors.primaryText, modifier = Modifier.size(16.dp))
+                    Icon(LucideIcons.Copy, contentDescription = strings.common.copyLabel, tint = colors.primaryText, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Copy Link", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
+                    Text(strings.common.copyLinkLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
                 }
                 Button(
                     onClick = onShare,
@@ -1546,9 +1558,9 @@ fun SuqiQrCard(
                     colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
                     modifier = Modifier.weight(1f).height(46.dp)
                 ) {
-                    Icon(LucideIcons.Share2, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(16.dp))
+                    Icon(LucideIcons.Share2, contentDescription = strings.shareProduct, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Share QR", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                    Text(strings.common.shareQrLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
                 }
             }
         }

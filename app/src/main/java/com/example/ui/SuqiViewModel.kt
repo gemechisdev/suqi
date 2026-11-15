@@ -239,7 +239,10 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     fun quickAddToCart(product: ProductDto) {
         viewModelScope.launch {
             val res = repository.addToCart(product.id, 1, "")
-            showToast(if (res.success) "Added to Cart!" else (res.message ?: "Failed to add"))
+            val strings = com.example.ui.i18n.SuqiStringCatalog.forLanguage(
+                com.example.ui.i18n.SuqiLanguage.fromSetting(selectedLanguage.value)
+            )
+            showToast(if (res.success) strings.addedToCart else (res.message ?: strings.common.failedToAddToast))
         }
     }
 

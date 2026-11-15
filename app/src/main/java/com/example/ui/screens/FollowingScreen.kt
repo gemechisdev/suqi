@@ -36,6 +36,7 @@ fun FollowingScreen(
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isOffline by viewModel.isOffline.collectAsState()
     val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
 
     var followedShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
     var feedProducts by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
@@ -67,15 +68,15 @@ fun FollowingScreen(
     }
 
     SuqiScreen(
-        title = "Following",
-        subtitle = "${followedShops.size} followed shops",
+        title = strings.followingTitle,
+        subtitle = strings.checkout.followedShopsTabTemplate.format(followedShops.size),
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         headerActions = {
             IconButton(
                 onClick = { viewModel.navigate(ScreenDestination.Cart) },
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(RoundedCornerShape(999.dp))
                     .background(colors.secondaryBackground)
                     .testTag("following_cart_button")
@@ -89,7 +90,7 @@ fun FollowingScreen(
                         }
                     }
                 ) {
-                    Icon(LucideIcons.ShoppingCart, contentDescription = "Cart", tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                    Icon(LucideIcons.ShoppingCart, contentDescription = strings.cartTitle, tint = colors.primaryText, modifier = Modifier.size(18.dp))
                 }
             }
         },
@@ -117,14 +118,15 @@ fun FollowingScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (selectedTab == 0) SuqiPrimary else Color.Transparent)
                             .clickable { selectedTab = 0 }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 10.dp, horizontal = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Followed Shops (${followedShops.size})",
+                            text = strings.checkout.followedShopsTabTemplate.format(followedShops.size),
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
+                            maxLines = 2,
                             color = if (selectedTab == 0) Color.White else colors.primaryText
                         )
                     }
@@ -135,14 +137,15 @@ fun FollowingScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (selectedTab == 1) SuqiPrimary else Color.Transparent)
                             .clickable { selectedTab = 1 }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 10.dp, horizontal = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Latest Feed (${feedProducts.size})",
+                            text = strings.checkout.latestFeedTemplate.format(feedProducts.size),
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
+                            maxLines = 2,
                             color = if (selectedTab == 1) Color.White else colors.primaryText
                         )
                     }
@@ -157,9 +160,9 @@ fun FollowingScreen(
                 item {
                     SuqiEmptyState(
                         icon = LucideIcons.Store,
-                        title = "Not following any shops yet",
-                        subtitle = "Follow Ethiopian merchants you trust to keep up with their new stock and flash discounts.",
-                        ctaText = "Explore Verified Shops",
+                        title = strings.buyer.noFollowedShopsTitle,
+                        subtitle = strings.buyer.noFollowedShopsSub,
+                        ctaText = strings.buyer.discoverShopsCta,
                         onCtaClick = { viewModel.navigate(ScreenDestination.Shops) },
                         testTag = "following_empty_state"
                     )
@@ -200,7 +203,7 @@ fun FollowingScreen(
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(
                                             imageVector = LucideIcons.CheckCircle,
-                                            contentDescription = "Verified",
+                                            contentDescription = strings.verifiedLabel,
                                             tint = SuqiPrimary,
                                             modifier = Modifier.size(16.dp)
                                         )
@@ -208,7 +211,7 @@ fun FollowingScreen(
                                 }
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "${shop.productCount} Products • ${shop.subCity}, ${shop.city}",
+                                    text = "${strings.buyer.productsCountTemplate.format(shop.productCount)} • ${shop.subCity}, ${shop.city}",
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 12.sp,
                                     color = colors.secondaryText
@@ -217,7 +220,7 @@ fun FollowingScreen(
                                     Icon(LucideIcons.StarFilled, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(13.dp))
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "${shop.rating} (${shop.reviewCount} reviews)",
+                                        text = "${shop.rating} (${strings.checkout.reviewsCountTemplate.format(shop.reviewCount)})",
                                         fontFamily = SuqiFontFamily,
                                         fontSize = 12.sp,
                                         color = colors.mutedText
@@ -237,10 +240,11 @@ fun FollowingScreen(
                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Text(
-                                    text = "Following",
+                                    text = strings.buyer.followingLabel,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
+                                    maxLines = 2,
                                     color = SuqiPrimary
                                 )
                             }
@@ -258,9 +262,9 @@ fun FollowingScreen(
                                 border = BorderStroke(1.dp, colors.border),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(44.dp)
+                                    .heightIn(min = 48.dp)
                             ) {
-                                Text("Visit Storefront", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
+                                Text(strings.visitShop, fontFamily = SuqiFontFamily, fontSize = 12.sp, maxLines = 2, color = colors.primaryText)
                             }
 
                             Button(
@@ -269,11 +273,11 @@ fun FollowingScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(44.dp)
+                                    .heightIn(min = 48.dp)
                             ) {
                                 Icon(LucideIcons.MessageCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Chat", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = Color.White)
+                                Text(strings.checkout.chatShortBtn, fontFamily = SuqiFontFamily, fontSize = 12.sp, maxLines = 2, color = Color.White)
                             }
                         }
                     }
@@ -283,8 +287,8 @@ fun FollowingScreen(
                     item {
                         SuqiEmptyState(
                             icon = LucideIcons.ShoppingBag,
-                            title = "No product updates yet",
-                            subtitle = "New listings from your followed shops will appear here automatically."
+                            title = strings.noProductsFound,
+                            subtitle = strings.buyer.noFollowedShopsSub
                         )
                     }
                 } else {

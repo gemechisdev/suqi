@@ -48,8 +48,7 @@ fun CategoryListingScreen(
     var sortBy by remember { mutableStateOf("POPULAR") }
     var inStockOnly by remember { mutableStateOf(false) }
     var verifiedOnly by remember { mutableStateOf(false) }
-    var minPriceText by remember { mutableStateOf("") }
-    var maxPriceText by remember { mutableStateOf("") }
+    var priceRange by remember { mutableStateOf(0f..50000f) }
     var minRating by remember { mutableDoubleStateOf(0.0) }
     var isGridView by remember { mutableStateOf(true) }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -60,8 +59,8 @@ fun CategoryListingScreen(
     }
 
     fun applyClientFilters(raw: List<ProductDto>): List<ProductDto> {
-        val minP = minPriceText.toDoubleOrNull()
-        val maxP = maxPriceText.toDoubleOrNull()
+        val minP = if (priceRange.start > 0f) priceRange.start.toDouble() else null
+        val maxP = if (priceRange.endInclusive < 50000f) priceRange.endInclusive.toDouble() else null
         val filtered = raw.filter { p ->
             (minP == null || p.price >= minP) &&
                 (maxP == null || p.price <= maxP) &&
@@ -111,12 +110,12 @@ fun CategoryListingScreen(
         }
     }
 
-    LaunchedEffect(categoryId, selectedSubCategory, sortBy, inStockOnly, verifiedOnly, minPriceText, maxPriceText, minRating) {
+    LaunchedEffect(categoryId, selectedSubCategory, sortBy, inStockOnly, verifiedOnly, priceRange, minRating) {
         loadProducts()
     }
 
     val activeFilterCount = listOf(
-        minPriceText.isNotBlank() || maxPriceText.isNotBlank(),
+        priceRange.start > 0f || priceRange.endInclusive < 50000f,
         minRating > 0.0,
         inStockOnly,
         verifiedOnly
@@ -124,7 +123,7 @@ fun CategoryListingScreen(
 
     SuqiScreen(
         title = categoryTitle,
-        subtitle = "${products.size} products",
+        subtitle = strings.buyer.productsCountTemplate.replace("%d", products.size.toString()),
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         onRetryOffline = {
@@ -151,7 +150,7 @@ fun CategoryListingScreen(
                         }
                     }
                 ) {
-                    Icon(LucideIcons.ShoppingCart, contentDescription = "Cart", tint = colors.primaryText, modifier = Modifier.size(20.dp))
+                    Icon(LucideIcons.ShoppingCart, contentDescription = strings.cartTitle, tint = colors.primaryText, modifier = Modifier.size(20.dp))
                 }
             }
         },
@@ -170,7 +169,7 @@ fun CategoryListingScreen(
             ) {
                 item {
                     SuqiFilterChips(
-                        items = subCategories.map { it to it },
+                        items = subCategories.map { it to if (it == "All") strings.allLabel else it },
                         selectedKey = selectedSubCategory,
                         onSelect = { selectedSubCategory = it },
                         testTagPrefix = "subcat"
@@ -229,7 +228,7 @@ fun CategoryListingScreen(
                         IconButton(
                             onClick = { isGridView = !isGridView },
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(colors.cardBackground)
                                 .border(1.dp, colors.border, CircleShape)
@@ -237,7 +236,7 @@ fun CategoryListingScreen(
                         ) {
                             Icon(
                                 imageVector = if (isGridView) LucideIcons.ListIcon else LucideIcons.LayoutGrid,
-                                contentDescription = "Toggle Grid or List",
+                                contentDescription = strings.buyer.toggleGridOrListDesc,
                                 tint = colors.primaryText,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -250,12 +249,11 @@ fun CategoryListingScreen(
                         SuqiEmptyState(
                             icon = LucideIcons.SearchX,
                             title = strings.noProductsFound,
-                            subtitle = "Try switching subcategories or clearing your active price and stock filters.",
-                            ctaText = "Reset Filters",
+                            subtitle = strings.buyer.noProductsFilterSub,
+                            ctaText = strings.buyer.resetFiltersTitle,
                             onCtaClick = {
                                 selectedSubCategory = "All"
-                                minPriceText = ""
-                                maxPriceText = ""
+                                priceRange = 0f..50000f
                                 minRating = 0.0
                                 inStockOnly = false
                                 verifiedOnly = false
@@ -309,17 +307,20 @@ fun CategoryListingScreen(
     }
 
     if (showFilterSheet) {
-        SuqiBottomSheet(onDismissRequest = { showFilterSheet = false }, title = "Filter Category") {
+        SuqiBottomSheet(onDismissRequest = { showFilterSheet = false }, title = strings.buyer.filterCategoryTitle) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Price Range (ETB)", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SuqiTextField(value = minPriceText, onValueChange = { minPriceText = it.filter(Char::isDigit) }, label = "Min ETB", placeholder = "0", modifier = Modifier.weight(1f))
-                    SuqiTextField(value = maxPriceText, onValueChange = { maxPriceText = it.filter(Char::isDigit) }, label = "Max ETB", placeholder = "Any", modifier = Modifier.weight(1f))
-                }
+                Text(strings.buyer.priceRangeEtb, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                SuqiRangeSlider(
+                    values = priceRange,
+                    onValuesChange = { priceRange = it },
+                    valueRange = 0f..50000f,
+                    formatLabel = { v -> if (v >= 50000f) "${formatEtb(50000.0)}+" else formatEtb(v.toDouble()) },
+                    modifier = Modifier.testTag("category_price_slider")
+                )
 
-                Text("Minimum Rating", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                Text(strings.buyer.minRatingLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(0.0 to "Any", 3.0 to "3.0★+", 4.0 to "4.0★+", 4.5 to "4.5★+").forEach { (r, lbl) ->
+                    listOf(0.0 to strings.buyer.anyLabel, 3.0 to "3.0★+", 4.0 to "4.0★+", 4.5 to "4.5★+").forEach { (r, lbl) ->
                         FilterChip(
                             selected = minRating == r,
                             onClick = { minRating = r },
@@ -328,23 +329,26 @@ fun CategoryListingScreen(
                     }
                 }
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("In Stock Only", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, color = colors.primaryText)
-                    Switch(checked = inStockOnly, onCheckedChange = { inStockOnly = it })
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Verified Shops Only", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, color = colors.primaryText)
-                    Switch(checked = verifiedOnly, onCheckedChange = { verifiedOnly = it })
-                }
+                SuqiSwitchRow(
+                    title = strings.buyer.inStockOnly,
+                    checked = inStockOnly,
+                    onCheckedChange = { inStockOnly = it },
+                    testTag = "category_in_stock_switch"
+                )
+                SuqiSwitchRow(
+                    title = strings.buyer.verifiedShopsOnly,
+                    checked = verifiedOnly,
+                    onCheckedChange = { verifiedOnly = it },
+                    testTag = "category_verified_switch"
+                )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SuqiButton(
-                        text = "Reset",
+                        text = strings.common.resetLabel,
                         isPrimary = false,
                         isPill = true,
                         onClick = {
-                            minPriceText = ""
-                            maxPriceText = ""
+                            priceRange = 0f..50000f
                             minRating = 0.0
                             inStockOnly = false
                             verifiedOnly = false
@@ -353,7 +357,7 @@ fun CategoryListingScreen(
                         modifier = Modifier.weight(1f)
                     )
                     SuqiButton(
-                        text = "Apply Filters",
+                        text = strings.common.applyFiltersLabel,
                         isPill = true,
                         onClick = { showFilterSheet = false },
                         modifier = Modifier.weight(1f)
@@ -364,14 +368,14 @@ fun CategoryListingScreen(
     }
 
     if (showSortSheet) {
-        SuqiBottomSheet(onDismissRequest = { showSortSheet = false }, title = "Sort By") {
+        SuqiBottomSheet(onDismissRequest = { showSortSheet = false }, title = strings.buyer.sortByTitle) {
             val sortOptions = listOf(
-                "POPULAR" to "Best Match / Popular",
-                "PRICE_LOW_HIGH" to "Price: Low to High",
-                "PRICE_HIGH_LOW" to "Price: High to Low",
-                "RATING" to "Top Rated",
-                "DISCOUNT" to "Biggest Discount",
-                "NEWEST" to "Newest"
+                "POPULAR" to strings.buyer.sortPopular,
+                "PRICE_LOW_HIGH" to strings.buyer.sortPriceLowHigh,
+                "PRICE_HIGH_LOW" to strings.buyer.sortPriceHighLow,
+                "RATING" to strings.buyer.sortTopRated,
+                "DISCOUNT" to strings.buyer.sortBiggestDiscount,
+                "NEWEST" to strings.buyer.sortNewest
             )
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 sortOptions.forEach { (key, label) ->

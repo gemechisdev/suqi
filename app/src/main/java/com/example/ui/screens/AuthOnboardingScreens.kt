@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -78,7 +79,7 @@ fun AuthScreen(
     Scaffold(
         topBar = {
             SuqiHeader(
-                title = "Welcome to Suqi",
+                title = strings.welcomeToSuqi,
                 onBackClick = {
                     if (!viewModel.goBack()) viewModel.popToRoot(ScreenDestination.Home)
                 }
@@ -101,7 +102,7 @@ fun AuthScreen(
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.suqi_logo),
-                        contentDescription = "Suqi Logo",
+                        contentDescription = strings.welcomeToSuqi,
                         modifier = Modifier
                             .size(72.dp)
                             .suqiWarmShadow(RoundedCornerShape(20.dp), elevation = 10.dp)
@@ -117,7 +118,7 @@ fun AuthScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Sign in with your Ethiopian phone number or preferred account",
+                        text = strings.checkout.signInPhoneSub,
                         fontFamily = SuqiFontFamily,
                         fontSize = 13.sp,
                         color = colors.secondaryText,
@@ -130,17 +131,17 @@ fun AuthScreen(
             item {
                 SuqiSectionCard(padding = 18.dp) {
                     Text(
-                        text = if (!otpSent) "Sign in with Phone" else "Enter 6-Digit SMS Code",
+                        text = if (!otpSent) strings.signIn else strings.buyer.enterOtpPrompt,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = colors.primaryText
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    val demoHint = if (com.example.data.api.BackendConfig.DemoMode) " (Use demo code 123456)" else ""
+                    val demoHint = if (com.example.data.api.BackendConfig.DemoMode) " (${strings.checkout.demoOtpHint})" else ""
                     Text(
-                        text = if (!otpSent) "We'll send a one-time verification SMS to your +251 number."
-                        else "Sent to +251 ${phoneInput.removePrefix("0").removePrefix("+251").trim()}$demoHint",
+                        text = if (!otpSent) strings.buyer.enterPhonePrompt
+                        else "+251 ${phoneInput.removePrefix("0").removePrefix("+251").trim()}$demoHint",
                         fontFamily = SuqiFontFamily,
                         fontSize = 12.sp,
                         color = colors.secondaryText
@@ -151,7 +152,7 @@ fun AuthScreen(
                         SuqiTextField(
                             value = fullNameInput,
                             onValueChange = { fullNameInput = it },
-                            label = "Your Name (for new accounts)",
+                            label = strings.buyer.fullNameLabel,
                             placeholder = "e.g. Dawit Bekele",
                             leadingIcon = LucideIcons.User,
                             testTag = "auth_name_input"
@@ -221,13 +222,13 @@ fun AuthScreen(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         SuqiButton(
-                            text = "Send Verification Code",
+                            text = strings.buyer.sendOtpLabel,
                             onClick = {
                                 val rawDigits = phoneInput.filter { it.isDigit() }
                                 val normalizedDigits = rawDigits.removePrefix("251").removePrefix("0")
                                 val isValid = com.example.util.EthiopianMarketplaceUtils.isValidEthiopianPhone("+251$normalizedDigits")
                                 if (!isValid) {
-                                    errorMsg = "Enter a valid 9-digit Ethiopian mobile number starting with 9 or 7"
+                                    errorMsg = strings.buyer.enterPhonePrompt
                                 } else {
                                     otpSent = true
                                     otpInput = ""
@@ -236,9 +237,9 @@ fun AuthScreen(
                                     resendSeconds = 42
                                     errorMsg = null
                                     if (com.example.data.api.BackendConfig.DemoMode) {
-                                        viewModel.showToast("SMS code sent (demo: 123456)")
+                                        viewModel.showToast(strings.checkout.demoOtpHint)
                                     } else {
-                                        viewModel.showToast("Verification SMS sent")
+                                        viewModel.showToast(strings.buyer.sendOtpLabel)
                                     }
                                 }
                             },
@@ -364,29 +365,29 @@ fun AuthScreen(
                                 },
                                 modifier = Modifier.testTag("auth_change_number")
                             ) {
-                                Text("Change number", color = colors.secondaryText)
+                                Text(strings.buyer.changeNumberLabel, color = colors.secondaryText)
                             }
                             TextButton(
                                 enabled = resendSeconds == 0 && lockoutSeconds == 0,
                                 onClick = {
                                     resendSeconds = 42
                                     if (com.example.data.api.BackendConfig.DemoMode) {
-                                        viewModel.showToast("Code resent (123456)")
+                                        viewModel.showToast(strings.checkout.demoOtpHint)
                                     } else {
-                                        viewModel.showToast("New SMS verification code sent")
+                                        viewModel.showToast(strings.buyer.resendOtpLabel)
                                     }
                                 },
                                 modifier = Modifier.testTag("auth_resend_otp")
                             ) {
                                 Text(
-                                    text = if (resendSeconds > 0) "Resend in 0:${resendSeconds.toString().padStart(2, '0')}" else "Resend code",
+                                    text = if (resendSeconds > 0) "0:${resendSeconds.toString().padStart(2, '0')}" else strings.buyer.resendOtpLabel,
                                     color = if (resendSeconds > 0 || lockoutSeconds > 0) colors.mutedText else SuqiPrimary
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         SuqiButton(
-                            text = "Verify & Sign In",
+                            text = strings.checkout.verifySignInBtn,
                             enabled = lockoutSeconds == 0 && otpInput.length == 6,
                             onClick = {
                                 coroutineScope.launch {
@@ -429,7 +430,7 @@ fun AuthScreen(
             item {
                 SuqiSectionCard(padding = 16.dp) {
                     Text(
-                        text = "Quick Sign-In Options",
+                        text = strings.checkout.orContinueWith,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
@@ -438,7 +439,7 @@ fun AuthScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     SuqiButton(
-                        text = "Continue with Telegram",
+                        text = strings.buyer.continueTelegram,
                         onClick = {
                             socialName = ""
                             socialHandle = ""
@@ -453,7 +454,7 @@ fun AuthScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     SuqiButton(
-                        text = "Continue with Google",
+                        text = strings.buyer.continueGoogle,
                         onClick = {
                             socialName = ""
                             socialHandle = ""
@@ -473,7 +474,7 @@ fun AuthScreen(
                             coroutineScope.launch {
                                 viewModel.repository.loginAsGuest()
                                 viewModel.refreshSession()
-                                viewModel.showToast("Browsing as Guest")
+                                viewModel.showToast(strings.checkout.guestSessionLabel)
                                 viewModel.popToRoot(ScreenDestination.Home)
                             }
                         },
@@ -483,7 +484,7 @@ fun AuthScreen(
                             .testTag("auth_guest")
                     ) {
                         Text(
-                            text = "Browse as Guest",
+                            text = strings.common.continueAsGuest,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp,
@@ -495,7 +496,7 @@ fun AuthScreen(
 
             item {
                 Text(
-                    text = "By continuing, you agree to Suqi's Terms of Service & Privacy Policy.",
+                    text = "${strings.buyer.termsTitle} · ${strings.buyer.privacyPolicyTitle}",
                     fontFamily = SuqiFontFamily,
                     fontSize = 12.sp,
                     color = colors.mutedText,
@@ -511,24 +512,24 @@ fun AuthScreen(
         val isTg = provider == "TELEGRAM"
         SuqiBottomSheet(
             onDismissRequest = { showSocialSheet = null },
-            title = if (isTg) "Connect Telegram Account" else "Connect Google Account"
+            title = if (isTg) strings.buyer.continueTelegram else strings.buyer.continueGoogle
         ) {
             SuqiTextField(
                 value = socialName,
                 onValueChange = { socialName = it },
-                label = "Display Name",
+                label = strings.buyer.fullNameLabel,
                 placeholder = "e.g. Meron Tadesse"
             )
             Spacer(modifier = Modifier.height(12.dp))
             SuqiTextField(
                 value = socialHandle,
                 onValueChange = { socialHandle = it },
-                label = if (isTg) "Phone Number (+251)" else "Email Address",
+                label = if (isTg) strings.buyer.phoneNumberLabel else strings.buyer.emailOptionalLabel,
                 placeholder = if (isTg) "+251 911 234 567" else "name@gmail.com"
             )
             Spacer(modifier = Modifier.height(16.dp))
             SuqiButton(
-                text = if (isTg) "Authorize & Sign In" else "Sign In with Google",
+                text = if (isTg) strings.buyer.continueTelegram else strings.buyer.continueGoogle,
                 onClick = {
                     coroutineScope.launch {
                         val finalName = socialName.trim().ifBlank { if (isTg) "Telegram User" else "Google Shopper" }
@@ -540,7 +541,7 @@ fun AuthScreen(
                         showSocialSheet = null
                         if (res.success) {
                             viewModel.refreshSession()
-                            viewModel.showToast("Signed in as $finalName!")
+                            viewModel.showToast("${strings.welcomeToSuqi} $finalName")
                             viewModel.popToRoot(ScreenDestination.Home)
                         }
                     }
@@ -620,7 +621,7 @@ fun OnboardingScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Choose your preferred language and delivery sub-city for accurate local shipping estimates.",
+                    text = strings.buyer.locationSheetSubtitle,
                     fontFamily = SuqiFontFamily,
                     fontSize = 14.sp,
                     color = colors.secondaryText
@@ -675,7 +676,7 @@ fun OnboardingScreen(
             item {
                 SuqiSectionCard(padding = 16.dp) {
                     Text(
-                        text = "Region",
+                        text = strings.buyer.regionLabel,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
@@ -710,7 +711,7 @@ fun OnboardingScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(
-                        text = "Sub-City",
+                        text = strings.checkout.businessSubCityLabel.removeSuffix(" *").trim(),
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
@@ -746,7 +747,7 @@ fun OnboardingScreen(
 
             item {
                 SuqiButton(
-                    text = "Save & Explore Suqi",
+                    text = strings.buyer.getStartedLabel,
                     onClick = {
                         coroutineScope.launch {
                             viewModel.repository.updateUserProfile(
@@ -776,6 +777,7 @@ fun BecomeSellerScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val coroutineScope = rememberCoroutineScope()
     val currentUser by viewModel.currentUser.collectAsState()
     var step by remember { mutableIntStateOf(1) }
@@ -790,9 +792,13 @@ fun BecomeSellerScreen(
     var phone by remember { mutableStateOf(currentUser?.phone?.ifBlank { "+251 9" } ?: "+251 9") }
     var telegram by remember { mutableStateOf("") }
 
+    BackHandler(enabled = step > 1) {
+        step -= 1
+    }
+
     SuqiScreen(
-        title = "Become a Seller",
-        subtitle = "Step $step of 3",
+        title = strings.becomeSellerLabel,
+        subtitle = "$step / 3",
         onBackClick = { if (step > 1) step -= 1 else viewModel.goBack() },
         modifier = modifier
     ) { paddingValues ->
@@ -806,7 +812,7 @@ fun BecomeSellerScreen(
             item {
                 SuqiSectionCard(padding = 16.dp) {
                     Text(
-                        text = "Launch your Ethiopian storefront on Suqi in minutes.",
+                        text = strings.checkout.sellOnSuqiSub,
                         fontFamily = SuqiFontFamily,
                         fontSize = 13.sp,
                         color = colors.secondaryText
@@ -817,11 +823,11 @@ fun BecomeSellerScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        GuidedStepItem(stepNum = 1, label = "Shop Info", isActive = step >= 1)
+                        GuidedStepItem(stepNum = 1, label = strings.checkout.becomeSellerStepShopInfo, isActive = step >= 1)
                         Box(modifier = Modifier.weight(1f).height(2.dp).background(if (step >= 2) SuqiPrimary else colors.border))
-                        GuidedStepItem(stepNum = 2, label = "Location", isActive = step >= 2)
+                        GuidedStepItem(stepNum = 2, label = strings.checkout.becomeSellerStepLocation, isActive = step >= 2)
                         Box(modifier = Modifier.weight(1f).height(2.dp).background(if (step >= 3) SuqiPrimary else colors.border))
-                        GuidedStepItem(stepNum = 3, label = "Contact", isActive = step >= 3)
+                        GuidedStepItem(stepNum = 3, label = strings.checkout.becomeSellerStepContact, isActive = step >= 3)
                     }
                 }
             }
@@ -833,33 +839,33 @@ fun BecomeSellerScreen(
                             SuqiTextField(
                                 value = shopName,
                                 onValueChange = { shopName = it },
-                                label = "Shop Name *",
+                                label = strings.checkout.shopNameRequiredLabel,
                                 placeholder = "e.g. Addis Gadgets Hub"
                             )
                             SuqiTextField(
                                 value = shopType,
                                 onValueChange = { shopType = it },
-                                label = "Shop Type *",
+                                label = strings.checkout.shopTypeLabel,
                                 placeholder = "Retail Shop, Wholesaler, Boutique"
                             )
                             SuqiTextField(
                                 value = category,
                                 onValueChange = { category = it },
-                                label = "Primary Category *",
+                                label = strings.buyer.categoryLabel,
                                 placeholder = "Electronics, Fashion, Home & Living"
                             )
                             SuqiTextField(
                                 value = description,
                                 onValueChange = { description = it },
-                                label = "Short Bio *",
-                                placeholder = "Tell buyers what you specialize in...",
+                                label = strings.checkout.shopDescriptionLabel,
+                                placeholder = "...",
                                 singleLine = false
                             )
                             SuqiButton(
-                                text = "Continue",
+                                text = strings.continueLabel,
                                 onClick = {
                                     if (shopName.isBlank()) {
-                                        viewModel.showToast("Please enter a shop name")
+                                        viewModel.showToast(strings.checkout.shopNameRequiredLabel)
                                     } else {
                                         step = 2
                                     }
@@ -877,21 +883,21 @@ fun BecomeSellerScreen(
                             SuqiTextField(
                                 value = address,
                                 onValueChange = { address = it },
-                                label = "Street Address / Building *",
+                                label = strings.checkout.businessAddressLabel,
                                 placeholder = "e.g. Edna Mall Ground Floor #12"
                             )
                             SuqiTextField(
                                 value = city,
                                 onValueChange = { city = it },
-                                label = "City *"
+                                label = strings.checkout.businessCityLabel
                             )
                             SuqiTextField(
                                 value = subCity,
                                 onValueChange = { subCity = it },
-                                label = "Sub-City *"
+                                label = strings.checkout.businessSubCityLabel
                             )
                             SuqiButton(
-                                text = "Continue",
+                                text = strings.continueLabel,
                                 onClick = { step = 3 },
                                 isPill = true,
                                 modifier = Modifier.fillMaxWidth()
@@ -906,16 +912,16 @@ fun BecomeSellerScreen(
                             SuqiTextField(
                                 value = phone,
                                 onValueChange = { phone = it },
-                                label = "Business Phone (+251) *"
+                                label = strings.checkout.businessPhoneRequiredLabel
                             )
                             SuqiTextField(
                                 value = telegram,
                                 onValueChange = { telegram = it },
-                                label = "Telegram Link (Optional)",
+                                label = strings.checkout.telegramOptionalLabel,
                                 placeholder = "https://t.me/yourshop"
                             )
                             SuqiButton(
-                                text = "Create Shop & Open Studio",
+                                text = strings.checkout.createShopOpenStudioBtn,
                                 onClick = {
                                     coroutineScope.launch {
                                         val payload = mapOf(
@@ -932,10 +938,10 @@ fun BecomeSellerScreen(
                                         val res = viewModel.repository.upgradeToSeller(payload)
                                         if (res.success) {
                                             viewModel.refreshSession()
-                                            viewModel.showToast("Shop created! Welcome to Seller Studio.")
+                                            viewModel.showToast(strings.seller.studioTitle)
                                             viewModel.navigate(ScreenDestination.SellerStudio)
                                         } else {
-                                            viewModel.showToast(res.message ?: "Unable to create shop")
+                                            viewModel.showToast(res.message ?: strings.common.failedToAddToast)
                                         }
                                     }
                                 },

@@ -32,8 +32,24 @@ import com.example.data.model.SupportTicketDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
+
+@Composable
+private fun localizedOrderStatus(status: String): String {
+    val strings = suqiStrings()
+    return when {
+        status.equals("Delivered", ignoreCase = true) -> strings.checkout.filterDelivered
+        status.equals("Cancelled", ignoreCase = true) -> strings.checkout.filterCancelled
+        status.equals("Dispatched", ignoreCase = true) -> strings.checkout.statusDispatched
+        status.equals("Out for Delivery", ignoreCase = true) -> strings.checkout.statusOutForDelivery
+        status.equals("Confirmed", ignoreCase = true) -> strings.checkout.filterConfirmed
+        status.equals("Processing", ignoreCase = true) -> strings.checkout.statusProcessing
+        status.contains("Awaiting", ignoreCase = true) -> strings.checkout.statusPendingVerif
+        else -> status
+    }
+}
 
 @Composable
 fun MyOrdersScreen(
@@ -106,7 +122,14 @@ fun MyOrdersScreen(
                             "Delivered" -> orders.count { it.orderStatus.equals("Delivered", ignoreCase = true) }
                             else -> orders.count { it.orderStatus.equals("Cancelled", ignoreCase = true) }
                         }
-                        tab to "$tab ($count)"
+                        val localizedTab = when (tab) {
+                            "All" -> strings.checkout.filterAll
+                            "Pending" -> strings.checkout.filterPending
+                            "Confirmed" -> strings.checkout.filterConfirmed
+                            "Delivered" -> strings.checkout.filterDelivered
+                            else -> strings.checkout.filterCancelled
+                        }
+                        tab to "$localizedTab ($count)"
                     }
                     SuqiFilterChips(
                         items = chipItems,
@@ -118,11 +141,18 @@ fun MyOrdersScreen(
 
                 if (filteredOrders.isEmpty()) {
                     item {
+                        val localizedSelectedFilter = when (selectedFilter) {
+                            "All" -> strings.checkout.filterAll
+                            "Pending" -> strings.checkout.filterPending
+                            "Confirmed" -> strings.checkout.filterConfirmed
+                            "Delivered" -> strings.checkout.filterDelivered
+                            else -> strings.checkout.filterCancelled
+                        }
                         SuqiEmptyState(
                             icon = LucideIcons.PackageOpen,
-                            title = if (orders.isEmpty()) "No orders yet" else "No $selectedFilter orders",
-                            subtitle = if (orders.isEmpty()) "Items you purchase across Ethiopian shops will appear here." else "Try switching status tabs to see other orders.",
-                            ctaText = if (orders.isEmpty()) "Browse Marketplace" else "Show All Orders",
+                            title = if (orders.isEmpty()) strings.checkout.noOrdersFound else String.format(strings.checkout.noOrdersStatusTemplate, localizedSelectedFilter),
+                            subtitle = strings.checkout.noOrdersSub,
+                            ctaText = if (orders.isEmpty()) strings.checkout.continueShoppingBtn else strings.checkout.filterAll,
                             onCtaClick = {
                                 if (orders.isEmpty()) viewModel.popToRoot(ScreenDestination.Home)
                                 else selectedFilter = "All"
@@ -148,6 +178,7 @@ fun CustomerOrderCard(
     onViewDetails: () -> Unit
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     SuqiSectionCard(
         onClick = onViewDetails,
         modifier = Modifier.padding(horizontal = 16.dp).testTag("order_card_${order.id}")
@@ -170,18 +201,18 @@ fun CustomerOrderCard(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(order.shopName, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("Order #${order.orderReference}", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
+                    Text(String.format(strings.checkout.orderNumberTemplate, order.orderReference), fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                 }
             }
 
             when (order.paymentStatus) {
-                "PENDING_VERIFICATION" -> SuqiStatusBadge("Pending Verification", StatusType.WARNING)
-                "REJECTED" -> SuqiStatusBadge("Payment Rejected", StatusType.ERROR)
+                "PENDING_VERIFICATION" -> SuqiStatusBadge(strings.checkout.statusPendingVerif, StatusType.WARNING)
+                "REJECTED" -> SuqiStatusBadge(strings.checkout.statusPaymentRejected, StatusType.ERROR)
                 else -> when (order.orderStatus) {
-                    "Delivered" -> SuqiStatusBadge("Delivered", StatusType.SUCCESS)
-                    "Cancelled" -> SuqiStatusBadge("Cancelled", StatusType.ERROR)
-                    "Dispatched", "Out for Delivery" -> SuqiStatusBadge(order.orderStatus, StatusType.NEUTRAL)
-                    else -> SuqiStatusBadge(order.orderStatus, StatusType.SUCCESS)
+                    "Delivered" -> SuqiStatusBadge(localizedOrderStatus(order.orderStatus), StatusType.SUCCESS)
+                    "Cancelled" -> SuqiStatusBadge(localizedOrderStatus(order.orderStatus), StatusType.ERROR)
+                    "Dispatched", "Out for Delivery" -> SuqiStatusBadge(localizedOrderStatus(order.orderStatus), StatusType.NEUTRAL)
+                    else -> SuqiStatusBadge(localizedOrderStatus(order.orderStatus), StatusType.SUCCESS)
                 }
             }
         }
@@ -220,7 +251,7 @@ fun CustomerOrderCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Total Amount", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.mutedText)
+                Text(strings.checkout.totalAmountLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.mutedText)
                 Text(formatEtb(order.totalAmount), fontFamily = SuqiFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = SuqiPrimary)
             }
             Box(
@@ -229,7 +260,7 @@ fun CustomerOrderCard(
                     .background(colors.primaryTint)
                     .padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
-                Text("View Details", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiPrimary)
+                Text(strings.checkout.viewDetailsBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiPrimary)
             }
         }
     }
@@ -267,7 +298,7 @@ fun OrderDetailScreen(
 
     val currentOrder = order
     if (currentOrder == null) {
-        SuqiScreen(title = "Order Details", onBackClick = { viewModel.goBack() }) { padding ->
+        SuqiScreen(title = strings.orderDetails, onBackClick = { viewModel.goBack() }) { padding ->
             Box(modifier = Modifier.fillMaxSize().padding(padding).padding(top = 12.dp)) {
                 SuqiSkeletonList(count = 3)
             }
@@ -288,12 +319,12 @@ fun OrderDetailScreen(
             IconButton(
                 onClick = { showSupportSheet = true },
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(colors.cardBackground)
                     .testTag("order_need_help_btn")
             ) {
-                Icon(LucideIcons.Headphones, contentDescription = "Need help with order", tint = SuqiPrimary, modifier = Modifier.size(19.dp))
+                Icon(LucideIcons.Headphones, contentDescription = strings.checkout.needHelpBtn, tint = SuqiPrimary, modifier = Modifier.size(19.dp))
             }
         },
         bottomBar = {
@@ -318,13 +349,13 @@ fun OrderDetailScreen(
                     ) {
                         Icon(LucideIcons.MessageCircle, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Chat", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
+                        Text(strings.checkout.chatShortBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
 
                     when {
                         currentOrder.paymentStatus == "REJECTED" -> {
                             SuqiButton(
-                                text = "Resubmit Proof",
+                                text = strings.checkout.resubmitProofBtn,
                                 isPill = true,
                                 onClick = { showResubmitSheet = true },
                                 modifier = Modifier.weight(1.3f),
@@ -336,7 +367,7 @@ fun OrderDetailScreen(
                                 onClick = {
                                     coroutineScope.launch {
                                         viewModel.repository.cancelOrder(currentOrder.id)
-                                        viewModel.showToast("Order cancelled and held stock released.")
+                                        viewModel.showToast(strings.checkout.filterCancelled)
                                         loadOrder()
                                     }
                                 },
@@ -344,7 +375,7 @@ fun OrderDetailScreen(
                                 border = BorderStroke(1.dp, SuqiError.copy(alpha = 0.5f)),
                                 modifier = Modifier.weight(1.2f).height(48.dp)
                             ) {
-                                Text("Cancel Order", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiError)
+                                Text(strings.cancelOrder, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiError, maxLines = 2)
                             }
                         }
                         else -> {
@@ -357,7 +388,7 @@ fun OrderDetailScreen(
                                         currentOrder.items.forEach { item ->
                                             viewModel.repository.addToCart(item.productId, item.quantity, item.variation)
                                         }
-                                        viewModel.showToast("Items added to cart!")
+                                        viewModel.showToast(strings.addedToCart)
                                         viewModel.navigate(ScreenDestination.Cart)
                                     }
                                 },
@@ -407,13 +438,13 @@ fun OrderDetailScreen(
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
-                        Text("Order #${currentOrder.orderReference}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
+                        Text(String.format(strings.checkout.orderNumberTemplate, currentOrder.orderReference), fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = when (currentOrder.paymentStatus) {
-                                "VERIFIED" -> "${currentOrder.orderStatus} • Payment Verified"
-                                "REJECTED" -> "Payment Rejected"
-                                else -> "Awaiting Payment Confirmation"
+                                "VERIFIED" -> "${localizedOrderStatus(currentOrder.orderStatus)} • ${strings.verifiedLabel}"
+                                "REJECTED" -> strings.checkout.statusPaymentRejected
+                                else -> strings.checkout.statusPendingVerif
                             },
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
@@ -423,7 +454,7 @@ fun OrderDetailScreen(
 
                         if (!currentOrder.rejectionReason.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text("Reason: ${currentOrder.rejectionReason}", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = SuqiError)
+                            Text("${strings.checkout.rejectionReasonTitle}: ${currentOrder.rejectionReason}", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = SuqiError)
                         }
 
                         if (!currentOrder.verifiedBy.isNullOrBlank() || !currentOrder.verifiedAt.isNullOrBlank()) {
@@ -438,7 +469,7 @@ fun OrderDetailScreen(
                                 Icon(LucideIcons.ShieldCheck, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Verified by ${currentOrder.verifiedBy ?: "Merchant"} (${currentOrder.verifiedAt ?: "recorded"})",
+                                    text = "${strings.verifiedLabel}: ${currentOrder.verifiedBy ?: currentOrder.shopName} (${currentOrder.verifiedAt ?: ""})",
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 11.sp,
                                     color = SuqiSuccess
@@ -470,19 +501,19 @@ fun OrderDetailScreen(
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Text(currentOrder.deliveryOptionTitle.ifBlank { "Courier Dispatch" }, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                                    Text(currentOrder.deliveryOptionTitle.ifBlank { strings.checkout.courierDeliveryTitle }, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                                     val courierInfo = listOfNotNull(
                                         currentOrder.courierName.takeIf { it.isNotBlank() },
                                         currentOrder.courierPhone.takeIf { it.isNotBlank() }
-                                    ).joinToString(" • ").ifBlank { "Assigned by ${currentOrder.shopName}" }
+                                    ).joinToString(" • ").ifBlank { currentOrder.shopName }
                                     Text(courierInfo, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                                 }
                             }
-                            SuqiStatusBadge(currentOrder.orderStatus, if (currentOrder.orderStatus == "Delivered") StatusType.SUCCESS else StatusType.NEUTRAL)
+                            SuqiStatusBadge(localizedOrderStatus(currentOrder.orderStatus), if (currentOrder.orderStatus == "Delivered") StatusType.SUCCESS else StatusType.NEUTRAL)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Estimated window: ${currentOrder.deliveryEstimatedDays} • Destination: ${currentOrder.deliveryAddress}",
+                            text = "${String.format(strings.checkout.etaEstimateTemplate, currentOrder.deliveryEstimatedDays)} • ${currentOrder.deliveryAddress}",
                             fontFamily = SuqiFontFamily,
                             fontSize = 12.sp,
                             color = colors.mutedText
@@ -494,7 +525,7 @@ fun OrderDetailScreen(
             // Purchased Items
             item {
                 SuqiSectionCard {
-                    Text("Purchased Items (${currentOrder.items.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                    Text("${strings.checkout.purchasedItemsTitle} (${currentOrder.items.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(10.dp))
                     currentOrder.items.forEachIndexed { idx, item ->
                         if (idx > 0) HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 8.dp))
@@ -508,7 +539,7 @@ fun OrderDetailScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(item.productName, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("Qty: ${item.quantity} • ${formatEtb(item.unitPrice)}", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
+                                Text("${item.quantity} × ${formatEtb(item.unitPrice)}", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                             }
                             TextButton(
                                 onClick = {
@@ -517,7 +548,7 @@ fun OrderDetailScreen(
                             ) {
                                 Icon(LucideIcons.Star, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Review", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SuqiPrimary)
+                                Text(strings.buyer.writeReviewTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SuqiPrimary)
                             }
                         }
                     }
@@ -527,31 +558,31 @@ fun OrderDetailScreen(
             // Order Timeline
             item {
                 SuqiSectionCard {
-                    Text("Order Status Timeline", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                    Text(strings.checkout.orderTimelineTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(12.dp))
                     val isVerified = currentOrder.paymentStatus == "VERIFIED"
                     val isDispatched = currentOrder.orderStatus in listOf("Dispatched", "Out for Delivery", "Delivered")
                     val isDelivered = currentOrder.orderStatus == "Delivered"
 
-                    TimelineStep(title = "Order Submitted", time = currentOrder.createdAt, isDone = true)
+                    TimelineStep(title = strings.checkout.stepOrderPlaced, time = currentOrder.createdAt, isDone = true)
                     TimelineStep(
-                        title = "Payment Verified by Seller",
-                        time = if (isVerified) currentOrder.verifiedAt ?: "Verified" else "Pending verification",
+                        title = strings.checkout.stepSellerVerified,
+                        time = if (isVerified) currentOrder.verifiedAt ?: strings.verifiedLabel else strings.checkout.statusPendingVerif,
                         isDone = isVerified
                     )
                     TimelineStep(
-                        title = "Preparing Order",
-                        time = if (isVerified) "Seller preparing items" else "Waiting for payment confirmation",
+                        title = strings.checkout.statusProcessing,
+                        time = if (isVerified) strings.checkout.statusProcessing else strings.checkout.statusPendingVerif,
                         isDone = isVerified
                     )
                     TimelineStep(
-                        title = "Dispatched / Out for Delivery",
-                        time = if (isDispatched) currentOrder.dispatchedAt ?: "On the way" else "Pending dispatch",
+                        title = strings.checkout.statusOutForDelivery,
+                        time = if (isDispatched) currentOrder.dispatchedAt ?: strings.checkout.statusOutForDelivery else strings.checkout.filterPending,
                         isDone = isDispatched
                     )
                     TimelineStep(
-                        title = "Delivered",
-                        time = if (isDelivered) "Completed" else "Expected in ${currentOrder.deliveryEstimatedDays}",
+                        title = strings.checkout.filterDelivered,
+                        time = if (isDelivered) strings.common.doneLabel else String.format(strings.checkout.etaEstimateTemplate, currentOrder.deliveryEstimatedDays),
                         isDone = isDelivered,
                         isLast = true
                     )
@@ -561,7 +592,7 @@ fun OrderDetailScreen(
             // Payment & Receipt Details + Delivery Destination
             item {
                 SuqiSectionCard {
-                    Text("Delivery Destination", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                    Text(strings.checkout.deliveryAddressTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("${currentOrder.customerName} (${currentOrder.customerPhone})\n${currentOrder.deliveryAddress}", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
 
@@ -569,37 +600,37 @@ fun OrderDetailScreen(
                     HorizontalDivider(color = colors.border)
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Text("Payment Proof & Summary", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                    Text(strings.checkout.paymentProofSummaryTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Payment Method", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                        Text(strings.checkout.paymentMethodTitle, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                         Text(currentOrder.paymentMethodTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Transaction Ref", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                        Text(strings.checkout.txRefLabel, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                         Text(currentOrder.transactionReference, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiPrimary)
                     }
                     if (currentOrder.payerIdentifier.isNotBlank()) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Payer", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                            Text(strings.checkout.senderPhoneLabel, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                             Text(currentOrder.payerIdentifier, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.primaryText)
                         }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total Paid", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
+                        Text(strings.checkout.amountPaidLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
                         Text(formatEtb(currentOrder.totalAmount), fontFamily = SuqiFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = SuqiPrimary)
                     }
 
                     if (currentOrder.receiptImageUri.isNotBlank()) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("Uploaded Receipt Screenshot (Tap to zoom)", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
+                        Text(strings.checkout.receiptAttachedLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                         Spacer(modifier = Modifier.height(6.dp))
                         AsyncImage(
                             model = currentOrder.receiptImageUri,
-                            contentDescription = "Uploaded payment receipt",
+                            contentDescription = strings.checkout.receiptAttachedLabel,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -625,7 +656,7 @@ fun OrderDetailScreen(
             ) {
                 AsyncImage(
                     model = zoomReceiptUri,
-                    contentDescription = "Full payment receipt",
+                    contentDescription = strings.checkout.receiptAttachedLabel,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().padding(16.dp)
                 )
@@ -633,7 +664,7 @@ fun OrderDetailScreen(
                     onClick = { zoomReceiptUri = null },
                     modifier = Modifier.align(Alignment.TopEnd).padding(20.dp).background(Color.Black.copy(alpha = 0.6f), CircleShape)
                 ) {
-                    Icon(LucideIcons.X, contentDescription = "Close", tint = Color.White)
+                    Icon(LucideIcons.X, contentDescription = strings.common.closeLabel, tint = Color.White)
                 }
             }
         }
@@ -646,10 +677,10 @@ fun OrderDetailScreen(
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) newReceiptUri = uri.toString()
         }
-        SuqiBottomSheet(onDismissRequest = { showResubmitSheet = false }, title = "Resubmit Payment Proof") {
+        SuqiBottomSheet(onDismissRequest = { showResubmitSheet = false }, title = strings.checkout.resubmitProofBtn) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Update your transaction reference and/or attach a clearer receipt screenshot:", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
-                SuqiTextField(value = newRef, onValueChange = { newRef = it }, label = "Transaction Reference *", placeholder = "e.g., TXN991022")
+                Text(strings.checkout.receiptRequiredHint, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                SuqiTextField(value = newRef, onValueChange = { newRef = it }, label = strings.checkout.newTxRefRequiredLabel, placeholder = "TXN991022")
                 OutlinedButton(
                     onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     shape = RoundedCornerShape(14.dp),
@@ -657,10 +688,10 @@ fun OrderDetailScreen(
                 ) {
                     Icon(LucideIcons.Upload, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(if (newReceiptUri.isBlank()) "Attach Receipt Screenshot" else "Replace Receipt Screenshot", fontFamily = SuqiFontFamily, color = SuqiPrimary)
+                    Text(if (newReceiptUri.isBlank()) strings.uploadReceipt else strings.checkout.changeReceiptLabel, fontFamily = SuqiFontFamily, color = SuqiPrimary)
                 }
                 SuqiButton(
-                    text = "Submit Updated Proof",
+                    text = strings.checkout.submitNewProofBtn,
                     isPill = true,
                     enabled = newRef.isNotBlank(),
                     onClick = {
@@ -669,7 +700,7 @@ fun OrderDetailScreen(
                                 currentOrder.id,
                                 mapOf("transactionReference" to newRef.trim(), "receiptImageUri" to newReceiptUri)
                             )
-                            viewModel.showToast("Payment proof resubmitted!")
+                            viewModel.showToast(strings.common.doneLabel)
                             showResubmitSheet = false
                             loadOrder()
                         }
@@ -684,22 +715,30 @@ fun OrderDetailScreen(
     if (showSupportSheet) {
         var category by remember { mutableStateOf("Return / Refund") }
         var description by remember { mutableStateOf("") }
-        SuqiBottomSheet(onDismissRequest = { showSupportSheet = false }, title = "Need Help With Order?") {
+        SuqiBottomSheet(onDismissRequest = { showSupportSheet = false }, title = strings.checkout.submitHelpTicketTitle) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Return / Refund", "Payment Issue", "Delivery Delay").forEach { cat ->
-                        FilterChip(selected = category == cat, onClick = { category = cat }, label = { Text(cat, fontFamily = SuqiFontFamily, fontSize = 12.sp) })
+                    listOf(
+                        "Return / Refund" to strings.returnItem,
+                        "Payment Issue" to strings.checkout.paymentMethodTitle,
+                        "Delivery Delay" to strings.checkout.courierDeliveryTitle
+                    ).forEach { (catKey, catLabel) ->
+                        FilterChip(
+                            selected = category == catKey,
+                            onClick = { category = catKey },
+                            label = { Text(catLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, maxLines = 2) }
+                        )
                     }
                 }
                 SuqiTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = "Describe the issue",
-                    placeholder = "Tell us how our Ethiopian support team can help...",
+                    label = strings.checkout.messageDetailsRequiredLabel,
+                    placeholder = strings.checkout.messageDetailsRequiredLabel,
                     singleLine = false
                 )
                 SuqiButton(
-                    text = "Submit Support Ticket",
+                    text = strings.checkout.submitTicketBtn,
                     isPill = true,
                     enabled = description.isNotBlank(),
                     onClick = {
@@ -716,7 +755,7 @@ fun OrderDetailScreen(
                                     createdAt = "Just now"
                                 )
                             )
-                            viewModel.showToast("Support ticket created!")
+                            viewModel.showToast(strings.common.doneLabel)
                             showSupportSheet = false
                         }
                     },

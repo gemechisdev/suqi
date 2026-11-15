@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.*
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -33,6 +34,7 @@ fun SellerVerificationV2Screen(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -46,6 +48,24 @@ fun SellerVerificationV2Screen(
     var docErrorSlot by remember { mutableStateOf<String?>(null) }
     var viewerPages by remember { mutableStateOf<List<SuqiDocumentPage>?>(null) }
     var viewerIndex by remember { mutableIntStateOf(0) }
+
+    fun slotLabel(key: String, fallback: String): String = when (key) {
+        "idFront" -> strings.seller.docIdFront
+        "idBack" -> strings.seller.docIdBack
+        "tradeLicense" -> strings.seller.docTradeLicense
+        "shopPhoto" -> strings.seller.docShopPhoto
+        "selfieWithId" -> strings.seller.docSelfieWithId
+        else -> fallback
+    }
+
+    fun slotGuidance(key: String, fallback: String): String = when (key) {
+        "idFront" -> strings.sellerOps.docIdFrontGuide
+        "idBack" -> strings.sellerOps.docIdBackGuide
+        "tradeLicense" -> strings.sellerOps.docTradeLicenseGuide
+        "shopPhoto" -> strings.sellerOps.docShopPhotoGuide
+        "selfieWithId" -> strings.sellerOps.docSelfieWithIdGuide
+        else -> fallback
+    }
 
     fun loadShop() {
         coroutineScope.launch {
@@ -84,8 +104,8 @@ fun SellerVerificationV2Screen(
     val isEditable = status !in listOf("VERIFIED", "PENDING_REVIEW", "RESUBMITTED")
 
     SuqiScreen(
-        title = "Seller Verification",
-        subtitle = "Merchant trust & KYC badge",
+        title = strings.seller.sellerVerificationTitle,
+        subtitle = strings.sellerOps.merchantVerificationSub,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -122,7 +142,7 @@ fun SellerVerificationV2Screen(
                         ) {
                             Icon(
                                 imageVector = LucideIcons.BadgeCheck,
-                                contentDescription = "Verification status",
+                                contentDescription = strings.seller.verificationStatusTitle,
                                 tint = when (status) {
                                     "VERIFIED" -> SuqiSuccess
                                     "PENDING_REVIEW", "RESUBMITTED" -> SuqiWarning
@@ -135,12 +155,12 @@ fun SellerVerificationV2Screen(
                         Spacer(Modifier.height(10.dp))
                         Text(
                             text = when (status) {
-                                "VERIFIED" -> "Shop Verified"
-                                "PENDING_REVIEW" -> "Verification Under Review"
-                                "RESUBMITTED" -> "Updated Docs Under Review"
-                                "CHANGES_REQUESTED" -> "Action Needed: Re-upload Selected Docs"
-                                "REJECTED" -> "Resubmission Required"
-                                else -> "Get Your Shop Verified"
+                                "VERIFIED" -> strings.admin.queueVerified
+                                "PENDING_REVIEW" -> strings.admin.queuePending
+                                "RESUBMITTED" -> strings.admin.queueResubmitted
+                                "CHANGES_REQUESTED" -> strings.admin.queueWaitingInfo
+                                "REJECTED" -> strings.admin.queueRejected
+                                else -> strings.seller.sellerVerificationTitle
                             },
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
@@ -151,11 +171,9 @@ fun SellerVerificationV2Screen(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             text = when (status) {
-                                "VERIFIED" -> "Buyers now see the verified merchant badge next to ${shop?.name ?: "your shop"}."
-                                "PENDING_REVIEW", "RESUBMITTED" -> "Suqi admins are checking your 5 uploaded verification documents."
                                 "CHANGES_REQUESTED", "REJECTED" -> shop?.verificationRejectionReason
-                                    ?: "Please review the highlighted items below and resubmit."
-                                else -> "Upload your Ethiopian ID, trade license, shop photo, and ID selfie to unlock your verified badge."
+                                    ?: strings.sellerOps.merchantVerificationSub
+                                else -> strings.sellerOps.merchantVerificationSub
                             },
                             fontFamily = SuqiFontFamily,
                             fontSize = 13.sp,
@@ -176,7 +194,7 @@ fun SellerVerificationV2Screen(
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = shop?.name ?: "Your Shop",
+                                text = shop?.name ?: strings.sellerOps.mySuqiShopFallback,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
@@ -184,12 +202,12 @@ fun SellerVerificationV2Screen(
                             )
                             Icon(
                                 LucideIcons.BadgeCheck,
-                                contentDescription = "Verified badge preview",
+                                contentDescription = strings.verifiedLabel,
                                 tint = Color(0xFF2563EB),
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = if (status == "VERIFIED") "Active" else "Badge Preview",
+                                text = if (status == "VERIFIED") strings.adminOps.activeStatus else strings.verifiedLabel,
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 11.sp,
                                 color = if (status == "VERIFIED") SuqiSuccess else colors.mutedText
@@ -198,7 +216,12 @@ fun SellerVerificationV2Screen(
 
                         Spacer(Modifier.height(18.dp))
                         SuqiStepIndicator(
-                            steps = listOf("Submitted", "In review", "Decision", "Verified"),
+                            steps = listOf(
+                                strings.checkout.stepPaymentSubmitted,
+                                strings.admin.queuePending,
+                                strings.admin.queueWaitingInfo,
+                                strings.verifiedLabel
+                            ),
                             currentStep = currentStep
                         )
                     }
@@ -211,7 +234,7 @@ fun SellerVerificationV2Screen(
                             Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiError, modifier = Modifier.size(20.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (status == "CHANGES_REQUESTED") "Items Needing Re-upload" else "Verification Feedback",
+                                    text = strings.checkout.rejectionReasonTitle,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
@@ -219,7 +242,7 @@ fun SellerVerificationV2Screen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = shop?.verificationRejectionReason ?: "Please retake unclear documents and resubmit.",
+                                    text = shop?.verificationRejectionReason ?: strings.admin.reviewReasonHint,
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 12.sp,
                                     color = colors.primaryText
@@ -228,9 +251,9 @@ fun SellerVerificationV2Screen(
                                     Spacer(Modifier.height(6.dp))
                                     val failedLabels = VerificationDocsCodec.docSlots
                                         .filter { it.key in failedKeys }
-                                        .joinToString(" • ") { it.label }
+                                        .joinToString(" • ") { slotLabel(it.key, it.label) }
                                     Text(
-                                        text = "Reopen tiles: $failedLabels",
+                                        text = failedLabels,
                                         fontFamily = SuqiFontFamily,
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 11.sp,
@@ -251,14 +274,14 @@ fun SellerVerificationV2Screen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Required Verification Documents",
+                                text = strings.adminOps.submittedDocsTitle,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
                                 color = colors.primaryText
                             )
                             Text(
-                                text = "${docUris.count { it.value.isNotBlank() }} / ${VerificationDocsCodec.docSlots.size} uploaded",
+                                text = "${docUris.count { it.value.isNotBlank() }} / ${VerificationDocsCodec.docSlots.size}",
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 12.sp,
                                 color = colors.secondaryText
@@ -266,7 +289,7 @@ fun SellerVerificationV2Screen(
                         }
                         if (docUris.isNotEmpty()) {
                             Text(
-                                text = "Preview All",
+                                text = strings.common.viewAllLabel,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
@@ -277,7 +300,7 @@ fun SellerVerificationV2Screen(
                                         viewerPages = VerificationDocsCodec.docSlots.mapNotNull { slot ->
                                             val uri = docUris[slot.key]
                                             if (uri.isNullOrBlank()) null
-                                            else SuqiDocumentPage(slot.label, uri, slot.guidance)
+                                            else SuqiDocumentPage(slotLabel(slot.key, slot.label), uri, slotGuidance(slot.key, slot.guidance))
                                         }
                                         viewerIndex = 0
                                     }
@@ -290,6 +313,8 @@ fun SellerVerificationV2Screen(
 
                     VerificationDocsCodec.docSlots.forEachIndexed { index, slot ->
                         val currentUri = docUris[slot.key]
+                        val localizedTitle = slotLabel(slot.key, slot.label)
+                        val localizedGuide = slotGuidance(slot.key, slot.guidance)
                         // In CHANGES_REQUESTED, non-failed tiles with already-uploaded docs stay locked/verified
                         val tileLocked = when (status) {
                             "VERIFIED", "PENDING_REVIEW", "RESUBMITTED" -> true
@@ -297,20 +322,20 @@ fun SellerVerificationV2Screen(
                             else -> false
                         }
                         val slotError = when {
-                            docErrorSlot == slot.key -> "Please upload ${slot.label}"
-                            status in listOf("CHANGES_REQUESTED", "REJECTED") && slot.key in failedKeys -> "Admin requested a clearer photo for this document"
+                            docErrorSlot == slot.key -> "$localizedTitle (${strings.common.requiredLabel})"
+                            status in listOf("CHANGES_REQUESTED", "REJECTED") && slot.key in failedKeys -> strings.admin.requestChangesBtn
                             else -> null
                         }
 
                         SuqiImagePickerTile(
-                            label = slot.label,
+                            label = localizedTitle,
                             imageUri = currentUri,
                             onImagePicked = { picked ->
                                 docUris[slot.key] = picked
                                 if (docErrorSlot == slot.key) docErrorSlot = null
                             },
                             onRemove = if (!tileLocked) ({ docUris.remove(slot.key) }) else null,
-                            guidance = slot.guidance,
+                            guidance = localizedGuide,
                             errorMessage = slotError,
                             isLockedVerified = tileLocked && !currentUri.isNullOrBlank(),
                             demoSampleUrl = slot.demoSampleUrl,
@@ -325,25 +350,18 @@ fun SellerVerificationV2Screen(
                 // Optional Reference Numbers Card
                 SuqiSectionCard(padding = 16.dp) {
                     Text(
-                        text = "Optional License & Tax Reference",
+                        text = strings.seller.licenseNumberLabel,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = colors.primaryText
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Adding your license or TIN number speeds up manual cross-checking.",
-                        fontFamily = SuqiFontFamily,
-                        fontSize = 12.sp,
-                        color = colors.secondaryText
-                    )
                     Spacer(Modifier.height(10.dp))
                     SuqiTextField(
                         value = licenseNumber,
                         onValueChange = { licenseNumber = it },
-                        label = "Trade License / National ID Ref (Optional)",
-                        placeholder = "e.g. ET-AA-2026-4410",
+                        label = strings.seller.licenseNumberLabel,
+                        placeholder = "ET-AA-2026-4410",
                         enabled = isEditable,
                         testTag = "seller_verify_license_ref"
                     )
@@ -351,8 +369,8 @@ fun SellerVerificationV2Screen(
                     SuqiTextField(
                         value = tinNumber,
                         onValueChange = { tinNumber = it },
-                        label = "TIN Number (Optional)",
-                        placeholder = "e.g. 0041298501",
+                        label = strings.seller.tinNumberLabel,
+                        placeholder = "0041298501",
                         enabled = isEditable,
                         testTag = "seller_verify_tin"
                     )
@@ -362,7 +380,7 @@ fun SellerVerificationV2Screen(
                 if (parsedSubmission.history.isNotEmpty()) {
                     SuqiSectionCard(padding = 16.dp) {
                         Text(
-                            text = "Verification Activity",
+                            text = strings.seller.verificationActivityTitle,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
@@ -402,9 +420,9 @@ fun SellerVerificationV2Screen(
                 if (isEditable) {
                     SuqiButton(
                         text = when {
-                            isSubmitting -> "Submitting..."
-                            status in listOf("REJECTED", "CHANGES_REQUESTED") -> "Resubmit Documents"
-                            else -> "Submit Verification Package"
+                            isSubmitting -> strings.checkout.submittingLabel
+                            status in listOf("REJECTED", "CHANGES_REQUESTED") -> strings.seller.resubmitVerificationBtn
+                            else -> strings.seller.submitVerificationBtn
                         },
                         enabled = !isSubmitting,
                         onClick = {
@@ -413,7 +431,7 @@ fun SellerVerificationV2Screen(
                             }
                             if (missingSlot != null) {
                                 docErrorSlot = missingSlot.key
-                                viewModel.showToast("Please upload ${missingSlot.label}")
+                                viewModel.showToast(slotLabel(missingSlot.key, missingSlot.label))
                                 return@SuqiButton
                             }
                             isSubmitting = true
@@ -428,10 +446,10 @@ fun SellerVerificationV2Screen(
                                 val res = viewModel.repository.submitSellerVerification(payload)
                                 isSubmitting = false
                                 if (res.success) {
-                                    viewModel.showToast("Verification documents submitted for review!")
+                                    viewModel.showToast(strings.adminOps.verifyActionToast)
                                     loadShop()
                                 } else {
-                                    viewModel.showToast(res.message ?: "Submission failed")
+                                    viewModel.showToast(res.message ?: strings.retryLabel)
                                 }
                             }
                         },
@@ -440,7 +458,7 @@ fun SellerVerificationV2Screen(
                     )
                 } else {
                     SuqiButton(
-                        text = "Back to Studio",
+                        text = strings.common.goBackLabel,
                         isPrimary = false,
                         onClick = { viewModel.goBack() },
                         modifier = Modifier.fillMaxWidth()

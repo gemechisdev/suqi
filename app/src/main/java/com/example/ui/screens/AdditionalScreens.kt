@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,6 +31,9 @@ import com.example.data.model.*
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*
+import com.example.ui.i18n.LocalSuqiLanguage
+import com.example.ui.i18n.localizedName
+import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import com.example.util.EthiopianMarketplaceUtils
 import kotlinx.coroutines.launch
@@ -41,6 +45,7 @@ fun NotificationsScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var notifications by remember { mutableStateOf<List<NotificationDto>>(emptyList()) }
     var selectedFilter by remember { mutableStateOf("ALL") }
@@ -67,19 +72,19 @@ fun NotificationsScreen(
         else notifications.filter { it.type.equals(selectedFilter, ignoreCase = true) }
     }
 
-    val filterChips = remember(notifications) {
+    val filterChips = remember(notifications, strings) {
         listOf(
-            "ALL" to "All (${notifications.size})",
-            "ORDER" to "Orders (${notifications.count { it.type == "ORDER" }})",
-            "PAYMENT" to "Payments (${notifications.count { it.type == "PAYMENT" }})",
-            "CHAT" to "Chat (${notifications.count { it.type == "CHAT" }})",
-            "PROMO" to "Promo (${notifications.count { it.type == "PROMO" }})"
+            "ALL" to "${strings.checkout.filterAll} (${notifications.size})",
+            "ORDER" to "${strings.buyer.ordersTabLabel} (${notifications.count { it.type == "ORDER" }})",
+            "PAYMENT" to "${strings.checkout.paymentMethodTitle} (${notifications.count { it.type == "PAYMENT" }})",
+            "CHAT" to "${strings.buyer.chatTabLabel} (${notifications.count { it.type == "CHAT" }})",
+            "PROMO" to "${strings.buyer.promosTabLabel} (${notifications.count { it.type == "PROMO" }})"
         )
     }
 
     SuqiScreen(
-        title = "Notifications",
-        subtitle = "${notifications.count { !it.isRead }} unread",
+        title = strings.notificationsTitle,
+        subtitle = "${notifications.count { !it.isRead }}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         headerActions = {
@@ -89,12 +94,12 @@ fun NotificationsScreen(
                         coroutineScope.launch {
                             viewModel.clearNotificationCount()
                             loadNotifications()
-                            viewModel.showToast("All notifications marked read")
+                            viewModel.showToast(strings.buyer.markAllRead)
                         }
                     },
                     modifier = Modifier.testTag("notifications_mark_all_read")
                 ) {
-                    Text("Mark all read", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = SuqiPrimary)
+                    Text(strings.buyer.markAllRead, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = SuqiPrimary)
                 }
             }
         },
@@ -119,9 +124,9 @@ fun NotificationsScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     SuqiEmptyState(
                         icon = LucideIcons.Bell,
-                        title = "You're all caught up",
-                        subtitle = "Order confirmations, payment verifications, and shop updates will appear here.",
-                        ctaText = if (selectedFilter != "ALL") "Show All" else null,
+                        title = strings.buyer.noNotificationsTitle,
+                        subtitle = strings.buyer.noNotificationsSub,
+                        ctaText = if (selectedFilter != "ALL") strings.checkout.filterAll else null,
                         onCtaClick = if (selectedFilter != "ALL") { { selectedFilter = "ALL" } } else null,
                         testTag = "notifications_empty"
                     )
@@ -208,9 +213,9 @@ fun NotificationsScreen(
                                             loadNotifications()
                                         }
                                     },
-                                    modifier = Modifier.size(40.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
-                                    Icon(LucideIcons.Trash2, contentDescription = "Delete notification", tint = colors.mutedText, modifier = Modifier.size(16.dp))
+                                    Icon(LucideIcons.Trash2, contentDescription = strings.deleteLabel, tint = colors.mutedText, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -228,6 +233,7 @@ fun SavedAddressesScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var addresses by remember { mutableStateOf<List<SavedAddressDto>>(emptyList()) }
     var editingAddress by remember { mutableStateOf<SavedAddressDto?>(null) }
@@ -251,8 +257,8 @@ fun SavedAddressesScreen(
     }
 
     SuqiScreen(
-        title = "Saved Addresses",
-        subtitle = "${addresses.size} delivery locations",
+        title = strings.savedAddresses,
+        subtitle = "${addresses.size}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         floatingActionButton = {
@@ -265,7 +271,7 @@ fun SavedAddressesScreen(
                 contentColor = Color.White,
                 modifier = Modifier.testTag("add_address_fab")
             ) {
-                Icon(LucideIcons.Plus, contentDescription = "Add Address")
+                Icon(LucideIcons.Plus, contentDescription = strings.checkout.addAddressBtn)
             }
         },
         modifier = modifier
@@ -276,9 +282,9 @@ fun SavedAddressesScreen(
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 SuqiEmptyState(
                     icon = LucideIcons.MapPin,
-                    title = "No saved addresses",
-                    subtitle = "Save your home or office location in Addis Ababa or regional cities for faster checkout.",
-                    ctaText = "Add Address",
+                    title = strings.buyer.noAddressesTitle,
+                    subtitle = strings.buyer.noAddressesSub,
+                    ctaText = strings.buyer.addNewAddress,
                     onCtaClick = {
                         editingAddress = null
                         showSheet = true
@@ -309,7 +315,7 @@ fun SavedAddressesScreen(
                                 color = colors.primaryText
                             )
                             if (addr.isDefault) {
-                                SuqiStatusBadge("Default", StatusType.SUCCESS)
+                                SuqiStatusBadge(strings.buyer.defaultBadge, StatusType.SUCCESS)
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
@@ -324,7 +330,7 @@ fun SavedAddressesScreen(
                         if (addr.deliveryInstructions.isNotBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Note: ${addr.deliveryInstructions}",
+                                text = addr.deliveryInstructions,
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 12.sp,
                                 color = colors.mutedText
@@ -337,15 +343,15 @@ fun SavedAddressesScreen(
                                     onClick = {
                                         coroutineScope.launch {
                                             viewModel.repository.saveAddress(addr.copy(isDefault = true))
-                                            viewModel.showToast("Default address updated")
+                                            viewModel.showToast(strings.buyer.defaultBadge)
                                             loadAddresses()
                                         }
                                     },
                                     shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, SuqiPrimary),
-                                    modifier = Modifier.weight(1f).height(44.dp)
+                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                                 ) {
-                                    Text("Set Default", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+                                    Text(strings.buyer.setAsDefault, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SuqiPrimary, maxLines = 2)
                                 }
                             }
                             OutlinedButton(
@@ -355,27 +361,27 @@ fun SavedAddressesScreen(
                                 },
                                 shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, colors.border),
-                                modifier = Modifier.weight(1f).height(44.dp)
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                             ) {
-                                Text("Edit", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
+                                Text(strings.editLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.primaryText, maxLines = 2)
                             }
                             OutlinedButton(
                                 onClick = {
                                     coroutineScope.launch {
                                         val res = viewModel.repository.deleteSavedAddress(addr.id)
                                         if (res.success) {
-                                            viewModel.showToast("Address removed")
+                                            viewModel.showToast(strings.deleteLabel)
                                             loadAddresses()
                                         } else {
-                                            viewModel.showToast(res.message ?: "Cannot remove address")
+                                            viewModel.showToast(res.message ?: strings.buyer.addressInUseBlocked)
                                         }
                                     }
                                 },
                                 shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, SuqiError.copy(alpha = 0.4f)),
-                                modifier = Modifier.weight(1f).height(44.dp)
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                             ) {
-                                Text("Delete", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SuqiError)
+                                Text(strings.deleteLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SuqiError, maxLines = 2)
                             }
                         }
                     }
@@ -396,35 +402,29 @@ fun SavedAddressesScreen(
 
         SuqiBottomSheet(
             onDismissRequest = { showSheet = false },
-            title = if (editingAddress == null) "Add Delivery Address" else "Edit Address"
+            title = if (editingAddress == null) strings.buyer.addAddressTitle else strings.buyer.editAddressTitle
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SuqiTextField(value = name, onValueChange = { name = it }, label = "Recipient Name *")
-                SuqiTextField(value = phone, onValueChange = { phone = it }, label = "Phone (+251) *")
-                SuqiTextField(value = address, onValueChange = { address = it }, label = "Street / Landmark *")
+                SuqiTextField(value = name, onValueChange = { name = it }, label = "${strings.buyer.recipientNameField} *")
+                SuqiTextField(value = phone, onValueChange = { phone = it }, label = "${strings.buyer.phoneNumberLabel} (+251) *")
+                SuqiTextField(value = address, onValueChange = { address = it }, label = "${strings.buyer.landmarkField} *")
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SuqiTextField(value = subCity, onValueChange = { subCity = it }, label = "Sub-City", modifier = Modifier.weight(1f))
-                    SuqiTextField(value = city, onValueChange = { city = it }, label = "City", modifier = Modifier.weight(1f))
+                    SuqiTextField(value = subCity, onValueChange = { subCity = it }, label = strings.checkout.businessSubCityLabel.removeSuffix(" *"), modifier = Modifier.weight(1f))
+                    SuqiTextField(value = city, onValueChange = { city = it }, label = strings.checkout.businessCityLabel.removeSuffix(" *"), modifier = Modifier.weight(1f))
                 }
-                SuqiTextField(value = notes, onValueChange = { notes = it }, label = "Delivery Instructions")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Set as default delivery address", fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.primaryText)
-                    Switch(
-                        checked = isDefault,
-                        onCheckedChange = { isDefault = it },
-                        colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary)
-                    )
-                }
+                SuqiTextField(value = notes, onValueChange = { notes = it }, label = strings.checkout.standardDeliverySub)
+                SuqiSwitchRow(
+                    title = strings.buyer.setAsDefault,
+                    checked = isDefault,
+                    onCheckedChange = { isDefault = it },
+                    testTag = "address_default_switch"
+                )
                 Spacer(modifier = Modifier.height(6.dp))
                 SuqiButton(
-                    text = if (editingAddress == null) "Save Address" else "Update Address",
+                    text = strings.saveLabel,
                     onClick = {
                         if (name.isBlank() || address.isBlank()) {
-                            viewModel.showToast("Enter recipient name and street/landmark")
+                            viewModel.showToast("${strings.buyer.recipientNameField} / ${strings.buyer.landmarkField}")
                             return@SuqiButton
                         }
                         coroutineScope.launch {
@@ -443,7 +443,7 @@ fun SavedAddressesScreen(
                             )
                             showSheet = false
                             loadAddresses()
-                            viewModel.showToast("Address saved")
+                            viewModel.showToast(strings.saveLabel)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -460,6 +460,7 @@ fun WishlistScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -480,8 +481,8 @@ fun WishlistScreen(
     }
 
     SuqiScreen(
-        title = "Wishlist",
-        subtitle = "${products.size} saved items",
+        title = strings.wishlistTitle,
+        subtitle = String.format(strings.buyer.productsCountTemplate, products.size),
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -492,9 +493,9 @@ fun WishlistScreen(
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 SuqiEmptyState(
                     icon = LucideIcons.Heart,
-                    title = "Your wishlist is empty",
-                    subtitle = "Tap the heart icon on any product to save it here for quick comparison and checkout.",
-                    ctaText = "Explore Marketplace",
+                    title = strings.buyer.emptyWishlistTitle,
+                    subtitle = strings.buyer.emptyWishlistSub,
+                    ctaText = strings.startShopping,
                     onCtaClick = { viewModel.popToRoot(ScreenDestination.Home) },
                     testTag = "wishlist_empty"
                 )
@@ -549,6 +550,7 @@ fun ReviewsScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var reviews by remember { mutableStateOf<List<ReviewDto>>(emptyList()) }
     var rating by remember { mutableDoubleStateOf(5.0) }
@@ -569,14 +571,14 @@ fun ReviewsScreen(
     }
 
     SuqiScreen(
-        title = "Reviews",
+        title = strings.customerReviews,
         subtitle = "$targetName (${reviews.size})",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = {
-                    viewModel.requireSignedInOrPrompt("write a review") {
+                    viewModel.requireSignedInOrPrompt(strings.buyer.writeReviewTitle.lowercase()) {
                         showWriteDialog = true
                     }
                 },
@@ -585,7 +587,7 @@ fun ReviewsScreen(
             ) {
                 Icon(LucideIcons.MessageSquarePlus, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Write Review")
+                Text(strings.buyer.writeReviewTitle)
             }
         },
         modifier = modifier
@@ -594,11 +596,11 @@ fun ReviewsScreen(
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 SuqiEmptyState(
                     icon = LucideIcons.Star,
-                    title = "No reviews yet",
-                    subtitle = "Be the first customer to review $targetName.",
-                    ctaText = "Write a Review",
+                    title = strings.buyer.noReviewsTitle,
+                    subtitle = strings.buyer.noReviewsSub,
+                    ctaText = strings.buyer.writeReviewTitle,
                     onCtaClick = {
-                        viewModel.requireSignedInOrPrompt("write a review") {
+                        viewModel.requireSignedInOrPrompt(strings.buyer.writeReviewTitle.lowercase()) {
                             showWriteDialog = true
                         }
                     }
@@ -622,7 +624,7 @@ fun ReviewsScreen(
                                 .padding(horizontal = 24.dp)
                         ) {
                             Text(
-                                text = "Report review",
+                                text = strings.buyer.reportReviewLabel,
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 11.sp,
                                 color = colors.mutedText,
@@ -638,7 +640,7 @@ fun ReviewsScreen(
                                                     "reviewText" to rev.comment
                                                 )
                                             )
-                                            viewModel.showToast("Review reported for moderation")
+                                            viewModel.showToast(strings.buyer.reportReviewLabel)
                                         }
                                     }
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -653,16 +655,16 @@ fun ReviewsScreen(
     if (showWriteDialog) {
         SuqiBottomSheet(
             onDismissRequest = { showWriteDialog = false },
-            title = "Write a Review"
+            title = strings.buyer.writeReviewTitle
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Select Rating", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
+                Text(strings.buyer.minRatingLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     for (i in 1..5) {
-                        IconButton(onClick = { rating = i.toDouble() }, modifier = Modifier.size(44.dp)) {
+                        IconButton(onClick = { rating = i.toDouble() }, modifier = Modifier.size(48.dp)) {
                             Icon(
                                 LucideIcons.StarFilled,
-                                contentDescription = "$i stars",
+                                contentDescription = "$i ★",
                                 tint = if (i <= rating) SuqiWarning else colors.border,
                                 modifier = Modifier.size(28.dp)
                             )
@@ -672,14 +674,14 @@ fun ReviewsScreen(
                 SuqiTextField(
                     value = comment,
                     onValueChange = { comment = it },
-                    label = "Your Review",
+                    label = strings.buyer.writeReviewTitle,
                     singleLine = false
                 )
                 SuqiButton(
-                    text = "Submit Review",
+                    text = strings.buyer.submitReviewLabel,
                     onClick = {
                         if (comment.isBlank()) {
-                            viewModel.showToast("Please write a short comment")
+                            viewModel.showToast(strings.buyer.writeReviewTitle)
                             return@SuqiButton
                         }
                         coroutineScope.launch {
@@ -694,7 +696,7 @@ fun ReviewsScreen(
                             comment = ""
                             showWriteDialog = false
                             loadReviews()
-                            viewModel.showToast("Thank you for your review!")
+                            viewModel.showToast(strings.buyer.submitReviewLabel)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -711,7 +713,7 @@ fun AppSettingsScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
-    val strings = com.example.ui.i18n.suqiStrings()
+    val strings = suqiStrings()
     val currentUser by viewModel.currentUser.collectAsState()
     val isDarkPref by viewModel.isDarkMode.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
@@ -741,7 +743,7 @@ fun AppSettingsScreen(
         ) {
             item {
                 SuqiSectionCard(padding = 16.dp) {
-                    Text("Language & Region", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                    Text("${strings.languageTitle} · ${strings.buyer.regionLabel}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(10.dp))
 
                     val langs = listOf(
@@ -757,7 +759,7 @@ fun AppSettingsScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable {
                                     viewModel.setSelectedLanguage(key)
-                                    viewModel.showToast("Language: $label")
+                                    viewModel.showToast("${strings.languageTitle}: $label")
                                 }
                                 .padding(vertical = 10.dp, horizontal = 6.dp)
                                 .testTag("settings_lang_${key.lowercase().replace(" ", "_")}"),
@@ -766,7 +768,7 @@ fun AppSettingsScreen(
                         ) {
                             Text(label, fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.primaryText)
                             if (isSel) {
-                                Icon(LucideIcons.Check, contentDescription = "Selected", tint = SuqiPrimary, modifier = Modifier.size(18.dp))
+                                Icon(LucideIcons.Check, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
                             }
                         }
                     }
@@ -776,8 +778,8 @@ fun AppSettingsScreen(
                     SuqiListRow(
                         icon = LucideIcons.MapPin,
                         title = "$curCity, $curSubCity",
-                        subtitle = "Region: $curRegion",
-                        badge = "Change",
+                        subtitle = "${strings.buyer.regionLabel}: $curRegion",
+                        badge = strings.common.changeLabel,
                         onClick = { showLocationSheet = true },
                         testTag = "settings_location_row"
                     )
@@ -803,7 +805,7 @@ fun AppSettingsScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable {
                                     viewModel.setDarkMode(value)
-                                    viewModel.showToast("Theme set to $label")
+                                    viewModel.showToast("${strings.appearanceTitle}: $label")
                                 }
                                 .padding(vertical = 10.dp, horizontal = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -837,40 +839,32 @@ fun AppSettingsScreen(
 
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 10.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Order & Payment Alerts", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = colors.primaryText)
-                            Text("Receive updates when sellers verify payments", fontSize = 12.sp, color = colors.secondaryText)
-                        }
-                        Switch(
-                            checked = notificationsEnabled,
-                            onCheckedChange = { notificationsEnabled = it },
-                            colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary)
-                        )
-                    }
+                    SuqiSwitchRow(
+                        title = strings.checkout.orderPaymentAlertsTitle,
+                        subtitle = strings.checkout.orderPaymentAlertsSub,
+                        checked = notificationsEnabled,
+                        onCheckedChange = { notificationsEnabled = it },
+                        testTag = "settings_alerts_switch"
+                    )
                 }
             }
 
             item {
                 SuqiSectionCard(padding = 16.dp) {
-                    Text("Account & Staff Tools", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
+                    Text(strings.checkout.accountStaffToolsTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(8.dp))
 
                     SuqiListRow(
                         icon = LucideIcons.CircleUser,
-                        title = "Account Email",
-                        subtitle = currentUser?.email?.ifBlank { "Not linked" } ?: "Guest session",
+                        title = strings.checkout.accountEmailTitle,
+                        subtitle = currentUser?.email?.ifBlank { strings.checkout.notLinkedLabel } ?: strings.checkout.guestSessionLabel,
                         showChevron = false,
                         onClick = { viewModel.navigate(ScreenDestination.ProfileEdit) }
                     )
                     SuqiListRow(
                         icon = LucideIcons.Phone,
-                        title = "Phone Number",
-                        subtitle = currentUser?.phone?.ifBlank { "Not linked" } ?: "Not linked",
+                        title = strings.buyer.phoneNumberLabel,
+                        subtitle = currentUser?.phone?.ifBlank { strings.checkout.notLinkedLabel } ?: strings.checkout.notLinkedLabel,
                         showChevron = false,
                         onClick = { viewModel.navigate(ScreenDestination.ProfileEdit) }
                     )
@@ -878,49 +872,27 @@ fun AppSettingsScreen(
 
                     SuqiListRow(
                         icon = LucideIcons.ShieldCheck,
-                        title = "Admin / Staff Sign In",
-                        subtitle = "Owner, Admin & Developer console access",
+                        title = strings.admin.staffSignInTitle,
+                        subtitle = strings.checkout.adminStaffSignInSub,
                         onClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
                         testTag = "settings_admin_signin_row"
                     )
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.warningBg),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(LucideIcons.WifiOff, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(18.dp))
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Offline Mode Simulator", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = colors.primaryText)
-                                Text("Preview offline cached banner across screens", fontSize = 12.sp, color = colors.secondaryText)
-                            }
-                        }
-                        Switch(
-                            checked = isOffline,
-                            onCheckedChange = { viewModel.setOfflineMode(it) },
-                            colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary),
-                            modifier = Modifier.testTag("settings_offline_switch")
-                        )
-                    }
+                    SuqiSwitchRow(
+                        title = strings.buyer.offlineSimulatorTitle,
+                        subtitle = strings.offlineBannerTitle,
+                        icon = LucideIcons.WifiOff,
+                        checked = isOffline,
+                        onCheckedChange = { viewModel.setOfflineMode(it) },
+                        testTag = "settings_offline_switch"
+                    )
 
                     if (isDevUnlocked) {
                         SuqiListRow(
                             icon = LucideIcons.Wrench,
-                            title = "Developer Diagnostics",
-                            subtitle = "Inspect database counts, session & tools",
-                            badge = "Unlocked",
+                            title = strings.buyer.devToolsRowTitle,
+                            subtitle = strings.adminOps.openDiagnosticsSub,
+                            badge = strings.adminOps.activeStatus,
                             onClick = { viewModel.navigate(ScreenDestination.AdminDevTools) },
                             testTag = "settings_dev_tools_row"
                         )
@@ -936,9 +908,9 @@ fun AppSettingsScreen(
                                 versionTapCount++
                                 if (versionTapCount >= 7 && !isDevUnlocked) {
                                     viewModel.unlockDeveloperTools()
-                                    viewModel.showToast("Developer Tools unlocked!")
+                                    viewModel.showToast(strings.admin.devToolsTitle)
                                 } else if (!isDevUnlocked && versionTapCount >= 4) {
-                                    viewModel.showToast("${7 - versionTapCount} taps remaining for Developer Mode")
+                                    viewModel.showToast("${7 - versionTapCount}")
                                 }
                             }
                             .padding(vertical = 8.dp, horizontal = 4.dp)
@@ -946,7 +918,7 @@ fun AppSettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Suqi App Version", fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
+                        Text(strings.checkout.appVersionLabel, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
@@ -967,14 +939,14 @@ fun AppSettingsScreen(
 
             item {
                 SuqiButton(
-                    text = "Sign Out",
+                    text = strings.signOut,
                     isPrimary = false,
                     icon = LucideIcons.LogOut,
                     onClick = {
                         coroutineScope.launch {
                             viewModel.repository.loginAsGuest()
                             viewModel.refreshSession()
-                            viewModel.showToast("Signed out")
+                            viewModel.showToast(strings.signOut)
                             viewModel.popToRoot(ScreenDestination.Auth)
                         }
                     },
@@ -989,9 +961,9 @@ fun AppSettingsScreen(
     if (showLocationSheet) {
         SuqiBottomSheet(
             onDismissRequest = { showLocationSheet = false },
-            title = "Select Delivery Location"
+            title = strings.selectYourLocation
         ) {
-            Text("Region", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
+            Text(strings.buyer.regionLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
             Spacer(modifier = Modifier.height(6.dp))
             val regions = listOf("Addis Ababa", "Oromia", "Amhara", "Sidama", "Dire Dawa")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1015,7 +987,7 @@ fun AppSettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-            Text("City & Sub-City", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
+            Text(strings.checkout.businessSubCityLabel.removeSuffix(" *"), fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
             Spacer(modifier = Modifier.height(6.dp))
 
             val subCities = listOf("Bole", "Kirkos", "Yeka", "Arada", "Lideta", "Nifas Silk")
@@ -1040,7 +1012,7 @@ fun AppSettingsScreen(
                                         )
                                     )
                                 }
-                                viewModel.showToast("Delivery location set to Addis Ababa, $sc")
+                                viewModel.showToast("Addis Ababa, $sc")
                                 showLocationSheet = false
                             }
                     ) {
@@ -1074,6 +1046,7 @@ fun HelpLegalScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var activeDocument by remember { mutableStateOf<EthiopianMarketplaceUtils.LegalDocument?>(null) }
     var showFaqDialog by remember { mutableStateOf(false) }
@@ -1094,7 +1067,7 @@ fun HelpLegalScreen(
     }
 
     SuqiScreen(
-        title = "Help & Legal",
+        title = strings.helpSupportTitle,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -1111,10 +1084,10 @@ fun HelpLegalScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         Icon(LucideIcons.Headphones, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(40.dp))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Need Help?", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
+                        Text(strings.checkout.needHelpBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "Our Addis Ababa support team assists buyers and merchants 7 days a week.",
+                            strings.buyer.contactUsTitle,
                             fontFamily = SuqiFontFamily,
                             fontSize = 13.sp,
                             color = colors.secondaryText,
@@ -1123,17 +1096,17 @@ fun HelpLegalScreen(
                         Spacer(modifier = Modifier.height(14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                             SuqiButton(
-                                text = "Submit Ticket",
+                                text = strings.checkout.submitTicketBtn,
                                 icon = LucideIcons.MessageSquarePlus,
                                 onClick = { showTicketSheet = true },
                                 testTag = "help_submit_ticket_button",
                                 modifier = Modifier.weight(1f)
                             )
                             SuqiButton(
-                                text = "Call Support",
+                                text = strings.buyer.contactUsTitle,
                                 isPrimary = false,
                                 icon = LucideIcons.Phone,
-                                onClick = { viewModel.showToast("Support line: +251 912 345 678") },
+                                onClick = { viewModel.showToast("+251 912 345 678") },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -1145,7 +1118,7 @@ fun HelpLegalScreen(
                 item {
                     SuqiSectionCard(padding = 16.dp) {
                         Text(
-                            text = "Your Support Tickets (${tickets.size})",
+                            text = "${strings.buyer.myTicketsTitle} (${tickets.size})",
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
@@ -1178,32 +1151,32 @@ fun HelpLegalScreen(
                 SuqiSectionCard(padding = 14.dp) {
                     SuqiListRow(
                         icon = LucideIcons.HelpCircle,
-                        title = "Frequently Asked Questions",
-                        subtitle = "Orders, Telebirr, & returns",
+                        title = strings.buyer.helpSearchHint.removeSuffix("…"),
+                        subtitle = strings.helpSupportTitle,
                         onClick = { showFaqDialog = true }
                     )
                     SuqiListRow(
                         icon = LucideIcons.FileText,
-                        title = "Terms of Service",
+                        title = strings.buyer.termsTitle,
                         subtitle = "Ethiopian Proclamation 1205/2020",
                         onClick = { activeDocument = EthiopianMarketplaceUtils.TERMS_OF_SERVICE }
                     )
                     SuqiListRow(
                         icon = LucideIcons.Shield,
-                        title = "Privacy Policy",
-                        subtitle = "Data protection & security",
+                        title = strings.buyer.privacyPolicyTitle,
+                        subtitle = strings.buyer.privacyTitle,
                         onClick = { activeDocument = EthiopianMarketplaceUtils.PRIVACY_POLICY }
                     )
                     SuqiListRow(
                         icon = LucideIcons.Handshake,
-                        title = "Vendor Marketplace Agreement",
-                        subtitle = "Merchant payout & fulfillment rules",
+                        title = strings.seller.sellerVerificationTitle,
+                        subtitle = strings.seller.studioTitle,
                         onClick = { activeDocument = EthiopianMarketplaceUtils.SELLER_AGREEMENT }
                     )
                     SuqiListRow(
                         icon = LucideIcons.Info,
-                        title = "About Suqi",
-                        subtitle = "v1.0.0 — Ethiopian Multi-Vendor Marketplace",
+                        title = strings.buyer.aboutSuqiTitle,
+                        subtitle = "v1.0.0 — ${strings.everyShopEveryProduct}",
                         showChevron = false,
                         onClick = { viewModel.showToast("Suqi v1.0.0") }
                     )
@@ -1219,32 +1192,37 @@ fun HelpLegalScreen(
 
         SuqiBottomSheet(
             onDismissRequest = { showTicketSheet = false },
-            title = "Submit Support Ticket"
+            title = strings.checkout.submitHelpTicketTitle
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Topic", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
-                val cats = listOf("Order Issue", "Payment", "Delivery", "Account")
+                Text(strings.checkout.issueCategoryLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
+                val cats = listOf(
+                    "Order Issue" to strings.buyer.ordersTabLabel,
+                    "Payment" to strings.checkout.paymentMethodTitle,
+                    "Delivery" to strings.checkout.stepDelivery,
+                    "Account" to strings.accountTitle
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    cats.forEach { cat ->
-                        val sel = cat == category
+                    cats.forEach { (key, label) ->
+                        val sel = key == category
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
                                 .background(if (sel) SuqiPrimary else colors.secondaryBackground)
-                                .clickable { category = cat }
+                                .clickable { category = key }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text(cat, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (sel) Color.White else colors.primaryText)
+                            Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (sel) Color.White else colors.primaryText)
                         }
                     }
                 }
-                SuqiTextField(value = subject, onValueChange = { subject = it }, label = "Subject *")
-                SuqiTextField(value = description, onValueChange = { description = it }, label = "Details *", singleLine = false)
+                SuqiTextField(value = subject, onValueChange = { subject = it }, label = "${strings.checkout.issueCategoryLabel} *")
+                SuqiTextField(value = description, onValueChange = { description = it }, label = strings.checkout.messageDetailsRequiredLabel, singleLine = false)
                 SuqiButton(
-                    text = "Send Ticket",
+                    text = strings.checkout.submitTicketBtn,
                     onClick = {
                         if (subject.isBlank() || description.isBlank()) {
-                            viewModel.showToast("Please complete subject and details")
+                            viewModel.showToast(strings.checkout.messageDetailsRequiredLabel)
                             return@SuqiButton
                         }
                         coroutineScope.launch {
@@ -1261,7 +1239,7 @@ fun HelpLegalScreen(
                             )
                             showTicketSheet = false
                             loadTickets()
-                            viewModel.showToast("Support ticket submitted!")
+                            viewModel.showToast(strings.checkout.submitTicketBtn)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -1295,7 +1273,7 @@ fun HelpLegalScreen(
             },
             confirmButton = {
                 TextButton(onClick = { activeDocument = null }) {
-                    Text("Close", color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
+                    Text(strings.common.closeLabel, color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
                 }
             },
             containerColor = colors.cardBackground,
@@ -1307,7 +1285,7 @@ fun HelpLegalScreen(
         AlertDialog(
             onDismissRequest = { showFaqDialog = false },
             title = {
-                Text("Frequently Asked Questions", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
+                Text(strings.helpSupportTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
             },
             text = {
                 LazyColumn(
@@ -1316,7 +1294,7 @@ fun HelpLegalScreen(
                 ) {
                     items(EthiopianMarketplaceUtils.FAQS) { (q, a) ->
                         SuqiSectionCard(containerColor = colors.secondaryBackground, padding = 12.dp) {
-                            Text(text = "Q: $q", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = SuqiPrimary)
+                            Text(text = q, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = SuqiPrimary)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(text = a, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText, lineHeight = 17.sp)
                         }
@@ -1325,7 +1303,7 @@ fun HelpLegalScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showFaqDialog = false }) {
-                    Text("Close", color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
+                    Text(strings.common.closeLabel, color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
                 }
             },
             containerColor = colors.cardBackground,
@@ -1344,6 +1322,7 @@ fun AdminSignInScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1364,11 +1343,15 @@ fun AdminSignInScreen(
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
-    val tiers = listOf("OWNER" to "Owner", "ADMIN" to "Admin", "DEVELOPER" to "Developer")
+    val tiers = listOf(
+        "OWNER" to strings.adminOps.ownerRoleLabel,
+        "ADMIN" to strings.adminOps.adminRoleLabel,
+        "DEVELOPER" to strings.adminOps.developerRoleLabel
+    )
 
     SuqiScreen(
-        title = "Staff & Admin Sign In",
-        subtitle = "Restricted platform access",
+        title = strings.admin.staffSignInTitle,
+        subtitle = strings.common.accessRestrictedTitle,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -1394,7 +1377,7 @@ fun AdminSignInScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Suqi Governance Portal",
+                            text = strings.admin.consoleTitle,
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
@@ -1402,7 +1385,7 @@ fun AdminSignInScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Authenticate as an Owner, Platform Admin, or Developer to manage categories, banners, verification queues, and diagnostics.",
+                            text = strings.admin.adminRestrictedSub,
                             fontFamily = SuqiFontFamily,
                             fontSize = 13.sp,
                             color = colors.secondaryText,
@@ -1411,8 +1394,7 @@ fun AdminSignInScreen(
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
-                    Text("Staff Tier", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         tiers.forEach { (key, label) ->
@@ -1421,18 +1403,20 @@ fun AdminSignInScreen(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(42.dp)
+                                    .heightIn(min = 48.dp)
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(if (selected) SuqiPrimary else colors.secondaryBackground)
                                     .border(1.dp, if (selected) SuqiPrimary else colors.border, RoundedCornerShape(14.dp))
                                     .clickable { selectedTier = key }
+                                    .padding(horizontal = 4.dp, vertical = 6.dp)
                                     .testTag("admin_tier_$key")
                             ) {
                                 Text(
                                     text = label,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.sp,
+                                    fontSize = 12.sp,
+                                    maxLines = 2,
                                     color = if (selected) Color.White else colors.primaryText
                                 )
                             }
@@ -1447,7 +1431,7 @@ fun AdminSignInScreen(
                             identifier = it
                             errorMsg = null
                         },
-                        label = "Staff Email or ID *",
+                        label = "${strings.admin.staffIdLabel} *",
                         placeholder = "admin@suqi.et",
                         leadingIcon = LucideIcons.CircleUser,
                         testTag = "admin_identifier_input"
@@ -1456,7 +1440,7 @@ fun AdminSignInScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Staff PIN *",
+                        text = "${strings.admin.staffPinLabel} *",
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
@@ -1469,13 +1453,13 @@ fun AdminSignInScreen(
                             pin = it
                             errorMsg = null
                         },
-                        placeholder = { Text("Enter 4-6 digit PIN", color = colors.mutedText) },
+                        placeholder = { Text(strings.admin.staffPinLabel, color = colors.mutedText) },
                         leadingIcon = { Icon(LucideIcons.Lock, contentDescription = null, tint = colors.secondaryText) },
                         trailingIcon = {
                             IconButton(onClick = { showPin = !showPin }) {
                                 Icon(
                                     imageVector = if (showPin) LucideIcons.EyeOff else LucideIcons.Eye,
-                                    contentDescription = if (showPin) "Hide PIN" else "Show PIN",
+                                    contentDescription = strings.admin.staffPinLabel,
                                     tint = colors.secondaryText
                                 )
                             }
@@ -1504,8 +1488,8 @@ fun AdminSignInScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     SuqiSwitchRow(
-                        title = "Remember this device",
-                        subtitle = "Keep staff email and tier prefilled on this device",
+                        title = strings.admin.rememberDeviceLabel,
+                        subtitle = strings.admin.staffIdLabel,
                         checked = rememberDevice,
                         onCheckedChange = { checked ->
                             rememberDevice = checked
@@ -1520,11 +1504,11 @@ fun AdminSignInScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     SuqiButton(
-                        text = if (isSubmitting) "Verifying..." else "Sign In to Admin Console",
+                        text = if (isSubmitting) strings.common.processingLabel else strings.admin.adminSignInBtn,
                         enabled = !isSubmitting,
                         onClick = {
                             if (identifier.isBlank() || pin.length < 4) {
-                                errorMsg = "Enter your staff identifier and PIN (min 4 digits)."
+                                errorMsg = "${strings.admin.staffIdLabel} / ${strings.admin.staffPinLabel}"
                                 return@SuqiButton
                             }
                             isSubmitting = true
@@ -1543,10 +1527,10 @@ fun AdminSignInScreen(
                                         viewModel.unlockDeveloperTools()
                                     }
                                     viewModel.refreshSession()
-                                    viewModel.showToast("Signed in as $selectedTier")
+                                    viewModel.showToast(selectedTier)
                                     viewModel.popToRoot(ScreenDestination.AdminConsole)
                                 } else {
-                                    errorMsg = res.message ?: "Invalid staff credentials"
+                                    errorMsg = res.message ?: strings.common.accessRestrictedTitle
                                 }
                             }
                         },
@@ -1565,7 +1549,7 @@ fun AdminSignInScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Staff Access Reference", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = colors.primaryText)
+                                Text(strings.adminOps.demoCredsHintTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = colors.primaryText)
                                 Text("ID: admin@suqi.et  •  PIN: 123456", fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                             }
                             TextButton(
@@ -1575,7 +1559,7 @@ fun AdminSignInScreen(
                                     errorMsg = null
                                 }
                             ) {
-                                Text("Fill", fontWeight = FontWeight.Bold, color = SuqiPrimary)
+                                Text(strings.adminOps.fillDemoCredentials, fontWeight = FontWeight.Bold, color = SuqiPrimary)
                             }
                         }
                     }
@@ -1595,6 +1579,7 @@ fun AdminConsoleScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     val adminTier by viewModel.adminTier.collectAsState()
     val isDevUnlocked by viewModel.isDeveloperUnlocked.collectAsState()
@@ -1643,8 +1628,8 @@ fun AdminConsoleScreen(
     }
 
     SuqiScreen(
-        title = "Admin Console",
-        subtitle = "Governance & marketplace operations",
+        title = strings.admin.consoleTitle,
+        subtitle = strings.admin.ownerDashboardTitle,
         onBackClick = { viewModel.popToRoot(ScreenDestination.Home) },
         isOffline = isOffline,
         headerActions = {
@@ -1656,12 +1641,12 @@ fun AdminConsoleScreen(
                 IconButton(
                     onClick = { loadAdminData() },
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(colors.secondaryBackground)
                         .testTag("admin_refresh_btn")
                 ) {
-                    Icon(LucideIcons.RefreshCw, contentDescription = "Refresh stats", tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                    Icon(LucideIcons.RefreshCw, contentDescription = strings.adminOps.refreshLabel, tint = colors.primaryText, modifier = Modifier.size(18.dp))
                 }
             }
         },
@@ -1691,14 +1676,14 @@ fun AdminConsoleScreen(
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                                 SuqiStatCard(
-                                    label = "Active Shops",
+                                    label = strings.adminGov.activeShopsLabel,
                                     value = shopsCount.toString(),
                                     icon = LucideIcons.Store,
                                     tint = SuqiPrimary,
                                     modifier = Modifier.weight(1f)
                                 )
                                 SuqiStatCard(
-                                    label = "Live Products",
+                                    label = strings.sellerOps.totalProductsLabel,
                                     value = productsCount.toString(),
                                     icon = LucideIcons.Package,
                                     tint = SuqiSuccess,
@@ -1709,14 +1694,14 @@ fun AdminConsoleScreen(
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                                 SuqiStatCard(
-                                    label = "Orders Logged",
+                                    label = strings.buyer.ordersTabLabel,
                                     value = ordersCount.toString(),
                                     icon = LucideIcons.Receipt,
                                     tint = SuqiPrimary,
                                     modifier = Modifier.weight(1f)
                                 )
                                 SuqiStatCard(
-                                    label = "Pending Reviews",
+                                    label = strings.admin.queuePending,
                                     value = (pendingVerificationsCount + flaggedReviewsCount).toString(),
                                     icon = LucideIcons.ShieldCheck,
                                     tint = SuqiWarning,
@@ -1728,7 +1713,7 @@ fun AdminConsoleScreen(
                         item {
                             SuqiSectionCard(padding = 16.dp) {
                                 Text(
-                                    text = "Platform Feature Toggles",
+                                    text = strings.admin.platformSwitchesTitle,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
@@ -1736,8 +1721,8 @@ fun AdminConsoleScreen(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 FeatureToggleRow(
-                                    title = "In-App Chat Service",
-                                    sub = "Direct buyer-to-seller messaging",
+                                    title = strings.buyer.chatTabLabel,
+                                    sub = strings.buyer.messagesTitle,
                                     checked = adminSettings.isChatEnabled,
                                     onToggle = {
                                         coroutineScope.launch {
@@ -1748,8 +1733,8 @@ fun AdminConsoleScreen(
                                 )
                                 HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 12.dp))
                                 FeatureToggleRow(
-                                    title = "External Contact Buttons",
-                                    sub = "Show Call, Telegram and WhatsApp links",
+                                    title = strings.buyer.contactUsTitle,
+                                    sub = strings.buyer.phoneNumberLabel,
                                     checked = adminSettings.isExternalContactEnabled,
                                     onToggle = {
                                         coroutineScope.launch {
@@ -1760,8 +1745,8 @@ fun AdminConsoleScreen(
                                 )
                                 HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 12.dp))
                                 FeatureToggleRow(
-                                    title = "Subscription Monetization",
-                                    sub = "Toggle Free Pilot vs Paid Seller Plans",
+                                    title = strings.admin.plansMonetizationTitle,
+                                    sub = strings.sellerOps.subscriptionPlanSub,
                                     checked = adminSettings.isSubscriptionModeEnabled,
                                     onToggle = {
                                         coroutineScope.launch {
@@ -1777,22 +1762,22 @@ fun AdminConsoleScreen(
                     "queues" -> {
                         item {
                             SuqiSectionCard(padding = 14.dp) {
-                                Text("Moderation & Approval Queues", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                                Text(strings.admin.tabQueues, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 SuqiListRow(
                                     icon = LucideIcons.BadgeCheck,
-                                    title = "Seller Verification Queue",
-                                    subtitle = "Review merchant trade licenses & IDs",
-                                    badge = "$pendingVerificationsCount pending",
+                                    title = strings.admin.adminVerificationTitle,
+                                    subtitle = strings.sellerOps.merchantVerificationSub,
+                                    badge = "$pendingVerificationsCount",
                                     badgeColor = if (pendingVerificationsCount > 0) SuqiWarning else SuqiSuccess,
                                     onClick = { viewModel.navigate(ScreenDestination.AdminFeatures) },
                                     testTag = "admin_queue_verifications"
                                 )
                                 SuqiListRow(
                                     icon = LucideIcons.Flag,
-                                    title = "Review Moderation Queue",
-                                    subtitle = "Dismiss or delete flagged buyer reviews",
-                                    badge = "$flaggedReviewsCount flagged",
+                                    title = strings.admin.moderationTitle,
+                                    subtitle = strings.adminGov.queueFlaggedReviews,
+                                    badge = "$flaggedReviewsCount",
                                     badgeColor = if (flaggedReviewsCount > 0) SuqiError else SuqiSuccess,
                                     onClick = { viewModel.navigate(ScreenDestination.AdminModeration) },
                                     testTag = "admin_queue_moderation"
@@ -1801,10 +1786,10 @@ fun AdminConsoleScreen(
                         }
                         item {
                             SuqiSectionCard(padding = 16.dp) {
-                                Text("Customer & Seller Support Tickets (${tickets.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                                Text("${strings.adminGov.queueSupportTickets} (${tickets.size})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                 Spacer(modifier = Modifier.height(10.dp))
                                 if (tickets.isEmpty()) {
-                                    Text("No open support tickets.", fontSize = 13.sp, color = colors.secondaryText)
+                                    Text(strings.admin.noShopsInQueue, fontSize = 13.sp, color = colors.secondaryText)
                                 } else {
                                     tickets.forEachIndexed { idx, ticket ->
                                         Column {
@@ -1832,26 +1817,26 @@ fun AdminConsoleScreen(
                     "manage" -> {
                         item {
                             SuqiSectionCard(padding = 14.dp) {
-                                Text("Catalog, Merchandising & Plans", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                                Text(strings.adminOps.catalogMerchTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 SuqiListRow(
                                     icon = LucideIcons.Tag,
-                                    title = "Categories & Shop Types",
-                                    subtitle = "Add, edit, or delete marketplace categories",
+                                    title = strings.admin.categoriesManagerTitle,
+                                    subtitle = strings.adminOps.categoriesTypesSub,
                                     onClick = { viewModel.navigate(ScreenDestination.AdminCategories) },
                                     testTag = "admin_manage_categories"
                                 )
                                 SuqiListRow(
                                     icon = LucideIcons.GalleryHorizontal,
-                                    title = "Home Promotional Banners",
-                                    subtitle = "Control live campaigns shown in Home carousel",
+                                    title = strings.admin.bannersManagerTitle,
+                                    subtitle = strings.adminOps.bannersSub,
                                     onClick = { viewModel.navigate(ScreenDestination.AdminBanners) },
                                     testTag = "admin_manage_banners"
                                 )
                                 SuqiListRow(
                                     icon = LucideIcons.Award,
-                                    title = "Subscription Plans",
-                                    subtitle = "Edit pricing, quotas, and tier features",
+                                    title = strings.admin.plansMonetizationTitle,
+                                    subtitle = strings.adminOps.plansSub,
                                     onClick = { viewModel.navigate(ScreenDestination.AdminSubscriptionPlans) },
                                     testTag = "admin_manage_plans"
                                 )
@@ -1862,26 +1847,26 @@ fun AdminConsoleScreen(
                     "tools" -> {
                         item {
                             SuqiSectionCard(padding = 14.dp) {
-                                Text("Developer & Testing Tools", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                                Text(strings.adminOps.devTestingToolsTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 SuqiListRow(
                                     icon = LucideIcons.Wrench,
-                                    title = "Open Diagnostics Inspector",
-                                    subtitle = "Inspect Room table counts, switch roles, and resync state",
+                                    title = strings.buyer.devToolsRowTitle,
+                                    subtitle = strings.adminOps.openDiagnosticsSub,
                                     onClick = { viewModel.navigate(ScreenDestination.AdminDevTools) },
                                     testTag = "admin_tools_devtools"
                                 )
                                 SuqiListRow(
                                     icon = LucideIcons.Clock,
-                                    title = "Lock Session (Test Idle Timeout)",
-                                    subtitle = "Preview 15-minute staff inactivity guard",
+                                    title = strings.adminOps.lockSessionTitle,
+                                    subtitle = strings.adminOps.lockSessionSub,
                                     onClick = { showTimeoutDialog = true },
                                     testTag = "admin_test_timeout"
                                 )
                                 SuqiListRow(
                                     icon = LucideIcons.User,
-                                    title = "Return to Buyer Storefront",
-                                    subtitle = "Switch active role to CUSTOMER",
+                                    title = strings.adminOps.returnBuyerTitle,
+                                    subtitle = strings.adminOps.returnBuyerSub,
                                     onClick = {
                                         viewModel.setActiveRole("CUSTOMER")
                                         viewModel.popToRoot(ScreenDestination.Home)
@@ -1898,10 +1883,10 @@ fun AdminConsoleScreen(
     if (showTimeoutDialog) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Staff Session Timed Out", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText) },
+            title = { Text(strings.adminOps.staffSessionTimeoutTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText) },
             text = {
                 Text(
-                    "Your admin session has been idle for 15 minutes. Stay signed in to continue operating the console or sign out to lock governance tools.",
+                    strings.adminOps.staffSessionTimeoutBody,
                     fontFamily = SuqiFontFamily,
                     fontSize = 13.sp,
                     color = colors.secondaryText
@@ -1916,7 +1901,7 @@ fun AdminConsoleScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
                     shape = RoundedCornerShape(999.dp)
                 ) {
-                    Text("Stay signed in", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(strings.adminOps.staySignedInBtn, color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -1927,7 +1912,7 @@ fun AdminConsoleScreen(
                         viewModel.popToRoot(ScreenDestination.AdminSignIn)
                     }
                 ) {
-                    Text("Sign out", color = SuqiError, fontWeight = FontWeight.SemiBold)
+                    Text(strings.adminOps.signOutStaffBtn, color = SuqiError, fontWeight = FontWeight.SemiBold)
                 }
             },
             containerColor = colors.cardBackground,
@@ -1943,22 +1928,12 @@ fun FeatureToggleRow(
     checked: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
-    val colors = LocalSuqiColors.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = colors.primaryText)
-            Text(text = sub, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onToggle,
-            colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary)
-        )
-    }
+    SuqiSwitchRow(
+        title = title,
+        subtitle = sub,
+        checked = checked,
+        onCheckedChange = onToggle
+    )
 }
 
 @Composable
@@ -1979,12 +1954,18 @@ fun AdminCategoriesScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
     var editingCategory by remember { mutableStateOf<CategoryDto?>(null) }
     var showCategorySheet by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showCategorySheet) {
+        showCategorySheet = false
+    }
 
     fun loadCategories() {
         coroutineScope.launch {
@@ -2009,7 +1990,7 @@ fun AdminCategoriesScreen(
     }
 
     SuqiScreen(
-        title = "Categories & Shop Types",
+        title = strings.admin.categoriesManagerTitle,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         headerActions = {
@@ -2020,12 +2001,12 @@ fun AdminCategoriesScreen(
                         showCategorySheet = true
                     },
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(SuqiPrimary)
                         .testTag("admin_add_category_btn")
                 ) {
-                    Icon(LucideIcons.Plus, contentDescription = "Add category", tint = Color.White)
+                    Icon(LucideIcons.Plus, contentDescription = strings.adminOps.addCategoryBtn, tint = Color.White)
                 }
             }
         },
@@ -2045,35 +2026,41 @@ fun AdminCategoriesScreen(
                 Box(
                     modifier = Modifier
                         .weight(1f)
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(if (selectedTab == 0) SuqiPrimary else colors.secondaryBackground)
                         .clickable { selectedTab = 0 }
-                        .padding(vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Categories (${categories.size})",
+                        "${strings.categoriesTitle} (${categories.size})",
                         color = if (selectedTab == 0) Color.White else colors.primaryText,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        fontSize = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Box(
                     modifier = Modifier
                         .weight(1f)
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(if (selectedTab == 1) SuqiPrimary else colors.secondaryBackground)
                         .clickable { selectedTab = 1 }
-                        .padding(vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Shop Types (${shopTypes.size})",
+                        "${strings.checkout.shopTypeLabel} (${shopTypes.size})",
                         color = if (selectedTab == 1) Color.White else colors.primaryText,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        fontSize = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -2092,10 +2079,11 @@ fun AdminCategoriesScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val thumbUrl = cat.imageUrl.ifBlank { MarketplaceCategories.imageUrlForId(cat.id) }
+                                val catDisplay = cat.localizedName(lang)
                                 if (thumbUrl.isNotBlank()) {
                                     AsyncImage(
                                         model = thumbUrl,
-                                        contentDescription = cat.name,
+                                        contentDescription = catDisplay,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
                                             .size(52.dp)
@@ -2105,13 +2093,13 @@ fun AdminCategoriesScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(cat.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
-                                    if (cat.nameAmharic.isNotBlank()) {
+                                    Text(catDisplay, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                                    if (cat.nameAmharic.isNotBlank() && catDisplay != cat.nameAmharic) {
                                         Text(cat.nameAmharic, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = SuqiPrimary)
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "${cat.subCategories.size} subcategories · Order #${cat.sortOrder}",
+                                        text = "${cat.subCategories.size} ${strings.subCategoriesLabel} · #${cat.sortOrder}",
                                         fontSize = 12.sp,
                                         color = colors.secondaryText
                                     )
@@ -2122,21 +2110,21 @@ fun AdminCategoriesScreen(
                                             editingCategory = cat
                                             showCategorySheet = true
                                         },
-                                        modifier = Modifier.size(40.dp)
+                                        modifier = Modifier.size(48.dp)
                                     ) {
-                                        Icon(LucideIcons.Pencil, contentDescription = "Edit category", tint = SuqiPrimary, modifier = Modifier.size(18.dp))
+                                        Icon(LucideIcons.Pencil, contentDescription = strings.editLabel, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
                                     }
                                     IconButton(
                                         onClick = {
                                             coroutineScope.launch {
                                                 viewModel.repository.deleteCategory(cat.id)
                                                 loadCategories()
-                                                viewModel.showToast("Category removed")
+                                                viewModel.showToast("${strings.deleteLabel}: $catDisplay")
                                             }
                                         },
-                                        modifier = Modifier.size(40.dp)
+                                        modifier = Modifier.size(48.dp)
                                     ) {
-                                        Icon(LucideIcons.Trash2, contentDescription = "Delete category", tint = SuqiError, modifier = Modifier.size(18.dp))
+                                        Icon(LucideIcons.Trash2, contentDescription = strings.deleteLabel, tint = SuqiError, modifier = Modifier.size(18.dp))
                                     }
                                 }
                             }
@@ -2166,7 +2154,7 @@ fun AdminCategoriesScreen(
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(desc, fontSize = 12.sp, color = colors.secondaryText)
                                 }
-                                SuqiStatusBadge("Active", StatusType.SUCCESS)
+                                SuqiStatusBadge(strings.adminOps.activeStatus, StatusType.SUCCESS)
                             }
                         }
                     }
@@ -2184,29 +2172,29 @@ fun AdminCategoriesScreen(
 
         SuqiBottomSheet(
             onDismissRequest = { showCategorySheet = false },
-            title = if (editingCategory == null) "Add Marketplace Category" else "Edit Category"
+            title = if (editingCategory == null) strings.adminOps.addCategoryBtn else "${strings.editLabel} ${strings.buyer.categoryLabel}"
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SuqiTextField(value = nameEn, onValueChange = { nameEn = it }, label = "Category Name (English) *")
-                SuqiTextField(value = nameAm, onValueChange = { nameAm = it }, label = "Name (Amharic / አማርኛ)")
-                SuqiTextField(value = nameOr, onValueChange = { nameOr = it }, label = "Name (Afaan Oromo)")
+                SuqiTextField(value = nameEn, onValueChange = { nameEn = it }, label = "${strings.seller.paramNameRequiredLabel} (EN)")
+                SuqiTextField(value = nameAm, onValueChange = { nameAm = it }, label = strings.sellerOps.amharicSectionLabel)
+                SuqiTextField(value = nameOr, onValueChange = { nameOr = it }, label = strings.sellerOps.afaanOromoSectionLabel)
                 SuqiImagePickerTile(
-                    label = "Category Cover Photo",
+                    label = strings.common.uploadPhotoLabel,
                     imageUri = imageUrl.takeIf { it.isNotBlank() },
                     onImagePicked = { imageUrl = it },
                     onRemove = { imageUrl = "" },
                     aspectRatio = 1f,
                     tileHeight = 128.dp,
-                    guidance = "Square 1:1 crop recommended for category grid cards.",
+                    guidance = "1:1",
                     demoSampleUrl = MarketplaceCategories.imageUrlForId(editingCategory?.id ?: "cat_electronics"),
                     testTag = "admin_category_image_picker"
                 )
-                SuqiTextField(value = subsCsv, onValueChange = { subsCsv = it }, label = "Sub-categories (comma separated)")
+                SuqiTextField(value = subsCsv, onValueChange = { subsCsv = it }, label = strings.subCategoriesLabel)
                 SuqiButton(
-                    text = if (editingCategory == null) "Create Category" else "Save Category",
+                    text = strings.saveLabel,
                     onClick = {
                         if (nameEn.isBlank()) {
-                            viewModel.showToast("Category name is required")
+                            viewModel.showToast(strings.seller.enterNameError)
                             return@SuqiButton
                         }
                         val subs = subsCsv.split(",").map { it.trim() }.filter { it.isNotBlank() }
@@ -2226,7 +2214,7 @@ fun AdminCategoriesScreen(
                             )
                             showCategorySheet = false
                             loadCategories()
-                            viewModel.showToast("Category saved")
+                            viewModel.showToast(strings.saveLabel)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -2246,11 +2234,17 @@ fun AdminBannersScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
 
     var banners by remember { mutableStateOf<List<PromoBannerDto>>(emptyList()) }
     var editingBanner by remember { mutableStateOf<PromoBannerDto?>(null) }
     var showBannerSheet by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showBannerSheet) {
+        showBannerSheet = false
+    }
 
     fun loadBanners() {
         coroutineScope.launch {
@@ -2266,8 +2260,8 @@ fun AdminBannersScreen(
     }
 
     SuqiScreen(
-        title = "Promotional Banners",
-        subtitle = "${banners.count { it.isActive }} active on Home carousel",
+        title = strings.admin.bannersManagerTitle,
+        subtitle = "${banners.count { it.isActive }} ${strings.adminOps.activeStatus}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         headerActions = {
@@ -2277,12 +2271,12 @@ fun AdminBannersScreen(
                     showBannerSheet = true
                 },
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(SuqiPrimary)
                     .testTag("admin_add_banner_btn")
             ) {
-                Icon(LucideIcons.Plus, contentDescription = "Add banner", tint = Color.White)
+                Icon(LucideIcons.Plus, contentDescription = strings.adminOps.addBannerBtn, tint = Color.White)
             }
         },
         modifier = modifier
@@ -2291,9 +2285,9 @@ fun AdminBannersScreen(
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 SuqiEmptyState(
                     icon = LucideIcons.GalleryHorizontal,
-                    title = "No promotional banners",
-                    subtitle = "Create a banner campaign to feature it on the Home screen carousel.",
-                    ctaText = "Add Banner",
+                    title = strings.admin.bannersManagerTitle,
+                    subtitle = strings.adminOps.bannersSub,
+                    ctaText = strings.adminOps.addBannerBtn,
                     onCtaClick = {
                         editingBanner = null
                         showBannerSheet = true
@@ -2349,7 +2343,7 @@ fun AdminBannersScreen(
                                     .padding(10.dp)
                             ) {
                                 SuqiStatusBadge(
-                                    statusText = if (banner.isActive) "Active" else "Paused",
+                                    statusText = if (banner.isActive) strings.adminOps.activeStatus else strings.seller.statusPaused,
                                     type = if (banner.isActive) StatusType.SUCCESS else StatusType.NEUTRAL
                                 )
                             }
@@ -2363,7 +2357,8 @@ fun AdminBannersScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(banner.subtitle, fontSize = 12.sp, color = colors.secondaryText, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text("Target: ${banner.targetName.ifBlank { banner.targetCategory }}", fontSize = 11.sp, color = colors.mutedText)
+                                val targetCatSpec = MarketplaceCategories.byId(banner.targetCategory)
+                                Text(targetCatSpec?.toDto()?.localizedName(lang) ?: banner.targetName.ifBlank { banner.targetCategory }, fontSize = 11.sp, color = colors.mutedText)
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Switch(
@@ -2380,20 +2375,22 @@ fun AdminBannersScreen(
                                     onClick = {
                                         editingBanner = banner
                                         showBannerSheet = true
-                                    }
+                                    },
+                                    modifier = Modifier.size(48.dp)
                                 ) {
-                                    Icon(LucideIcons.Pencil, contentDescription = "Edit banner", tint = SuqiPrimary, modifier = Modifier.size(18.dp))
+                                    Icon(LucideIcons.Pencil, contentDescription = strings.editLabel, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
                                 }
                                 IconButton(
                                     onClick = {
                                         coroutineScope.launch {
                                             viewModel.repository.deletePromoBanner(banner.id)
                                             loadBanners()
-                                            viewModel.showToast("Banner deleted")
+                                            viewModel.showToast(strings.deleteLabel)
                                         }
-                                    }
+                                    },
+                                    modifier = Modifier.size(48.dp)
                                 ) {
-                                    Icon(LucideIcons.Trash2, contentDescription = "Delete banner", tint = SuqiError, modifier = Modifier.size(18.dp))
+                                    Icon(LucideIcons.Trash2, contentDescription = strings.deleteLabel, tint = SuqiError, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
@@ -2408,7 +2405,7 @@ fun AdminBannersScreen(
         var title by remember(editingBanner) { mutableStateOf(editingBanner?.title.orEmpty()) }
         var highlight by remember(editingBanner) { mutableStateOf(editingBanner?.highlight.orEmpty()) }
         var subtitle by remember(editingBanner) { mutableStateOf(editingBanner?.subtitle.orEmpty()) }
-        var ctaText by remember(editingBanner) { mutableStateOf(editingBanner?.buttonText ?: "Shop Now") }
+        var ctaText by remember(editingBanner) { mutableStateOf(editingBanner?.buttonText ?: strings.checkout.shopNowCta) }
         var imageUrl by remember(editingBanner) {
             mutableStateOf(
                 editingBanner?.imageUrl?.ifBlank { "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800" }
@@ -2420,54 +2417,56 @@ fun AdminBannersScreen(
 
         SuqiBottomSheet(
             onDismissRequest = { showBannerSheet = false },
-            title = if (editingBanner == null) "Add Carousel Banner" else "Edit Banner"
+            title = if (editingBanner == null) strings.adminOps.addBannerBtn else strings.editLabel
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SuqiTextField(value = badge, onValueChange = { badge = it }, label = "Badge Label")
+                SuqiTextField(value = badge, onValueChange = { badge = it }, label = "Badge")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SuqiTextField(value = title, onValueChange = { title = it }, label = "Title *", modifier = Modifier.weight(1f))
+                    SuqiTextField(value = title, onValueChange = { title = it }, label = strings.seller.paramNameRequiredLabel, modifier = Modifier.weight(1f))
                     SuqiTextField(value = highlight, onValueChange = { highlight = it }, label = "Highlight", modifier = Modifier.weight(1f))
                 }
-                SuqiTextField(value = subtitle, onValueChange = { subtitle = it }, label = "Subtitle")
-                SuqiTextField(value = ctaText, onValueChange = { ctaText = it }, label = "Button CTA")
+                SuqiTextField(value = subtitle, onValueChange = { subtitle = it }, label = strings.description)
+                SuqiTextField(value = ctaText, onValueChange = { ctaText = it }, label = "CTA")
                 SuqiImagePickerTile(
-                    label = "Banner Artwork (4:5 Portrait Crop)",
+                    label = strings.common.uploadPhotoLabel,
                     imageUri = imageUrl.takeIf { it.isNotBlank() },
                     onImagePicked = { imageUrl = it },
                     onRemove = { imageUrl = "" },
                     aspectRatio = 0.8f,
                     tileHeight = 156.dp,
-                    guidance = "4:5 aspect crop fits the Home hero carousel card.",
+                    guidance = "4:5",
                     demoSampleUrl = "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800",
                     testTag = "admin_banner_image_picker"
                 )
-                val categoryOptions = MarketplaceCategories.all.map { it.id to it.name }
+                val categoryOptions = MarketplaceCategories.all.map { it to it.toDto().localizedName(lang) }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.horizontalScroll(rememberScrollState())
                 ) {
-                    categoryOptions.forEach { (id, lbl) ->
-                        val sel = targetCat == id
+                    categoryOptions.forEach { (spec, lbl) ->
+                        val sel = targetCat == spec.id
                         Box(
                             modifier = Modifier
+                                .heightIn(min = 48.dp)
                                 .clip(RoundedCornerShape(999.dp))
                                 .background(if (sel) SuqiPrimary else colors.secondaryBackground)
                                 .clickable {
-                                    targetCat = id
-                                    targetName = lbl
+                                    targetCat = spec.id
+                                    targetName = spec.name
                                 }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(lbl, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (sel) Color.White else colors.primaryText)
+                            Text(lbl, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (sel) Color.White else colors.primaryText, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 SuqiButton(
-                    text = if (editingBanner == null) "Publish Banner" else "Save Banner",
+                    text = strings.saveLabel,
                     onClick = {
                         if (title.isBlank()) {
-                            viewModel.showToast("Enter banner title")
+                            viewModel.showToast(strings.seller.enterNameError)
                             return@SuqiButton
                         }
                         coroutineScope.launch {
@@ -2478,7 +2477,7 @@ fun AdminBannersScreen(
                                     title = title.trim(),
                                     highlight = highlight.trim(),
                                     subtitle = subtitle.trim(),
-                                    buttonText = ctaText.trim().ifBlank { "Shop Now" },
+                                    buttonText = ctaText.trim().ifBlank { strings.checkout.shopNowCta },
                                     imageUrl = imageUrl.trim(),
                                     targetCategory = targetCat,
                                     targetName = targetName,
@@ -2488,7 +2487,7 @@ fun AdminBannersScreen(
                             )
                             showBannerSheet = false
                             loadBanners()
-                            viewModel.showToast("Banner saved to Home carousel")
+                            viewModel.showToast(strings.saveLabel)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -2508,6 +2507,7 @@ fun AdminModerationScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var flaggedReviews by remember { mutableStateOf<List<FlaggedReviewDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -2528,8 +2528,8 @@ fun AdminModerationScreen(
     }
 
     SuqiScreen(
-        title = "Review Moderation",
-        subtitle = "${flaggedReviews.size} flagged reports",
+        title = strings.admin.moderationTitle,
+        subtitle = "${flaggedReviews.size}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -2540,8 +2540,8 @@ fun AdminModerationScreen(
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 SuqiEmptyState(
                     icon = LucideIcons.ShieldCheck,
-                    title = "Moderation queue clean",
-                    subtitle = "No flagged reviews or spam reports currently require review."
+                    title = strings.admin.moderationTitle,
+                    subtitle = strings.admin.clearBadge
                 )
             }
         } else {
@@ -2559,11 +2559,11 @@ fun AdminModerationScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Review by ${item.authorName}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
-                            SuqiStatusBadge("Flagged", StatusType.ERROR)
+                            Text(item.authorName, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                            SuqiStatusBadge(strings.adminGov.queueFlaggedReviews, StatusType.ERROR)
                         }
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("Reason: ${item.reason}", fontSize = 12.sp, color = SuqiError, fontWeight = FontWeight.Medium)
+                        Text(item.reason, fontSize = 12.sp, color = SuqiError, fontWeight = FontWeight.Medium)
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier
@@ -2583,14 +2583,14 @@ fun AdminModerationScreen(
                                             mapOf("id" to item.id, "action" to "DISMISS")
                                         )
                                         loadFlagged()
-                                        viewModel.showToast("Report dismissed")
+                                        viewModel.showToast(strings.adminGov.dismissActionBtn)
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f).height(44.dp)
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                             ) {
-                                Text("Dismiss Report", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(strings.adminGov.dismissActionBtn, color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                             Button(
                                 onClick = {
@@ -2599,14 +2599,14 @@ fun AdminModerationScreen(
                                             mapOf("id" to item.id, "action" to "DELETE")
                                         )
                                         loadFlagged()
-                                        viewModel.showToast("Review removed")
+                                        viewModel.showToast(strings.adminGov.takeDownBtn)
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = SuqiError),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f).height(44.dp)
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                             ) {
-                                Text("Remove Content", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(strings.adminGov.takeDownBtn, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -2626,11 +2626,16 @@ fun AdminSubscriptionPlansScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
     var plans by remember { mutableStateOf<List<SubscriptionPlanDto>>(emptyList()) }
     var editingPlan by remember { mutableStateOf<SubscriptionPlanDto?>(null) }
     var showPlanSheet by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showPlanSheet) {
+        showPlanSheet = false
+    }
 
     fun loadPlans() {
         coroutineScope.launch {
@@ -2646,8 +2651,8 @@ fun AdminSubscriptionPlansScreen(
     }
 
     SuqiScreen(
-        title = "Subscription Plans",
-        subtitle = "${plans.size} merchant tiers",
+        title = strings.admin.plansMonetizationTitle,
+        subtitle = "${plans.size}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         headerActions = {
@@ -2657,11 +2662,11 @@ fun AdminSubscriptionPlansScreen(
                     showPlanSheet = true
                 },
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(SuqiPrimary)
             ) {
-                Icon(LucideIcons.Plus, contentDescription = "Add plan", tint = Color.White)
+                Icon(LucideIcons.Plus, contentDescription = strings.adminOps.addPlanBtn, tint = Color.White)
             }
         },
         modifier = modifier
@@ -2681,18 +2686,21 @@ fun AdminSubscriptionPlansScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(plan.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = SuqiPrimary)
-                        SuqiStatusBadge(if (plan.isActive) "Active" else "Hidden", if (plan.isActive) StatusType.SUCCESS else StatusType.NEUTRAL)
+                        SuqiStatusBadge(
+                            if (plan.isActive) strings.adminOps.activeStatus else strings.adminOps.hiddenStatus,
+                            if (plan.isActive) StatusType.SUCCESS else StatusType.NEUTRAL
+                        )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = if (plan.monthlyPrice <= 0.0) "Free" else "${formatEtb(plan.monthlyPrice)} / month",
+                        text = if (plan.monthlyPrice <= 0.0) strings.adminOps.freeLabel else String.format(strings.sellerOps.perMonthTemplate, formatEtb(plan.monthlyPrice)),
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
                         color = colors.primaryText
                     )
                     Text(
-                        text = if (plan.maxProducts < 0) "Unlimited products" else "Up to ${plan.maxProducts} products",
+                        text = if (plan.maxProducts < 0) strings.adminOps.unlimitedProducts else String.format(strings.adminOps.upToProductsTemplate, plan.maxProducts),
                         fontSize = 12.sp,
                         color = colors.mutedText
                     )
@@ -2703,7 +2711,7 @@ fun AdminSubscriptionPlansScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         SuqiButton(
-                            text = "Edit Tier",
+                            text = strings.adminOps.editTierBtn,
                             isPrimary = false,
                             onClick = {
                                 editingPlan = plan
@@ -2716,14 +2724,14 @@ fun AdminSubscriptionPlansScreen(
                                 coroutineScope.launch {
                                     viewModel.repository.deleteSubscriptionPlan(plan.id)
                                     loadPlans()
-                                    viewModel.showToast("Plan removed")
+                                    viewModel.showToast(strings.deleteLabel)
                                 }
                             },
                             shape = RoundedCornerShape(16.dp),
                             border = BorderStroke(1.dp, SuqiError.copy(alpha = 0.5f)),
                             modifier = Modifier.height(48.dp)
                         ) {
-                            Icon(LucideIcons.Trash2, contentDescription = "Delete plan", tint = SuqiError, modifier = Modifier.size(18.dp))
+                            Icon(LucideIcons.Trash2, contentDescription = strings.deleteLabel, tint = SuqiError, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -2740,28 +2748,25 @@ fun AdminSubscriptionPlansScreen(
 
         SuqiBottomSheet(
             onDismissRequest = { showPlanSheet = false },
-            title = if (editingPlan == null) "Create Subscription Tier" else "Edit Subscription Tier"
+            title = if (editingPlan == null) strings.adminOps.addPlanBtn else strings.adminOps.editTierBtn
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SuqiTextField(value = name, onValueChange = { name = it }, label = "Plan Name *")
+                SuqiTextField(value = name, onValueChange = { name = it }, label = strings.seller.paramNameRequiredLabel)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SuqiTextField(value = monthlyStr, onValueChange = { monthlyStr = it }, label = "Monthly (ETB)", modifier = Modifier.weight(1f))
-                    SuqiTextField(value = maxProdStr, onValueChange = { maxProdStr = it }, label = "Max Products (-1=∞)", modifier = Modifier.weight(1f))
+                    SuqiTextField(value = monthlyStr, onValueChange = { monthlyStr = it }, label = strings.seller.priceEtbLabel, modifier = Modifier.weight(1f))
+                    SuqiTextField(value = maxProdStr, onValueChange = { maxProdStr = it }, label = strings.seller.stockLabel, modifier = Modifier.weight(1f))
                 }
-                SuqiTextField(value = featuresCsv, onValueChange = { featuresCsv = it }, label = "Features (| separated)", singleLine = false)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Plan Active", fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.primaryText)
-                    Switch(checked = isActive, onCheckedChange = { isActive = it }, colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary))
-                }
+                SuqiTextField(value = featuresCsv, onValueChange = { featuresCsv = it }, label = strings.description, singleLine = false)
+                SuqiSwitchRow(
+                    title = strings.adminOps.activeStatus,
+                    checked = isActive,
+                    onCheckedChange = { isActive = it }
+                )
                 SuqiButton(
-                    text = "Save Plan",
+                    text = strings.saveLabel,
                     onClick = {
                         if (name.isBlank()) {
-                            viewModel.showToast("Plan name is required")
+                            viewModel.showToast(strings.seller.enterNameError)
                             return@SuqiButton
                         }
                         val monthly = monthlyStr.toDoubleOrNull() ?: 0.0
@@ -2780,7 +2785,7 @@ fun AdminSubscriptionPlansScreen(
                             )
                             showPlanSheet = false
                             loadPlans()
-                            viewModel.showToast("Subscription plan saved")
+                            viewModel.showToast(strings.saveLabel)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -2800,6 +2805,7 @@ fun AdminDevToolsScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
     val currentUser by viewModel.currentUser.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
     val adminTier by viewModel.adminTier.collectAsState()
@@ -2810,14 +2816,14 @@ fun AdminDevToolsScreen(
     fun refreshCounts() {
         coroutineScope.launch {
             val map = linkedMapOf<String, Int>()
-            map["Products"] = viewModel.repository.getProducts().data?.size ?: 0
-            map["Shops"] = viewModel.repository.getShops().data?.size ?: 0
-            map["Orders"] = viewModel.repository.getOrders().data?.size ?: 0
-            map["Categories"] = viewModel.repository.getCategories().data?.size ?: 0
-            map["Banners"] = viewModel.repository.getPromoBanners(activeOnly = false).data?.size ?: 0
-            map["Flagged Reviews"] = viewModel.repository.getFlaggedReviews().data?.size ?: 0
-            map["Support Tickets"] = viewModel.repository.getSupportTickets().data?.size ?: 0
-            map["Subscription Plans"] = viewModel.repository.getSubscriptionPlans().data?.size ?: 0
+            map[strings.productsTab] = viewModel.repository.getProducts().data?.size ?: 0
+            map[strings.shopsTab] = viewModel.repository.getShops().data?.size ?: 0
+            map[strings.buyer.ordersTabLabel] = viewModel.repository.getOrders().data?.size ?: 0
+            map[strings.categoriesTitle] = viewModel.repository.getCategories().data?.size ?: 0
+            map[strings.admin.bannersManagerTitle] = viewModel.repository.getPromoBanners(activeOnly = false).data?.size ?: 0
+            map[strings.adminGov.queueFlaggedReviews] = viewModel.repository.getFlaggedReviews().data?.size ?: 0
+            map[strings.adminGov.queueSupportTickets] = viewModel.repository.getSupportTickets().data?.size ?: 0
+            map[strings.admin.plansMonetizationTitle] = viewModel.repository.getSubscriptionPlans().data?.size ?: 0
             counts = map
         }
     }
@@ -2827,8 +2833,8 @@ fun AdminDevToolsScreen(
     }
 
     SuqiScreen(
-        title = "Developer Diagnostics",
-        subtitle = "Live Room DB & session inspector",
+        title = strings.admin.devToolsTitle,
+        subtitle = strings.adminOps.openDiagnosticsSub,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -2842,10 +2848,10 @@ fun AdminDevToolsScreen(
         ) {
             item {
                 SuqiSectionCard(padding = 16.dp) {
-                    Text("Active Session", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                    Text(strings.adminOps.activeSessionTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("User ID: ${currentUser?.id ?: "none"} (${currentUser?.name ?: "Guest"})", fontSize = 13.sp, color = colors.secondaryText)
-                    Text("Role: ${currentUser?.role ?: "GUEST"}  •  Active Role: $activeRole  •  Admin Tier: $adminTier", fontSize = 13.sp, color = colors.secondaryText)
+                    Text("ID: ${currentUser?.id ?: "none"} (${currentUser?.name ?: strings.checkout.guestSessionLabel})", fontSize = 13.sp, color = colors.secondaryText)
+                    Text("${currentUser?.role ?: "GUEST"}  •  $activeRole  •  $adminTier", fontSize = 13.sp, color = colors.secondaryText)
                     Text("Shop ID: ${currentUser?.shopId ?: "none"}", fontSize = 13.sp, color = colors.secondaryText)
                 }
             }
@@ -2857,9 +2863,9 @@ fun AdminDevToolsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Database Table Counts", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                        Text(strings.adminOps.dbTableCountsTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                         TextButton(onClick = { refreshCounts() }) {
-                            Text("Refresh", fontWeight = FontWeight.Bold, color = SuqiPrimary)
+                            Text(strings.adminOps.refreshLabel, fontWeight = FontWeight.Bold, color = SuqiPrimary)
                         }
                     }
                     Spacer(modifier = Modifier.height(6.dp))
@@ -2879,20 +2885,13 @@ fun AdminDevToolsScreen(
 
             item {
                 SuqiSectionCard(padding = 16.dp) {
-                    Text("Quick Actions & Simulators", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                    Text(strings.adminOps.quickActionsSimulatorsTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Offline Mode Banner", fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.primaryText)
-                        Switch(
-                            checked = isOffline,
-                            onCheckedChange = { viewModel.setOfflineMode(it) },
-                            colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary)
-                        )
-                    }
+                    SuqiSwitchRow(
+                        title = strings.adminOps.offlineModeBannerToggle,
+                        checked = isOffline,
+                        onCheckedChange = { viewModel.setOfflineMode(it) }
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         listOf("CUSTOMER", "SELLER", "ADMIN", "GUEST").forEach { role ->
@@ -2900,6 +2899,7 @@ fun AdminDevToolsScreen(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .weight(1f)
+                                    .heightIn(min = 48.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(if (activeRole == role) SuqiPrimary else colors.secondaryBackground)
                                     .clickable {
@@ -2912,16 +2912,18 @@ fun AdminDevToolsScreen(
                                                 viewModel.setActiveRole(role)
                                             }
                                             viewModel.refreshSession()
-                                            viewModel.showToast("Switched mode to $role")
+                                            viewModel.showToast(role)
                                         }
                                     }
-                                    .padding(vertical = 10.dp)
+                                    .padding(horizontal = 4.dp, vertical = 10.dp)
                             ) {
                                 Text(
                                     text = role,
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     color = if (activeRole == role) Color.White else colors.primaryText
                                 )
                             }
@@ -2929,12 +2931,12 @@ fun AdminDevToolsScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     SuqiButton(
-                        text = "Resync Session, Cart & Notifications",
+                        text = strings.adminOps.resyncSessionBtn,
                         icon = LucideIcons.RefreshCw,
                         onClick = {
                             viewModel.refreshSession()
                             refreshCounts()
-                            viewModel.showToast("Session and caches resynced")
+                            viewModel.showToast(strings.common.backOnlineSynced)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )

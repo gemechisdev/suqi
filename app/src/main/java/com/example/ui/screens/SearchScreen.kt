@@ -61,8 +61,7 @@ fun SearchScreen(
     // B-03 Filter & Sort State
     var sortBy by remember { mutableStateOf("POPULAR") }
     var selectedCategoryFilter by remember { mutableStateOf("") }
-    var minPriceText by remember { mutableStateOf("") }
-    var maxPriceText by remember { mutableStateOf("") }
+    var priceRange by remember { mutableStateOf(0f..50000f) }
     var minRating by remember { mutableDoubleStateOf(0.0) }
     var inStockOnly by remember { mutableStateOf(false) }
     var verifiedOnly by remember { mutableStateOf(false) }
@@ -108,8 +107,8 @@ fun SearchScreen(
     }
 
     fun applyLocalFilters(baseProducts: List<ProductDto>): List<ProductDto> {
-        val minP = minPriceText.toDoubleOrNull()
-        val maxP = maxPriceText.toDoubleOrNull()
+        val minP = if (priceRange.start > 0f) priceRange.start.toDouble() else null
+        val maxP = if (priceRange.endInclusive < 50000f) priceRange.endInclusive.toDouble() else null
         val filtered = baseProducts.filter { p ->
             (selectedCategoryFilter.isBlank() || p.categoryId == selectedCategoryFilter) &&
                 (minP == null || p.price >= minP) &&
@@ -131,8 +130,8 @@ fun SearchScreen(
     fun performSearch(q: String, recordRecent: Boolean = true) {
         searchQuery = q
         coroutineScope.launch {
-            val hasFilter = selectedCategoryFilter.isNotBlank() || minPriceText.isNotBlank() ||
-                maxPriceText.isNotBlank() || minRating > 0.0 || inStockOnly || verifiedOnly
+            val hasFilter = selectedCategoryFilter.isNotBlank() || priceRange.start > 0f ||
+                priceRange.endInclusive < 50000f || minRating > 0.0 || inStockOnly || verifiedOnly
             if (q.isNotBlank() || hasFilter) {
                 val pRes = viewModel.repository.getProducts(
                     query = q.takeIf { it.isNotBlank() },
@@ -159,13 +158,13 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(searchQuery, sortBy, selectedCategoryFilter, minPriceText, maxPriceText, minRating, inStockOnly, verifiedOnly) {
+    LaunchedEffect(searchQuery, sortBy, selectedCategoryFilter, priceRange, minRating, inStockOnly, verifiedOnly) {
         performSearch(searchQuery, recordRecent = false)
     }
 
     val activeFilterCount = listOf(
         selectedCategoryFilter.isNotBlank(),
-        minPriceText.isNotBlank() || maxPriceText.isNotBlank(),
+        priceRange.start > 0f || priceRange.endInclusive < 50000f,
         minRating > 0.0,
         inStockOnly,
         verifiedOnly
@@ -174,11 +173,14 @@ fun SearchScreen(
     val hasActiveQueryOrFilters = searchQuery.isNotBlank() || activeFilterCount > 0
 
     // Live suggestions matching typed prefix/term
-    val liveSuggestions = remember(searchQuery, allProducts, allShops) {
+    val liveSuggestions = remember(searchQuery, allProducts, allShops, lang) {
         if (searchQuery.length < 2) emptyList()
         else {
-            val pNames = allProducts.filter { it.name.contains(searchQuery, ignoreCase = true) }
-                .map { it.name }.take(3)
+            val pNames = allProducts.filter {
+                it.name.contains(searchQuery, ignoreCase = true) ||
+                    it.nameAmharic.contains(searchQuery, ignoreCase = true) ||
+                    it.nameAfaanOromo.contains(searchQuery, ignoreCase = true)
+            }.map { it.localizedName(lang) }.take(3)
             val sNames = allShops.filter { it.name.contains(searchQuery, ignoreCase = true) }
                 .map { it.name }.take(2)
             (pNames + sNames).distinct()
@@ -216,7 +218,7 @@ fun SearchScreen(
                         .testTag("search_back_button"),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(LucideIcons.ArrowLeft, contentDescription = "Back", tint = colors.primaryText, modifier = Modifier.size(20.dp))
+                    Icon(LucideIcons.ArrowLeft, contentDescription = strings.common.backLabel, tint = colors.primaryText, modifier = Modifier.size(20.dp))
                 }
 
                 Spacer(modifier = Modifier.width(10.dp))
@@ -251,7 +253,7 @@ fun SearchScreen(
                             }
                         }
                     ) {
-                        Icon(LucideIcons.ShoppingCart, contentDescription = "Cart", tint = colors.primaryText, modifier = Modifier.size(20.dp))
+                        Icon(LucideIcons.ShoppingCart, contentDescription = strings.cartTitle, tint = colors.primaryText, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -307,7 +309,7 @@ fun SearchScreen(
                                             },
                                             modifier = Modifier.size(36.dp)
                                         ) {
-                                            Icon(LucideIcons.X, contentDescription = "Remove $term", tint = colors.mutedText, modifier = Modifier.size(15.dp))
+                                            Icon(LucideIcons.X, contentDescription = strings.buyer.removeTermDesc.replace("%s", term), tint = colors.mutedText, modifier = Modifier.size(15.dp))
                                         }
                                     }
                                 }
@@ -406,7 +408,7 @@ fun SearchScreen(
                                         IconButton(
                                             onClick = { isGridView = !isGridView },
                                             modifier = Modifier
-                                                .size(40.dp)
+                                                .size(48.dp)
                                                 .clip(CircleShape)
                                                 .background(colors.cardBackground)
                                                 .border(1.dp, colors.border, CircleShape)
@@ -414,7 +416,7 @@ fun SearchScreen(
                                         ) {
                                             Icon(
                                                 imageVector = if (isGridView) LucideIcons.ListIcon else LucideIcons.LayoutGrid,
-                                                contentDescription = "Toggle Grid or List",
+                                                contentDescription = strings.buyer.toggleGridOrListDesc,
                                                 tint = colors.primaryText,
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -463,28 +465,27 @@ fun SearchScreen(
                                     Icon(LucideIcons.ArrowUpDown, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(15.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     val sortLabel = when (sortBy) {
-                                        "PRICE_LOW_HIGH" -> "Price: Low-High"
-                                        "PRICE_HIGH_LOW" -> "Price: High-Low"
-                                        "RATING" -> "Top Rated"
-                                        "DISCOUNT" -> "Biggest Discount"
-                                        "NEWEST" -> "Newest"
-                                        else -> "Popular"
+                                        "PRICE_LOW_HIGH" -> strings.buyer.sortPriceLowHigh
+                                        "PRICE_HIGH_LOW" -> strings.buyer.sortPriceHighLow
+                                        "RATING" -> strings.buyer.sortTopRated
+                                        "DISCOUNT" -> strings.buyer.sortBiggestDiscount
+                                        "NEWEST" -> strings.buyer.sortNewest
+                                        else -> strings.sortLabel
                                     }
-                                    Text(sortLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
+                                    Text(sortLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
 
                                 if (activeFilterCount > 0) {
                                     TextButton(
                                         onClick = {
                                             selectedCategoryFilter = ""
-                                            minPriceText = ""
-                                            maxPriceText = ""
+                                            priceRange = 0f..50000f
                                             minRating = 0.0
                                             inStockOnly = false
                                             verifiedOnly = false
                                         }
                                     ) {
-                                        Text("Clear All", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = SuqiPrimary)
+                                        Text(strings.clearAll, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = SuqiPrimary)
                                     }
                                 }
                             }
@@ -496,13 +497,12 @@ fun SearchScreen(
                             item {
                                 SuqiEmptyState(
                                     icon = LucideIcons.SearchX,
-                                    title = "No matching products",
-                                    subtitle = "Try adjusting your search keywords or clearing active price/rating filters.",
-                                    ctaText = "Clear Filters",
+                                    title = strings.buyer.noMatchingProducts,
+                                    subtitle = strings.buyer.noMatchingProductsSub,
+                                    ctaText = strings.buyer.resetFiltersTitle,
                                     onCtaClick = {
                                         selectedCategoryFilter = ""
-                                        minPriceText = ""
-                                        maxPriceText = ""
+                                        priceRange = 0f..50000f
                                         minRating = 0.0
                                         inStockOnly = false
                                         verifiedOnly = false
@@ -556,8 +556,8 @@ fun SearchScreen(
                             item {
                                 SuqiEmptyState(
                                     icon = LucideIcons.Store,
-                                    title = "No matching shops",
-                                    subtitle = "No shops matched \"$searchQuery\" with current filters."
+                                    title = strings.buyer.noMatchingShops,
+                                    subtitle = strings.buyer.noMatchingShopsSubTemplate.replace("%s", searchQuery)
                                 )
                             }
                         } else {
@@ -581,16 +581,19 @@ fun SearchScreen(
     }
 
     if (showFilterSheet) {
-        SuqiBottomSheet(onDismissRequest = { showFilterSheet = false }, title = "Filter Results") {
+        SuqiBottomSheet(onDismissRequest = { showFilterSheet = false }, title = strings.buyer.filterResultsTitle) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Price Range (ETB)", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SuqiTextField(value = minPriceText, onValueChange = { minPriceText = it.filter(Char::isDigit) }, label = "Min ETB", placeholder = "0", modifier = Modifier.weight(1f))
-                    SuqiTextField(value = maxPriceText, onValueChange = { maxPriceText = it.filter(Char::isDigit) }, label = "Max ETB", placeholder = "Any", modifier = Modifier.weight(1f))
-                }
+                Text(strings.buyer.priceRangeEtb, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                SuqiRangeSlider(
+                    values = priceRange,
+                    onValuesChange = { priceRange = it },
+                    valueRange = 0f..50000f,
+                    formatLabel = { v -> if (v >= 50000f) "${formatEtb(50000.0)}+" else formatEtb(v.toDouble()) },
+                    modifier = Modifier.testTag("search_price_slider")
+                )
 
                 if (categories.isNotEmpty()) {
-                    Text("Category", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                    Text(strings.buyer.categoryLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.horizontalScroll(rememberScrollState())
@@ -611,9 +614,9 @@ fun SearchScreen(
                     }
                 }
 
-                Text("Minimum Rating", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                Text(strings.buyer.minRatingLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(0.0 to "Any", 3.0 to "3.0★+", 4.0 to "4.0★+", 4.5 to "4.5★+").forEach { (r, lbl) ->
+                    listOf(0.0 to strings.buyer.anyLabel, 3.0 to "3.0★+", 4.0 to "4.0★+", 4.5 to "4.5★+").forEach { (r, lbl) ->
                         FilterChip(
                             selected = minRating == r,
                             onClick = { minRating = r },
@@ -622,24 +625,27 @@ fun SearchScreen(
                     }
                 }
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("In Stock Only", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, color = colors.primaryText)
-                    Switch(checked = inStockOnly, onCheckedChange = { inStockOnly = it })
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Verified Shops Only", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Medium, color = colors.primaryText)
-                    Switch(checked = verifiedOnly, onCheckedChange = { verifiedOnly = it })
-                }
+                SuqiSwitchRow(
+                    title = strings.buyer.inStockOnly,
+                    checked = inStockOnly,
+                    onCheckedChange = { inStockOnly = it },
+                    testTag = "search_in_stock_switch"
+                )
+                SuqiSwitchRow(
+                    title = strings.buyer.verifiedShopsOnly,
+                    checked = verifiedOnly,
+                    onCheckedChange = { verifiedOnly = it },
+                    testTag = "search_verified_switch"
+                )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SuqiButton(
-                        text = "Reset",
+                        text = strings.common.resetLabel,
                         isPrimary = false,
                         isPill = true,
                         onClick = {
                             selectedCategoryFilter = ""
-                            minPriceText = ""
-                            maxPriceText = ""
+                            priceRange = 0f..50000f
                             minRating = 0.0
                             inStockOnly = false
                             verifiedOnly = false
@@ -648,7 +654,7 @@ fun SearchScreen(
                         modifier = Modifier.weight(1f)
                     )
                     SuqiButton(
-                        text = "Apply",
+                        text = strings.applyLabel,
                         isPill = true,
                         onClick = { showFilterSheet = false },
                         modifier = Modifier.weight(1f)
@@ -659,14 +665,14 @@ fun SearchScreen(
     }
 
     if (showSortSheet) {
-        SuqiBottomSheet(onDismissRequest = { showSortSheet = false }, title = "Sort Products By") {
+        SuqiBottomSheet(onDismissRequest = { showSortSheet = false }, title = strings.buyer.sortProductsByTitle) {
             val sortOptions = listOf(
-                "POPULAR" to "Best Match / Popular",
-                "PRICE_LOW_HIGH" to "Price: Low to High",
-                "PRICE_HIGH_LOW" to "Price: High to Low",
-                "RATING" to "Top Rated",
-                "DISCOUNT" to "Biggest Discount",
-                "NEWEST" to "Newest Arrivals"
+                "POPULAR" to strings.buyer.sortPopular,
+                "PRICE_LOW_HIGH" to strings.buyer.sortPriceLowHigh,
+                "PRICE_HIGH_LOW" to strings.buyer.sortPriceHighLow,
+                "RATING" to strings.buyer.sortTopRated,
+                "DISCOUNT" to strings.buyer.sortBiggestDiscount,
+                "NEWEST" to strings.buyer.sortNewest
             )
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 sortOptions.forEach { (key, label) ->
@@ -708,6 +714,9 @@ fun SearchResultProductRow(
     onToggleWishlist: () -> Unit
 ) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val lang = LocalSuqiLanguage.current
+    val displayTitle = product.localizedName(lang)
     SuqiSectionCard(
         padding = 12.dp,
         onClick = onClick,
@@ -722,7 +731,7 @@ fun SearchResultProductRow(
             ) {
                 AsyncImage(
                     model = product.primaryImageUrl,
-                    contentDescription = product.name,
+                    contentDescription = displayTitle,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -730,8 +739,6 @@ fun SearchResultProductRow(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            val lang = LocalSuqiLanguage.current
-            val displayTitle = product.localizedName(lang)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = displayTitle,
@@ -765,16 +772,16 @@ fun SearchResultProductRow(
 
                 Spacer(modifier = Modifier.height(4.dp))
                 when {
-                    product.stockQuantity <= 0 -> SuqiStatusBadge("Out of Stock", StatusType.ERROR)
-                    product.stockQuantity in 1..5 -> SuqiStatusBadge("Only ${product.stockQuantity} left", StatusType.WARNING)
-                    else -> SuqiStatusBadge("In Stock", StatusType.SUCCESS)
+                    product.stockQuantity <= 0 -> SuqiStatusBadge(strings.outOfStock, StatusType.ERROR)
+                    product.stockQuantity in 1..5 -> SuqiStatusBadge(strings.common.onlyNLeftTemplate.replace("%d", product.stockQuantity.toString()), StatusType.WARNING)
+                    else -> SuqiStatusBadge(strings.inStock, StatusType.SUCCESS)
                 }
             }
 
             IconButton(onClick = onToggleWishlist) {
                 Icon(
                     imageVector = if (product.isWishlisted) LucideIcons.HeartFilled else LucideIcons.Heart,
-                    contentDescription = "Wishlist",
+                    contentDescription = strings.wishlistTitle,
                     tint = if (product.isWishlisted) SuqiPrimary else colors.secondaryText
                 )
             }
