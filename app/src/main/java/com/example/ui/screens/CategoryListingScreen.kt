@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.MarketplaceCategories
 import com.example.data.model.ProductDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
@@ -53,17 +54,8 @@ fun CategoryListingScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
 
-    val subCategories = when (categoryId) {
-        "cat_electronics" -> listOf("All", "Laptops", "Phones", "Audio", "Smart Watches", "Accessories")
-        "cat_fashion" -> listOf("All", "Men", "Women", "Shoes", "Bags", "Traditional Habesha", "Watches")
-        "cat_home" -> listOf("All", "Kitchen", "Living Room", "Bedding", "Home Decor", "Lighting")
-        "cat_beauty" -> listOf("All", "Skincare", "Fragrance", "Haircare", "Makeup", "Personal Care")
-        "cat_furniture" -> listOf("All", "Sofas", "Desks & Chairs", "Tables", "Beds", "Storage")
-        "cat_sports" -> listOf("All", "Fitness Equipment", "Sportswear", "Football", "Outdoor & Running")
-        "cat_toys" -> listOf("All", "Action Figures", "Board Games", "Educational", "Plush Toys", "Baby")
-        "cat_groceries" -> listOf("All", "Coffee & Tea", "Ethiopian Spices", "Fresh Produce", "Pantry", "Snacks")
-        "cat_health" -> listOf("All", "Supplements", "First Aid", "Wellness", "Personal Hygiene", "Medical Supplies")
-        else -> listOf("All", "Popular", "Featured", "Deals", "New")
+    val subCategories = remember(categoryId) {
+        listOf("All") + MarketplaceCategories.subCategoriesForId(categoryId)
     }
 
     fun applyClientFilters(raw: List<ProductDto>): List<ProductDto> {

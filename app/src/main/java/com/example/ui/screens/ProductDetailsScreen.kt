@@ -551,7 +551,7 @@ fun ProductDetailsScreen(
                     Text("Specifications", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
                     Spacer(modifier = Modifier.height(10.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SpecRowItem(label = "Category", value = currentProd.categoryId.replace("cat_", "").replaceFirstChar { it.uppercase() })
+                        SpecRowItem(label = "Category", value = com.example.data.model.MarketplaceCategories.nameForId(currentProd.categoryId))
                         SpecRowItem(label = "Stock Availability", value = "$displayStock in stock")
                         selectedVariant?.sku?.takeIf { it.isNotBlank() }?.let {
                             SpecRowItem(label = "SKU", value = it)

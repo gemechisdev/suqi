@@ -241,4 +241,33 @@ class ExampleRobolectricTest {
         assertNotNull(updatedSettings)
         assertEquals(!currentChat, updatedSettings!!.isChatEnabled)
     }
+
+    @Test
+    fun testCanonicalSixteenCategoriesSeeded() = runBlocking {
+        val cats = backend.getCategories().data ?: emptyList()
+        assertEquals(16, cats.size)
+        assertEquals(
+            listOf(
+                "Electronics",
+                "Fashion",
+                "Home & Living",
+                "Beauty & Care",
+                "Sports & Outdoors",
+                "Bags & Accessories",
+                "Furniture",
+                "Health & Fitness",
+                "Baby, Kids & Toys",
+                "Groceries & Food",
+                "Traditional Clothes",
+                "Automotive",
+                "Books & Stationery",
+                "Arts & Crafts",
+                "Garden & Agriculture",
+                "Gifts & Occasions"
+            ),
+            cats.map { it.name }
+        )
+        assertTrue(cats.none { it.id == "cat_toys" })
+        assertTrue(cats.all { it.imageUrl.startsWith("https://cdn.jsdelivr.net/gh/gamistudios/myfiles@") })
+    }
 }

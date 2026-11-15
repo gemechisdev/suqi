@@ -4,9 +4,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -2076,6 +2078,19 @@ fun AdminCategoriesScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val thumbUrl = cat.imageUrl.ifBlank { MarketplaceCategories.imageUrlForId(cat.id) }
+                                if (thumbUrl.isNotBlank()) {
+                                    AsyncImage(
+                                        model = thumbUrl,
+                                        contentDescription = cat.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(colors.imageBackdrop)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                }
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(cat.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
                                     if (cat.nameAmharic.isNotBlank()) {
@@ -2151,6 +2166,7 @@ fun AdminCategoriesScreen(
         var nameEn by remember(editingCategory) { mutableStateOf(editingCategory?.name.orEmpty()) }
         var nameAm by remember(editingCategory) { mutableStateOf(editingCategory?.nameAmharic.orEmpty()) }
         var nameOr by remember(editingCategory) { mutableStateOf(editingCategory?.nameAfaanOromo.orEmpty()) }
+        var imageUrl by remember(editingCategory) { mutableStateOf(editingCategory?.imageUrl.orEmpty()) }
         var subsCsv by remember(editingCategory) { mutableStateOf(editingCategory?.subCategories?.joinToString(", ").orEmpty()) }
 
         SuqiBottomSheet(
@@ -2161,6 +2177,7 @@ fun AdminCategoriesScreen(
                 SuqiTextField(value = nameEn, onValueChange = { nameEn = it }, label = "Category Name (English) *")
                 SuqiTextField(value = nameAm, onValueChange = { nameAm = it }, label = "Name (Amharic / አማርኛ)")
                 SuqiTextField(value = nameOr, onValueChange = { nameOr = it }, label = "Name (Afaan Oromo)")
+                SuqiTextField(value = imageUrl, onValueChange = { imageUrl = it }, label = "Image URL")
                 SuqiTextField(value = subsCsv, onValueChange = { subsCsv = it }, label = "Sub-categories (comma separated)")
                 SuqiButton(
                     text = if (editingCategory == null) "Create Category" else "Save Category",
@@ -2178,6 +2195,7 @@ fun AdminCategoriesScreen(
                                     nameAmharic = nameAm.trim(),
                                     nameAfaanOromo = nameOr.trim(),
                                     icon = editingCategory?.icon ?: "Tag",
+                                    imageUrl = imageUrl.trim(),
                                     subCategories = subs,
                                     isActive = true,
                                     sortOrder = editingCategory?.sortOrder ?: (categories.size + 1)
@@ -2390,13 +2408,11 @@ fun AdminBannersScreen(
                 SuqiTextField(value = subtitle, onValueChange = { subtitle = it }, label = "Subtitle")
                 SuqiTextField(value = ctaText, onValueChange = { ctaText = it }, label = "Button CTA")
                 SuqiTextField(value = imageUrl, onValueChange = { imageUrl = it }, label = "Banner Image URL")
-                val categoryOptions = listOf(
-                    "cat_electronics" to "Electronics",
-                    "cat_fashion" to "Fashion",
-                    "cat_home" to "Home & Living",
-                    "cat_beauty" to "Beauty & Care"
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val categoryOptions = MarketplaceCategories.all.map { it.id to it.name }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
                     categoryOptions.forEach { (id, lbl) ->
                         val sel = targetCat == id
                         Box(

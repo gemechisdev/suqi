@@ -1383,12 +1383,15 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun saveCategory(category: CategoryDto): ApiResponse<CategoryDto> = withContext(Dispatchers.IO) {
+        val catId = category.id.ifBlank { "cat_${System.currentTimeMillis()}" }
+        val resolvedImage = category.imageUrl.trim().ifBlank { MarketplaceCategories.imageUrlForId(catId) }
         val entity = CategoryEntity(
-            id = category.id.ifBlank { "cat_${System.currentTimeMillis()}" },
+            id = catId,
             name = category.name.trim(),
             nameAmharic = category.nameAmharic.trim(),
             nameAfaanOromo = category.nameAfaanOromo.trim(),
             icon = category.icon.ifBlank { "sparkles" },
+            imageUrl = resolvedImage,
             subCategoriesCsv = category.subCategories.joinToString(","),
             isActive = category.isActive,
             sortOrder = category.sortOrder
@@ -1621,7 +1624,8 @@ fun SavedAddressEntity.toDto() = SavedAddressDto(
 
 fun CategoryEntity.toDto() = CategoryDto(
     id = id, name = name, nameAmharic = nameAmharic, nameAfaanOromo = nameAfaanOromo,
-    icon = icon, subCategories = if (subCategoriesCsv.isBlank()) emptyList() else subCategoriesCsv.split(","),
+    icon = icon, imageUrl = imageUrl.ifBlank { MarketplaceCategories.imageUrlForId(id) },
+    subCategories = if (subCategoriesCsv.isBlank()) emptyList() else subCategoriesCsv.split(","),
     isActive = isActive, sortOrder = sortOrder
 )
 

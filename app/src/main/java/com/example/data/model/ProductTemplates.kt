@@ -198,7 +198,7 @@ object ProductTemplates {
             sel("material", "Material", listOf("Leather", "Synthetic", "Canvas", "Mesh", "Rubber")),
             condition
         )),
-        ItemType("bags", "Bags & Luggage", "👜", "cat_fashion", "Fashion", listOf(
+        ItemType("bags", "Bags & Luggage", "👜", "cat_bags", "Bags & Accessories", listOf(
             brand,
             sel("bag_type", "Type", listOf("Backpack", "Handbag", "Laptop bag", "Travel bag", "Wallet", "School bag")),
             sel("size", "Size", listOf("Small", "Medium", "Large"), selectable = true),
@@ -216,7 +216,7 @@ object ProductTemplates {
             a("ring_size", "Size", selectable = true),
             yesNo("water_resistant", "Water resistant")
         )),
-        ItemType("traditional", "Traditional Wear", "👗", "cat_fashion", "Fashion", listOf(
+        ItemType("traditional", "Traditional Wear", "👗", "cat_traditional", "Traditional Clothes", listOf(
             sel("garment", "Garment", listOf("Habesha Kemis", "Netela / Gabi", "Kuta", "Shuruba", "Men's suit", "Cultural dress")),
             gender,
             sel("size", "Size", apparelSizes, selectable = true),
@@ -227,8 +227,8 @@ object ProductTemplates {
             yesNo("handmade", "Handmade")
         )),
 
-        // ───────── Home & Living ─────────
-        ItemType("furniture", "Furniture", "🛋️", "cat_home", "Home & Living", listOf(
+        // ───────── Furniture ─────────
+        ItemType("furniture", "Furniture", "🛋️", "cat_furniture", "Furniture", listOf(
             sel("furniture_type", "Type", listOf("Sofa", "Bed", "Table", "Chair", "Wardrobe", "Desk", "Shelf", "Cabinet")),
             sel("material", "Material", listOf("Wood", "Metal", "Fabric", "Leather", "Glass", "Plastic")),
             meas("length", "Length", lengthUnits, "Dimensions"),
@@ -304,8 +304,8 @@ object ProductTemplates {
             date("expiry", "Expiry date")
         )),
 
-        // ───────── Groceries ─────────
-        ItemType("food", "Food & Groceries", "🛒", "cat_groceries", "Groceries", listOf(
+        // ───────── Groceries & Food ─────────
+        ItemType("food", "Food & Groceries", "🛒", "cat_groceries", "Groceries & Food", listOf(
             brand,
             meas("weight", "Net weight", weightUnits, selectable = true),
             meas("volume", "Volume", listOf("ml", "L")),
@@ -316,7 +316,7 @@ object ProductTemplates {
             sel("storage", "Storage", listOf("Room temperature", "Refrigerate", "Frozen")),
             sel("packaging", "Packaging", listOf("Bag", "Box", "Bottle", "Can", "Jar", "Loose"))
         )),
-        ItemType("coffee", "Coffee & Tea", "☕", "cat_groceries", "Groceries", listOf(
+        ItemType("coffee", "Coffee & Tea", "☕", "cat_groceries", "Groceries & Food", listOf(
             sel("coffee_type", "Type", listOf("Coffee beans", "Ground coffee", "Green beans", "Tea leaves", "Tea bags")),
             sel("region", "Origin region", listOf("Yirgacheffe", "Sidama", "Harar", "Guji", "Jimma", "Limu", "Kaffa", "Other")),
             sel("roast", "Roast level", listOf("Light", "Medium", "Dark")),
@@ -326,7 +326,7 @@ object ProductTemplates {
             date("harvest", "Harvest / roast date"),
             yesNo("organic", "Organic")
         )),
-        ItemType("spices", "Spices & Grains", "🌶️", "cat_groceries", "Groceries", listOf(
+        ItemType("spices", "Spices & Grains", "🌶️", "cat_groceries", "Groceries & Food", listOf(
             sel("spice_type", "Type", listOf("Berbere", "Mitmita", "Teff", "Shiro", "Honey", "Spice blend", "Cereal / Pulse", "Oil / Butter")),
             meas("weight", "Net weight", weightUnits, selectable = true),
             a("ingredients", "Ingredients"),
@@ -335,10 +335,10 @@ object ProductTemplates {
             yesNo("organic", "Organic")
         )),
 
-        // ───────── Sports ─────────
-        ItemType("sports", "Sports & Fitness", "⚽", "cat_sports", "Sports", listOf(
+        // ───────── Sports & Outdoors ─────────
+        ItemType("sports", "Sports & Outdoors", "⚽", "cat_sports", "Sports & Outdoors", listOf(
             brand,
-            sel("sport", "Sport", listOf("Football", "Basketball", "Running", "Gym & Fitness", "Cycling", "Swimming", "Other")),
+            sel("sport", "Sport", listOf("Football", "Basketball", "Running", "Gym & Fitness", "Cycling", "Camping", "Other")),
             a("item_type", "Item type"),
             sel("size", "Size", listOf("S", "M", "L", "XL", "One size"), selectable = true),
             color(),
@@ -347,8 +347,18 @@ object ProductTemplates {
             condition
         )),
 
-        // ───────── Vehicles ─────────
-        ItemType("car", "Car", "🚗", "cat_vehicles", "Vehicles", listOf(
+        // ───────── Health & Fitness ─────────
+        ItemType("health_fitness", "Health & Fitness", "💪", "cat_health", "Health & Fitness", listOf(
+            brand,
+            sel("health_type", "Type", listOf("Supplements", "Gym Equipment", "Yoga & Mobility", "Blood Pressure / Monitor", "First Aid")),
+            meas("weight", "Weight / Volume", listOf("g", "kg", "ml", "caps")),
+            date("expiry", "Expiry date"),
+            origin,
+            condition
+        )),
+
+        // ───────── Automotive ─────────
+        ItemType("car", "Car", "🚗", "cat_vehicles", "Automotive", listOf(
             a("make", "Make", required = true), a("model", "Model", required = true),
             num("year", "Year", required = true),
             meas("mileage", "Mileage", listOf("km", "mi")),
@@ -360,7 +370,7 @@ object ProductTemplates {
             color(), 
             sel("condition", "Condition", listOf("New", "Used"))
         ).map { if (it.key == "color") it.copy(selectable = false) else it }),
-        ItemType("motorcycle", "Motorbike & Bajaj", "🏍️", "cat_vehicles", "Vehicles", listOf(
+        ItemType("motorcycle", "Motorbike & Bajaj", "🏍️", "cat_vehicles", "Automotive", listOf(
             a("make", "Make", required = true), a("model", "Model"),
             sel("moto_type", "Type", listOf("Motorbike", "Scooter", "Bajaj (3-wheeler)")),
             num("year", "Year"),
@@ -370,7 +380,7 @@ object ProductTemplates {
             color(),
             sel("condition", "Condition", listOf("New", "Used"))
         ).map { if (it.key == "color") it.copy(selectable = false) else it }),
-        ItemType("autoparts", "Auto Parts", "🔧", "cat_vehicles", "Vehicles", listOf(
+        ItemType("autoparts", "Auto Parts", "🔧", "cat_vehicles", "Automotive", listOf(
             a("part_type", "Part type", required = true),
             a("compatible_make", "Compatible make"),
             a("compatible_model", "Compatible model"),
@@ -380,8 +390,8 @@ object ProductTemplates {
             condition, warranty
         )),
 
-        // ───────── Kids ─────────
-        ItemType("toys", "Toys & Games", "🧸", "cat_kids", "Kids", listOf(
+        // ───────── Baby, Kids & Toys ─────────
+        ItemType("toys", "Toys & Games", "🧸", "cat_kids", "Baby, Kids & Toys", listOf(
             brand,
             sel("toy_type", "Type", listOf("Educational", "Dolls", "Cars", "Building blocks", "Board game", "Outdoor", "Puzzle")),
             sel("age", "Age range", listOf("0-2 years", "3-5 years", "6-8 years", "9-12 years", "13+ years")),
@@ -390,7 +400,7 @@ object ProductTemplates {
             num("pieces", "Number of pieces"),
             color()
         )),
-        ItemType("baby", "Baby Products", "🍼", "cat_kids", "Kids", listOf(
+        ItemType("baby", "Baby Products", "🍼", "cat_kids", "Baby, Kids & Toys", listOf(
             brand,
             sel("baby_type", "Type", listOf("Diapers", "Clothing", "Feeding", "Stroller / Car seat", "Bath & Care", "Nursery")),
             sel("age", "Age range", listOf("Newborn", "0-6 months", "6-12 months", "1-2 years", "2-4 years")),
@@ -399,8 +409,8 @@ object ProductTemplates {
             color()
         )),
 
-        // ───────── Books & Media ─────────
-        ItemType("books", "Books", "📚", "cat_books", "Books & Media", listOf(
+        // ───────── Books & Stationery ─────────
+        ItemType("books", "Books", "📚", "cat_books", "Books & Stationery", listOf(
             a("author", "Author", required = true),
             a("publisher", "Publisher"),
             sel("language", "Language", listOf("Amharic", "Afaan Oromoo", "Tigrinya", "English", "Other")),
@@ -411,13 +421,38 @@ object ProductTemplates {
             a("genre", "Genre"),
             condition
         )),
-        ItemType("music", "Musical Instruments", "🎸", "cat_books", "Books & Media", listOf(
-            sel("instrument", "Instrument", listOf("Krar", "Masinko", "Washint", "Kebero", "Guitar", "Keyboard / Piano", "Drums", "Other")),
+        ItemType("stationery", "Stationery & Office", "✏️", "cat_books", "Books & Stationery", listOf(
             brand,
-            a("material", "Material"),
-            yesNo("handmade", "Handmade"),
+            sel("stationery_type", "Type", listOf("Notebooks", "Pens & Markers", "School Backpack Set", "Art Paper", "Office Supplies")),
             color(),
-            condition
+            num("pieces", "Pack count")
+        )),
+
+        // ───────── Arts & Crafts ─────────
+        ItemType("arts_crafts", "Arts & Crafts", "🎨", "cat_arts", "Arts & Crafts", listOf(
+            sel("craft_type", "Type", listOf("Painting", "Pottery / Clay", "Woven Basket (Mesob)", "Wood Carving", "Craft Supplies")),
+            a("artist", "Artist / Maker"),
+            a("material", "Material"),
+            meas("dimensions", "Dimensions", lengthUnits),
+            yesNo("handmade", "Handmade"),
+            origin
+        )),
+
+        // ───────── Garden & Agriculture ─────────
+        ItemType("garden_agri", "Garden & Agriculture", "🌱", "cat_garden", "Garden & Agriculture", listOf(
+            sel("garden_type", "Type", listOf("Indoor Plant", "Seeds & Seedlings", "Planter / Pot", "Garden Tools", "Fertilizer & Soil")),
+            a("species", "Plant / Variety"),
+            sel("sunlight", "Sunlight", listOf("Full sun", "Partial shade", "Indoor")),
+            meas("weight", "Weight / Size", weightUnits),
+            origin
+        )),
+
+        // ───────── Gifts & Occasions ─────────
+        ItemType("gifts", "Gifts & Occasions", "🎁", "cat_gifts", "Gifts & Occasions", listOf(
+            sel("occasion", "Occasion", listOf("Birthday", "Wedding", "Holiday", "Graduation", "Anniversary", "Thank You")),
+            sel("gift_type", "Type", listOf("Gift Box / Hamper", "Flowers", "Personalized Gift", "Chocolate & Treats")),
+            yesNo("gift_wrap", "Gift wrapping included"),
+            color()
         ))
     )
 

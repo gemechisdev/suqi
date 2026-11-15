@@ -253,6 +253,7 @@ data class CategoryDto(
     val nameAmharic: String,
     val nameAfaanOromo: String,
     val icon: String,
+    val imageUrl: String = "",
     val subCategories: List<String>,
     val isActive: Boolean = true,
     val sortOrder: Int = 0

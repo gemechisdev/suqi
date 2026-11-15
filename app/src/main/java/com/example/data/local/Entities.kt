@@ -245,6 +245,7 @@ data class CategoryEntity(
     val nameAmharic: String,
     val nameAfaanOromo: String,
     val icon: String,
+    val imageUrl: String = "",
     val subCategoriesCsv: String,
     val isActive: Boolean = true,
     val sortOrder: Int = 0

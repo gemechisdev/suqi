@@ -1,5 +1,6 @@
 package com.example.data.local
 
+import com.example.data.model.MarketplaceCategories
 import com.example.data.model.ProductDetails
 import com.example.data.model.ProductTemplates
 import com.example.data.model.ProductVariant
@@ -90,16 +91,19 @@ object SeedData {
             )
         )
 
-        // Categories
-        val categories = listOf(
-            CategoryEntity("cat_electronics", "Electronics", "ኤሌክትሮኒክስ", "Elekitirooniksii", "laptop", "Laptops,Phones,Accessories,Audio,Smart Watches"),
-            CategoryEntity("cat_fashion", "Fashion", "ፋሽንና ልብሶች", "Faashinii", "tshirt", "Men,Women,Shoes,Bags,Accessories"),
-            CategoryEntity("cat_home", "Home & Living", "የቤት ዕቃዎች", "Mana & Jireenya", "home", "Furniture,Kitchen,Decor,Bedding"),
-            CategoryEntity("cat_beauty", "Beauty & Care", "ውበትና የግል እንክብካቤ", "Bareedina", "sparkles", "Skincare,Fragrance,Haircare,Makeup"),
-            CategoryEntity("cat_sports", "Sports & Fitness", "ስፖርትና አካል ብቃት", "Ispoortii", "sports", "Fitness Equipment,Activewear,Footwear"),
-            CategoryEntity("cat_groceries", "Groceries", "ምግብና ሸቀጣ ሸቀጥ", "Nyaata & Gabaa", "groceries", "Spices,Coffee,Fresh Produce,Snacks")
-        ) + ProductTemplates.extraCategories.map { c ->
-            CategoryEntity(c[0], c[1], c[2], c[3], c[4], c[5])
+        // Categories (16 canonical marketplace categories)
+        val categories = MarketplaceCategories.all.map { c ->
+            CategoryEntity(
+                id = c.id,
+                name = c.name,
+                nameAmharic = c.nameAmharic,
+                nameAfaanOromo = c.nameAfaanOromo,
+                icon = c.icon,
+                imageUrl = c.imageUrl,
+                subCategoriesCsv = c.subCategories.joinToString(","),
+                isActive = true,
+                sortOrder = c.sortOrder
+            )
         }
         db.categoryDao().insertAll(categories)
 
@@ -456,8 +460,8 @@ object SeedData {
                 nameAfaanOromo = "Boorsaa Imalaa",
                 description = "Waterproof nylon, dedicated 16\" laptop compartment, USB charging port, anti-theft hidden pocket.",
                 primaryImageUrl = "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600",
-                categoryId = "cat_fashion",
-                subCategory = "Bags",
+                categoryId = "cat_bags",
+                subCategory = "Backpacks",
                 price = 9999.0,
                 originalPrice = 11999.0,
                 discountPercent = 16,
@@ -481,8 +485,8 @@ object SeedData {
                 nameAfaanOromo = "Soofaa Ammayyaa",
                 description = "Comfortable 3-seater contemporary sofa with soft linen fabric, solid wood frame, and high-density foam.",
                 primaryImageUrl = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600",
-                categoryId = "cat_home",
-                subCategory = "Furniture",
+                categoryId = "cat_furniture",
+                subCategory = "Sofas",
                 price = 48000.0,
                 originalPrice = 55000.0,
                 discountPercent = 12,
@@ -878,6 +882,23 @@ object SeedData {
         }
         if (db.userDao().getActiveSessionUser() == null) {
             db.userDao().getFirstUser()?.let { db.userDao().setActiveSession(it.id) }
+        }
+        if (db.categoryDao().getAllCategories().isEmpty()) {
+            db.categoryDao().insertAll(
+                MarketplaceCategories.all.map { c ->
+                    CategoryEntity(
+                        id = c.id,
+                        name = c.name,
+                        nameAmharic = c.nameAmharic,
+                        nameAfaanOromo = c.nameAfaanOromo,
+                        icon = c.icon,
+                        imageUrl = c.imageUrl,
+                        subCategoriesCsv = c.subCategories.joinToString(","),
+                        isActive = true,
+                        sortOrder = c.sortOrder
+                    )
+                }
+            )
         }
         if (db.promoBannerDao().getAllBanners().isEmpty()) {
             db.promoBannerDao().insertAll(

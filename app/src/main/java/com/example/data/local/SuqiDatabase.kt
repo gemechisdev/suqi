@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
+import com.example.data.model.MarketplaceCategories
 import com.example.data.model.ProductTemplates
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
@@ -35,7 +36,7 @@ import kotlinx.coroutines.sync.withLock
         SubscriptionPlanEntity::class,
         SupportTicketEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -185,6 +186,31 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v4: category CDN imageUrl + canonical 16 marketplace categories. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE categories ADD COLUMN imageUrl TEXT NOT NULL DEFAULT ''")
+                db.execSQL("DELETE FROM categories WHERE id = 'cat_toys'")
+                MarketplaceCategories.all.forEach { c ->
+                    db.execSQL(
+                        """INSERT OR REPLACE INTO categories
+                            (id, name, nameAmharic, nameAfaanOromo, icon, imageUrl, subCategoriesCsv, isActive, sortOrder)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)""",
+                        arrayOf<Any?>(
+                            c.id,
+                            c.name,
+                            c.nameAmharic,
+                            c.nameAfaanOromo,
+                            c.icon,
+                            c.imageUrl,
+                            c.subCategories.joinToString(","),
+                            c.sortOrder
+                        )
+                    )
+                }
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -194,7 +220,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     context.applicationContext,
                     SuqiDatabase::class.java,
                     "suqi_marketplace.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).addCallback(object : Callback() {
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).addCallback(object : Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         super.onOpen(db)
                         CoroutineScope(Dispatchers.IO).launch {

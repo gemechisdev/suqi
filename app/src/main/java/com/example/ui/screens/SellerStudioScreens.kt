@@ -581,17 +581,7 @@ fun AddEditProductScreen(
     var categoryId by remember { mutableStateOf("cat_electronics") }
     var categories by remember {
         mutableStateOf(
-            listOf(
-                "cat_electronics" to "Electronics",
-                "cat_fashion" to "Fashion",
-                "cat_home" to "Home & Living",
-                "cat_beauty" to "Beauty & Care",
-                "cat_groceries" to "Groceries",
-                "cat_sports" to "Sports",
-                "cat_vehicles" to "Vehicles",
-                "cat_kids" to "Kids & Toys",
-                "cat_books" to "Books & Media"
-            )
+            com.example.data.model.MarketplaceCategories.all.map { it.id to it.name }
         )
     }
     var priceStr by remember { mutableStateOf("") }

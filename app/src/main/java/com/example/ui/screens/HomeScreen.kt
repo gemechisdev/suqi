@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.CategoryDto
+import com.example.data.model.MarketplaceCategories
 import com.example.data.model.ProductDto
 import com.example.data.model.ShopDto
 import com.example.ui.ScreenDestination
@@ -59,7 +61,7 @@ fun HomeScreen(
 
     var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
     var shops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
+    var categories by remember { mutableStateOf(MarketplaceCategories.all.map { it.toDto() }) }
     var liveBanners by remember { mutableStateOf<List<PromoBanner>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showLocationSheet by remember { mutableStateOf(false) }
@@ -115,8 +117,10 @@ fun HomeScreen(
                 shops = shopRes.data
             }
             val catRes = viewModel.repository.getCategories()
-            if (catRes.success && catRes.data != null) {
+            if (catRes.success && !catRes.data.isNullOrEmpty()) {
                 categories = catRes.data
+                    .filter { it.isActive }
+                    .sortedWith(compareBy({ it.sortOrder }, { it.name }))
             }
             isLoading = false
         }
@@ -247,39 +251,30 @@ fun HomeScreen(
                 )
             }
 
-            // Categories Shortcuts Row (consistent line icons)
+            // Categories Shortcuts Row (live categories with CDN thumbnails + All Categories link)
             item {
-                Row(
+                LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(vertical = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    CategoryShortcutItem(
-                        title = "Electronics",
-                        icon = LucideIcons.Laptop,
-                        onClick = { viewModel.navigate(ScreenDestination.CategoryListing("cat_electronics", "Electronics")) }
-                    )
-                    CategoryShortcutItem(
-                        title = "Fashion",
-                        icon = LucideIcons.Shirt,
-                        onClick = { viewModel.navigate(ScreenDestination.CategoryListing("cat_fashion", "Fashion")) }
-                    )
-                    CategoryShortcutItem(
-                        title = "Home & Living",
-                        icon = LucideIcons.House,
-                        onClick = { viewModel.navigate(ScreenDestination.CategoryListing("cat_home", "Home & Living")) }
-                    )
-                    CategoryShortcutItem(
-                        title = "Beauty",
-                        icon = LucideIcons.Sparkles,
-                        onClick = { viewModel.navigate(ScreenDestination.CategoryListing("cat_beauty", "Beauty & Care")) }
-                    )
-                    CategoryShortcutItem(
-                        title = "More",
-                        icon = LucideIcons.LayoutGrid,
-                        onClick = { viewModel.navigate(ScreenDestination.Categories) }
-                    )
+                    items(categories, key = { it.id }) { cat ->
+                        CategoryImageShortcutItem(
+                            title = cat.name,
+                            imageUrl = cat.imageUrl.ifBlank { MarketplaceCategories.imageUrlForId(cat.id) },
+                            onClick = { viewModel.navigate(ScreenDestination.CategoryListing(cat.id, cat.name)) },
+                            testTag = "home_cat_${cat.id}"
+                        )
+                    }
+                    item(key = "all_categories_shortcut") {
+                        CategoryShortcutItem(
+                            title = "All",
+                            icon = LucideIcons.LayoutGrid,
+                            onClick = { viewModel.navigate(ScreenDestination.Categories) }
+                        )
+                    }
                 }
             }
 
@@ -596,22 +591,68 @@ fun HomeScreen(
 }
 
 @Composable
+fun CategoryImageShortcutItem(
+    title: String,
+    imageUrl: String,
+    onClick: () -> Unit,
+    testTag: String = ""
+) {
+    val colors = LocalSuqiColors.current
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(68.dp)
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
+            .let { if (testTag.isNotBlank()) it.testTag(testTag) else it }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(colors.imageBackdrop)
+                .border(1.dp, colors.border, RoundedCornerShape(18.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = title,
+            fontFamily = SuqiFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            color = colors.primaryText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 fun CategoryShortcutItem(
     title: String,
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val colors = LocalSuqiColors.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .width(64.dp)
             .clickable(onClick = onClick)
-            .padding(4.dp)
+            .padding(vertical = 4.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(SuqiPrimaryTint),
+                .size(56.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(colors.primaryTint),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -626,8 +667,8 @@ fun CategoryShortcutItem(
             text = title,
             fontFamily = SuqiFontFamily,
             fontWeight = FontWeight.Medium,
-            fontSize = 12.sp,
-            color = SuqiPrimaryText,
+            fontSize = 11.sp,
+            color = colors.primaryText,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
