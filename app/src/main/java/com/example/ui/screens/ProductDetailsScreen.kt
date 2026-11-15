@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.localizeDeliveryTitle
+import com.example.ui.i18n.localizeEta
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -494,7 +496,7 @@ fun ProductDetailsScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = primaryDelivery?.let { "${it.title}: ${it.estimatedTime}" } ?: "${strings.checkout.deliveryPromiseTitle}: ${strings.checkout.deliveryPromiseEta}",
+                                text = primaryDelivery?.let { "${strings.extras.localizeDeliveryTitle(it.title)}: ${strings.extras.localizeEta(it.estimatedTime, com.example.ui.i18n.LocalSuqiLanguage.current)}" } ?: "${strings.checkout.deliveryPromiseTitle}: ${strings.checkout.deliveryPromiseEta}",
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp,
@@ -681,7 +683,7 @@ fun ProductDetailsScreen(
                             if (index > 0) {
                                 HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 10.dp))
                             }
-                            Text("Q: ${qa.question}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
+                            Text("${strings.extras.questionPrefix} ${qa.question}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
                             Text("${qa.askerName} • ${qa.createdAt}", fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.mutedText)
                             if (qa.answer.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -909,14 +911,9 @@ fun ProductDetailsScreen(
 
     // Report Listing Sheet
     if (showReportSheet) {
-        var selectedReason by remember { mutableStateOf("Counterfeit or misleading listing") }
+        val reasons = listOf(strings.extras.reportReasonCounterfeit, strings.extras.reportReasonPrice, strings.extras.reportReasonProhibited, strings.extras.reportReasonPayment)
+        var selectedReason by remember { mutableStateOf(reasons.first()) }
         var extraDetails by remember { mutableStateOf("") }
-        val reasons = listOf(
-            "Counterfeit or misleading listing",
-            "Incorrect price or out of stock",
-            "Prohibited item on Suqi",
-            "Suspicious payment instructions"
-        )
         SuqiBottomSheet(onDismissRequest = { showReportSheet = false }, title = strings.reportListing) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 reasons.forEach { r ->

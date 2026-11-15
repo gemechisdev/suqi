@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.placeLabel
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -322,7 +323,7 @@ fun SavedAddressesScreen(
                         Text(text = addr.phone, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${addr.streetOrLandmark}, ${addr.subCity}, ${addr.city}",
+                            text = "${addr.streetOrLandmark}, ${placeLabel(addr.subCity)}, ${placeLabel(addr.city)}",
                             fontFamily = SuqiFontFamily,
                             fontSize = 13.sp,
                             color = colors.primaryText
@@ -777,7 +778,7 @@ fun AppSettingsScreen(
 
                     SuqiListRow(
                         icon = LucideIcons.MapPin,
-                        title = "$curCity, $curSubCity",
+                        title = "${placeLabel(curCity)}, ${placeLabel(curSubCity)}",
                         subtitle = "${strings.buyer.regionLabel}: $curRegion",
                         badge = strings.common.changeLabel,
                         onClick = { showLocationSheet = true },
@@ -975,7 +976,7 @@ fun AppSettingsScreen(
                         modifier = Modifier.clickable { viewModel.selectedRegion.value = r }
                     ) {
                         Text(
-                            text = r,
+                            text = placeLabel(r),
                             fontFamily = SuqiFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -1012,7 +1013,7 @@ fun AppSettingsScreen(
                                         )
                                     )
                                 }
-                                viewModel.showToast("Addis Ababa, $sc")
+                                viewModel.showToast("${viewModel.localizePlace("Addis Ababa")}, ${viewModel.localizePlace(sc)}")
                                 showLocationSheet = false
                             }
                     ) {
@@ -1022,7 +1023,7 @@ fun AppSettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Addis Ababa, $sc",
+                                text = "${placeLabel("Addis Ababa")}, ${placeLabel(sc)}",
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 14.sp,
@@ -1158,7 +1159,7 @@ fun HelpLegalScreen(
                     SuqiListRow(
                         icon = LucideIcons.FileText,
                         title = strings.buyer.termsTitle,
-                        subtitle = "Ethiopian Proclamation 1205/2020",
+                        subtitle = strings.extras.legalProclamationSubtitle,
                         onClick = { activeDocument = EthiopianMarketplaceUtils.TERMS_OF_SERVICE }
                     )
                     SuqiListRow(
@@ -1178,7 +1179,7 @@ fun HelpLegalScreen(
                         title = strings.buyer.aboutSuqiTitle,
                         subtitle = "v1.0.0 — ${strings.everyShopEveryProduct}",
                         showChevron = false,
-                        onClick = { viewModel.showToast("Suqi v1.0.0") }
+                        onClick = { viewModel.showToast(strings.extras.appVersionToast) }
                     )
                 }
             }
@@ -1530,7 +1531,7 @@ fun AdminSignInScreen(
                                     viewModel.showToast(selectedTier)
                                     viewModel.popToRoot(ScreenDestination.AdminConsole)
                                 } else {
-                                    errorMsg = res.message ?: strings.common.accessRestrictedTitle
+                                    errorMsg = viewModel.localizeMessage(res.message ?: strings.common.accessRestrictedTitle)
                                 }
                             }
                         },
@@ -1980,12 +1981,12 @@ fun AdminCategoriesScreen(
         loadCategories()
     }
 
-    val shopTypes = remember {
+    val shopTypes = remember(strings) {
         listOf(
-            Triple("Retail Store", "Standard merchant with physical or online shop", "2.5% Fee"),
-            Triple("Official Brand Outlet", "Verified brand manufacturer or authorized distributor", "1.8% Fee"),
-            Triple("Habesha Artisan & Crafts", "Traditional handmade Ethiopian clothing & crafts", "1.0% Fee"),
-            Triple("Wholesale & Bulk Supplier", "B2B supplier with minimum quantity orders", "1.5% Fee")
+            Triple(strings.extras.shopTypeRetailName, strings.extras.shopTypeRetailDesc, String.format(strings.extras.feeTemplate, "2.5%")),
+            Triple(strings.extras.shopTypeBrandName, strings.extras.shopTypeBrandDesc, String.format(strings.extras.feeTemplate, "1.8%")),
+            Triple(strings.extras.shopTypeArtisanName, strings.extras.shopTypeArtisanDesc, String.format(strings.extras.feeTemplate, "1.0%")),
+            Triple(strings.extras.shopTypeWholesaleName, strings.extras.shopTypeWholesaleDesc, String.format(strings.extras.feeTemplate, "1.5%"))
         )
     }
 
@@ -2420,13 +2421,13 @@ fun AdminBannersScreen(
             title = if (editingBanner == null) strings.adminOps.addBannerBtn else strings.editLabel
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SuqiTextField(value = badge, onValueChange = { badge = it }, label = "Badge")
+                SuqiTextField(value = badge, onValueChange = { badge = it }, label = strings.extras.bannerBadgeLabel)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SuqiTextField(value = title, onValueChange = { title = it }, label = strings.seller.paramNameRequiredLabel, modifier = Modifier.weight(1f))
-                    SuqiTextField(value = highlight, onValueChange = { highlight = it }, label = "Highlight", modifier = Modifier.weight(1f))
+                    SuqiTextField(value = highlight, onValueChange = { highlight = it }, label = strings.extras.bannerHighlightLabel, modifier = Modifier.weight(1f))
                 }
                 SuqiTextField(value = subtitle, onValueChange = { subtitle = it }, label = strings.description)
-                SuqiTextField(value = ctaText, onValueChange = { ctaText = it }, label = "CTA")
+                SuqiTextField(value = ctaText, onValueChange = { ctaText = it }, label = strings.extras.bannerCtaLabel)
                 SuqiImagePickerTile(
                     label = strings.common.uploadPhotoLabel,
                     imageUri = imageUrl.takeIf { it.isNotBlank() },
@@ -2852,7 +2853,7 @@ fun AdminDevToolsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("ID: ${currentUser?.id ?: "none"} (${currentUser?.name ?: strings.checkout.guestSessionLabel})", fontSize = 13.sp, color = colors.secondaryText)
                     Text("${currentUser?.role ?: "GUEST"}  •  $activeRole  •  $adminTier", fontSize = 13.sp, color = colors.secondaryText)
-                    Text("Shop ID: ${currentUser?.shopId ?: "none"}", fontSize = 13.sp, color = colors.secondaryText)
+                    Text(String.format(strings.extras.shopIdTemplate, currentUser?.shopId ?: strings.extras.noneLabel), fontSize = 13.sp, color = colors.secondaryText)
                 }
             }
 

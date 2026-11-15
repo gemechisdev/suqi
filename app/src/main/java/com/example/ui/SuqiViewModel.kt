@@ -228,8 +228,21 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     // Toast message channel
     val toastMessage = MutableStateFlow<String?>(null)
     fun showToast(message: String) {
-        toastMessage.value = message
+        toastMessage.value = localizeMessage(message)
     }
+
+    /** Localizes known service messages into the active language; unknown text passes through. */
+    fun localizeMessage(message: String?): String =
+        com.example.ui.i18n.SuqiApiMessages.localize(
+            message,
+            com.example.ui.i18n.SuqiLanguage.fromSetting(selectedLanguage.value)
+        )
+
+    fun localizePlace(name: String?): String =
+        com.example.ui.i18n.SuqiPlaces.localize(
+            name,
+            com.example.ui.i18n.SuqiLanguage.fromSetting(selectedLanguage.value)
+        )
 
     fun clearToast() {
         toastMessage.value = null

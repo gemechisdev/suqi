@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.placeLabel
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -191,7 +192,7 @@ fun AdminVerificationV2Screen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(reviewing.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = colors.primaryText)
                                 Text("${reviewing.category} • ${reviewing.shopType}", fontSize = 12.sp, color = colors.secondaryText)
-                                Text("${reviewing.subCity}, ${reviewing.city} · ${reviewing.phone}", fontSize = 12.sp, color = colors.mutedText)
+                                Text("${placeLabel(reviewing.subCity)}, ${placeLabel(reviewing.city)} · ${reviewing.phone}", fontSize = 12.sp, color = colors.mutedText)
                             }
                             SuqiStatusBadge(
                                 statusText = when (reviewing.verificationStatus) {
@@ -411,7 +412,7 @@ fun AdminVerificationV2Screen(
                                     viewModel.repository.adminVerifySellerDecision(
                                         shopId = reviewing.id,
                                         decision = "APPROVE",
-                                        reason = "All verification checks passed"
+                                        reason = strings.extras.verificationAllChecksPassed
                                     )
                                     viewModel.showToast(strings.adminOps.verifyActionToast)
                                     loadShops()
@@ -493,7 +494,7 @@ fun AdminVerificationV2Screen(
                                     Spacer(Modifier.width(12.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(shop.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
-                                        Text("${shop.category} · ${shop.subCity}, ${shop.city}", fontSize = 12.sp, color = colors.secondaryText)
+                                        Text("${shop.category} · ${placeLabel(shop.subCity)}, ${placeLabel(shop.city)}", fontSize = 12.sp, color = colors.secondaryText)
                                         Spacer(Modifier.height(4.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text(

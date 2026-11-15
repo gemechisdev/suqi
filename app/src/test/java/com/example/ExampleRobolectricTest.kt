@@ -3,6 +3,8 @@ package com.example
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.backend.BuiltinSqliteBackend
+import com.example.ui.i18n.localizeDeliveryTitle
+import com.example.ui.i18n.localizeEta
 import com.example.util.EthiopianMarketplaceUtils
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -373,5 +375,46 @@ class ExampleRobolectricTest {
         assertTrue(verifiedShop.isVerified)
         assertEquals("VERIFIED", verifiedShop.verificationStatus)
     }
-}
 
+    @Test
+    fun testPlaceNamesLocalizedForAllLanguages() {
+        assertTrue(com.example.ui.i18n.SuqiPlaces.isComplete())
+        val am = com.example.ui.i18n.SuqiLanguage.AM
+        val om = com.example.ui.i18n.SuqiLanguage.OM
+        assertEquals("አዲስ አበባ", com.example.ui.i18n.SuqiPlaces.localize("Addis Ababa", am))
+        assertEquals("Boolee", com.example.ui.i18n.SuqiPlaces.localize("Bole", om))
+        assertEquals("ቦሌ, አዲስ አበባ", com.example.ui.i18n.SuqiPlaces.localize("Bole, Addis Ababa", am))
+        assertEquals("Unknown Town", com.example.ui.i18n.SuqiPlaces.localize("Unknown Town", am))
+        // every sub-city and hub offered in the app must have a translation
+        (com.example.util.EthiopianMarketplaceUtils.ADDIS_ABABA_SUB_CITIES +
+            com.example.util.EthiopianMarketplaceUtils.REGIONAL_COMMERCIAL_HUBS).forEach {
+            assertTrue("Missing place translation: $it", it in com.example.ui.i18n.SuqiPlaces.allKeys())
+        }
+    }
+
+    @Test
+    fun testApiMessagesAreLocalizedAndUnknownPassThrough() {
+        val am = com.example.ui.i18n.SuqiLanguage.AM
+        val om = com.example.ui.i18n.SuqiLanguage.OM
+        val en = com.example.ui.i18n.SuqiLanguage.EN
+        assertTrue(com.example.ui.i18n.SuqiApiMessages.isComplete())
+        assertEquals("Order not found", com.example.ui.i18n.SuqiApiMessages.localize("Order not found", en))
+        assertEquals("ትዕዛዙ አልተገኘም።", com.example.ui.i18n.SuqiApiMessages.localize("Order not found", am))
+        assertEquals("Ajajni hin argamne.", com.example.ui.i18n.SuqiApiMessages.localize("Order not found", om))
+        val stock = com.example.ui.i18n.SuqiApiMessages.localize("Only 3 items in stock!", am)
+        assertTrue(stock.contains("3"))
+        val insufficient = com.example.ui.i18n.SuqiApiMessages.localize("Insufficient stock for Phone! Only 2 left.", om)
+        assertTrue(insufficient.contains("Phone") && insufficient.contains("2"))
+        assertEquals("Something custom from server", com.example.ui.i18n.SuqiApiMessages.localize("Something custom from server", am))
+    }
+
+    @Test
+    fun testDeliveryTitleAndEtaLocalization() {
+        val am = com.example.ui.i18n.SuqiExtraCatalog.amharic
+        assertEquals(am.deliveryTitleExpress, am.localizeDeliveryTitle("Express Delivery"))
+        assertEquals(am.deliveryTitlePickup, am.localizeDeliveryTitle("Store Pickup"))
+        assertEquals("Custom Courier", am.localizeDeliveryTitle("Custom Courier"))
+        assertEquals("1-3 የስራ ቀናት", am.localizeEta("1-3 business days", com.example.ui.i18n.SuqiLanguage.AM))
+        assertEquals("Guyyaa 1-2", com.example.ui.i18n.SuqiExtraCatalog.afaanOromo.localizeEta("1-2 days", com.example.ui.i18n.SuqiLanguage.OM))
+    }
+}

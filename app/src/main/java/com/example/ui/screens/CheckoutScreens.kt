@@ -80,7 +80,7 @@ private fun CheckoutStepIndicator(currentStep: Int) {
                     if (completed) {
                         Icon(
                             imageVector = LucideIcons.Check,
-                            contentDescription = "Completed",
+                            contentDescription = strings.extras.completedDesc,
                             tint = Color.White,
                             modifier = Modifier.size(14.dp)
                         )
@@ -664,7 +664,7 @@ fun CheckoutPaymentScreen(
                                         )
                                     )
                                 } else {
-                                    errorMessage = res.message ?: "Failed to submit order"
+                                    errorMessage = viewModel.localizeMessage(res.message ?: strings.extras.orderSubmitFailed)
                                 }
                             }
                         },
@@ -956,7 +956,7 @@ fun CheckoutPaymentScreen(
                                 ) {
                                     Icon(
                                         imageVector = LucideIcons.Trash2,
-                                        contentDescription = "Remove receipt",
+                                        contentDescription = strings.extras.removeReceiptDesc,
                                         tint = Color.White,
                                         modifier = Modifier.padding(6.dp).size(16.dp)
                                     )

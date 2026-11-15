@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.placeLabel
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -195,7 +196,7 @@ fun ShopsScreen(
                             shop = shop,
                             onClick = { viewModel.navigate(ScreenDestination.ShopStorefront(shop.id)) },
                             onToggleFollow = {
-                                viewModel.requireSignedInOrPrompt("follow shops") {
+                                viewModel.requireSignedInOrPrompt(strings.extras.gateFollowShops) {
                                     coroutineScope.launch {
                                         viewModel.repository.toggleFollowShop(shop.id)
                                         loadShops()
@@ -290,7 +291,7 @@ fun ShopListItemRow(
                 Spacer(modifier = Modifier.height(3.dp))
 
                 Text(
-                    text = "${shop.subCity}, ${shop.city} • ${shop.category}",
+                    text = "${placeLabel(shop.subCity)}, ${placeLabel(shop.city)} • ${shop.category}",
                     fontFamily = SuqiFontFamily,
                     fontSize = 12.sp,
                     color = colors.mutedText,
@@ -385,7 +386,7 @@ fun ShopStorefrontScreen(
 
     SuqiScreen(
         title = currentShop.name,
-        subtitle = "${currentShop.subCity}, ${currentShop.city}",
+        subtitle = "${placeLabel(currentShop.subCity)}, ${placeLabel(currentShop.city)}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         headerActions = {
@@ -552,7 +553,7 @@ fun ShopStorefrontScreen(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                viewModel.requireSignedInOrPrompt("follow shops") {
+                                viewModel.requireSignedInOrPrompt(strings.extras.gateFollowShops) {
                                     coroutineScope.launch {
                                         viewModel.repository.toggleFollowShop(currentShop.id)
                                         val refreshed = viewModel.repository.getShopDetails(currentShop.id)
@@ -586,7 +587,7 @@ fun ShopStorefrontScreen(
 
                         Button(
                             onClick = {
-                                viewModel.requireSignedInOrPrompt("chat with sellers") {
+                                viewModel.requireSignedInOrPrompt(strings.extras.gateChatSellers) {
                                     viewModel.navigate(ScreenDestination.ChatThread(currentShop.id))
                                 }
                             },
@@ -718,12 +719,12 @@ fun ShopStorefrontScreen(
                                         product = prod,
                                         onClick = { viewModel.navigate(ScreenDestination.ProductDetails(prod.id)) },
                                         onAddToCart = {
-                                            viewModel.requireSignedInOrPrompt("add items to cart") {
+                                            viewModel.requireSignedInOrPrompt(strings.addToCart) {
                                                 viewModel.quickAddToCart(prod)
                                             }
                                         },
                                         onToggleWishlist = {
-                                            viewModel.requireSignedInOrPrompt("save to wishlist") {
+                                            viewModel.requireSignedInOrPrompt(strings.extras.gateSaveWishlist) {
                                                 coroutineScope.launch {
                                                     viewModel.repository.toggleWishlist(prod.id)
                                                 }
@@ -829,7 +830,7 @@ fun ShopStorefrontScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(currentShop.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText)
-                        Text("${currentShop.subCity}, ${currentShop.city} · ${currentShop.rating}★", fontSize = 12.sp, color = colors.secondaryText)
+                        Text("${placeLabel(currentShop.subCity)}, ${placeLabel(currentShop.city)} · ${currentShop.rating}★", fontSize = 12.sp, color = colors.secondaryText)
                         Text(shareUrl, fontSize = 11.sp, color = SuqiPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }

@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.localizeDeliveryTitle
+import com.example.ui.i18n.localizeEta
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -680,14 +682,14 @@ fun AddEditProductScreen(
                                 val d = discountStr.toIntOrNull() ?: 0
                                 val s = stockStr.toIntOrNull() ?: 0
                                 when {
-                                    media.none { !it.isVideo } -> { viewModel.showToast("Add at least one photo or GIF for the cover"); return@launch }
-                                    name.isBlank() -> { viewModel.showToast("Enter a product name"); return@launch }
-                                    p <= 0.0 -> { viewModel.showToast("Enter a valid price"); return@launch }
-                                    d !in 0..90 -> { viewModel.showToast("Discount must be between 0 and 90%"); return@launch }
-                                    description.isBlank() -> { viewModel.showToast("Enter a description"); return@launch }
+                                    media.none { !it.isVideo } -> { viewModel.showToast(strings.extras.toastAddCoverPhoto); return@launch }
+                                    name.isBlank() -> { viewModel.showToast(strings.extras.toastEnterProductName); return@launch }
+                                    p <= 0.0 -> { viewModel.showToast(strings.extras.toastEnterValidPrice); return@launch }
+                                    d !in 0..90 -> { viewModel.showToast(strings.extras.toastDiscountRange); return@launch }
+                                    description.isBlank() -> { viewModel.showToast(strings.extras.toastEnterDescription); return@launch }
                                 }
                                 form.missingRequired()?.let {
-                                    viewModel.showToast("${it.label} is required")
+                                    viewModel.showToast(String.format(strings.extras.toastFieldRequiredTemplate, it.label))
                                     return@launch
                                 }
 
@@ -712,10 +714,10 @@ fun AddEditProductScreen(
                                     viewModel.repository.updateProduct(productId, payload)
                                 }
                                 if (res.success) {
-                                    viewModel.showToast(if (productId == null) "Product saved successfully!" else "Product updated!")
+                                    viewModel.showToast(if (productId == null) strings.extras.toastProductSaved else strings.extras.toastProductUpdated)
                                     viewModel.goBack()
                                 } else {
-                                    viewModel.showToast(res.message ?: "Could not save the product")
+                                    viewModel.showToast(res.message ?: strings.extras.toastProductSaveFailed)
                                 }
                             }
                         },
@@ -793,7 +795,7 @@ fun AddEditProductScreen(
 
                         Column {
                             Text(
-                                text = "VAT",
+                                text = strings.extras.vatLabel,
                                 fontFamily = SuqiFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 13.sp,
@@ -1328,20 +1330,15 @@ fun VerificationQueueScreen(
     var isLoading by remember { mutableStateOf(true) }
     var queue by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
     var selectedOrderForReject by remember { mutableStateOf<OrderDto?>(null) }
-    var rejectReason by remember { mutableStateOf("Reference not found in bank statement") }
+    var rejectReason by remember { mutableStateOf(strings.extras.rejectReasonRefNotFound) }
     var zoomReceiptUri by remember { mutableStateOf<String?>(null) }
 
     BackHandler(enabled = selectedOrderForReject != null) {
         selectedOrderForReject = null
     }
 
-    val quickRejectReasons = remember {
-        listOf(
-            "Reference not found in bank statement",
-            "Receipt screenshot blurry or incomplete",
-            "Amount does not match order total",
-            "Duplicate transaction reference"
-        )
+    val quickRejectReasons = remember(strings) {
+        listOf(strings.extras.rejectReasonRefNotFound, strings.extras.rejectReasonBlurry, strings.extras.rejectReasonAmountMismatch, strings.extras.rejectReasonDuplicateRef)
     }
 
     fun loadQueue() {
@@ -3337,7 +3334,7 @@ fun SellerOrderDetailScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "${current.deliveryOptionTitle} • ${current.deliveryEstimatedDays}",
+                            text = "${strings.extras.localizeDeliveryTitle(current.deliveryOptionTitle)} • ${strings.extras.localizeEta(current.deliveryEstimatedDays, com.example.ui.i18n.LocalSuqiLanguage.current)}",
                             fontSize = 13.sp,
                             color = colors.secondaryText
                         )

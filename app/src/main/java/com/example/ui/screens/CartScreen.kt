@@ -152,7 +152,7 @@ fun CartScreen(
                                 }
                             },
                             onCheckoutShop = { promoCodeDto ->
-                                viewModel.requireSignedInOrPrompt("complete checkout") {
+                                viewModel.requireSignedInOrPrompt(strings.extras.gateCompleteCheckout) {
                                     viewModel.activeCheckoutShopId.value = shopId
                                     viewModel.activeCheckoutShopName.value = shopName
                                     viewModel.activeCheckoutItems.value = itemsInShop

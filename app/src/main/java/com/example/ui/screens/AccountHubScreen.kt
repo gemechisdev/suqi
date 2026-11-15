@@ -86,7 +86,7 @@ fun AccountHubScreen(
             ) {
                 Icon(
                     imageVector = LucideIcons.Settings,
-                    contentDescription = "App Settings",
+                    contentDescription = strings.extras.appSettingsDesc,
                     tint = colors.primaryText,
                     modifier = Modifier.size(20.dp)
                 )
@@ -123,7 +123,7 @@ fun AccountHubScreen(
                             ) {
                                 Icon(
                                     imageVector = LucideIcons.CircleUser,
-                                    contentDescription = "Guest",
+                                    contentDescription = strings.extras.guestDesc,
                                     tint = SuqiPrimary,
                                     modifier = Modifier.size(28.dp)
                                 )
@@ -253,7 +253,7 @@ fun AccountHubScreen(
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Icon(
                                                 imageVector = LucideIcons.ChevronDown,
-                                                contentDescription = "Switch role",
+                                                contentDescription = strings.extras.switchRoleDesc,
                                                 tint = SuqiPrimary,
                                                 modifier = Modifier.size(12.dp)
                                             )
@@ -602,7 +602,7 @@ fun AccountHubScreen(
                         .padding(vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Suqi Marketplace v1.0.0",
+                        text = strings.extras.appVersionLine,
                         fontFamily = SuqiFontFamily,
                         fontSize = 12.sp,
                         color = colors.mutedText,
@@ -612,9 +612,9 @@ fun AccountHubScreen(
                                 versionTapCount++
                                 if (versionTapCount >= 7 && !isDeveloperUnlocked) {
                                     viewModel.unlockDeveloperTools()
-                                    viewModel.showToast("Developer Tools unlocked!")
+                                    viewModel.showToast(strings.extras.devUnlockedToast)
                                 } else if (versionTapCount in 4..6 && !isDeveloperUnlocked) {
-                                    viewModel.showToast("${7 - versionTapCount} more taps for Developer Tools")
+                                    viewModel.showToast(String.format(strings.extras.devTapsLeftTemplate, 7 - versionTapCount))
                                 }
                             }
                             .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -793,7 +793,7 @@ fun ProfileEditScreen(
                         if (avatarUrl.isNotBlank()) {
                             AsyncImage(
                                 model = avatarUrl,
-                                contentDescription = "Profile photo",
+                                contentDescription = strings.extras.profilePhotoDesc,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )

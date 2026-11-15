@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.placeLabel
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -927,7 +928,7 @@ fun ChatThreadScreen(
                                     color = colors.primaryText
                                 )
                                 Text(
-                                    text = "${shop.city} · ${shop.category}",
+                                    text = "${placeLabel(shop.city)} · ${shop.category}",
                                     fontFamily = SuqiFontFamily,
                                     fontSize = 12.sp,
                                     color = colors.mutedText

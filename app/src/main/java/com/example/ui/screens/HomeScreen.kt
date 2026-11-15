@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.placeLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -152,7 +153,7 @@ fun HomeScreen(
                     showThemeToggle = true,
                     isDarkTheme = effectiveDark,
                     onToggleTheme = { viewModel.setDarkMode(!effectiveDark) },
-                    locationText = listOfNotNull(selectedSubCity.takeIf { it.isNotBlank() }, selectedCity).joinToString(", ").ifBlank { selectedCity },
+                    locationText = listOfNotNull(selectedSubCity.takeIf { it.isNotBlank() }?.let { placeLabel(it) }, placeLabel(selectedCity)).joinToString(", ").ifBlank { placeLabel(selectedCity) },
                     onLocationClick = { showLocationSheet = true }
                 )
                 if (isOffline) {
@@ -196,9 +197,9 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = listOfNotNull(
-                            selectedSubCity.takeIf { it.isNotBlank() },
-                            selectedCity.takeIf { it.isNotBlank() }
-                        ).joinToString(", ").ifBlank { selectedCity.ifBlank { strings.checkout.defaultCityAddis } },
+                            selectedSubCity.takeIf { it.isNotBlank() }?.let { placeLabel(it) },
+                            selectedCity.takeIf { it.isNotBlank() }?.let { placeLabel(it) }
+                        ).joinToString(", ").ifBlank { placeLabel(selectedCity).ifBlank { strings.checkout.defaultCityAddis } },
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp,
@@ -835,7 +836,7 @@ fun LocationPickerContent(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = reg,
+                        text = placeLabel(reg),
                         fontFamily = SuqiFontFamily,
                         fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                         fontSize = 13.sp,
@@ -868,7 +869,7 @@ fun LocationPickerContent(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = sc,
+                            text = placeLabel(sc),
                             fontFamily = SuqiFontFamily,
                             fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                             fontSize = 13.sp,
@@ -901,7 +902,7 @@ fun LocationPickerContent(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = hub,
+                            text = placeLabel(hub),
                             fontFamily = SuqiFontFamily,
                             fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                             fontSize = 13.sp,

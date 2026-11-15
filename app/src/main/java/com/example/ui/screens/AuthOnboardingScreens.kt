@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.placeLabel
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -153,7 +154,7 @@ fun AuthScreen(
                             value = fullNameInput,
                             onValueChange = { fullNameInput = it },
                             label = strings.buyer.fullNameLabel,
-                            placeholder = "e.g. Dawit Bekele",
+                            placeholder = strings.extras.placeholderFullNameDawit,
                             leadingIcon = LucideIcons.User,
                             testTag = "auth_name_input"
                         )
@@ -322,14 +323,14 @@ fun AuthScreen(
                                     Icon(LucideIcons.TriangleAlert, contentDescription = null, tint = SuqiWarning, modifier = Modifier.size(20.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Too many wrong attempts",
+                                            text = strings.extras.tooManyAttempts,
                                             fontFamily = SuqiFontFamily,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp,
                                             color = colors.primaryText
                                         )
                                         Text(
-                                            text = "Try again in 0:${lockoutSeconds.toString().padStart(2, '0')}",
+                                            text = String.format(strings.extras.tryAgainInTemplate, "0:${lockoutSeconds.toString().padStart(2, '0')}"),
                                             fontFamily = SuqiFontFamily,
                                             fontSize = 12.sp,
                                             color = colors.secondaryText
@@ -397,16 +398,16 @@ fun AuthScreen(
                                         failedAttempts = 0
                                         otpHasError = false
                                         viewModel.refreshSession()
-                                        viewModel.showToast("Welcome ${res.data?.name ?: "to Suqi"}!")
+                                        viewModel.showToast(String.format(strings.extras.welcomeToastTemplate, res.data?.name ?: "Suqi"))
                                         viewModel.popToRoot(ScreenDestination.Home)
                                     } else {
                                         otpHasError = true
                                         failedAttempts += 1
                                         if (failedAttempts >= 5) {
                                             lockoutSeconds = 30
-                                            errorMsg = "Code didn't match. Locked for 30 seconds."
+                                            errorMsg = strings.extras.authCodeMismatchLocked
                                         } else {
-                                            errorMsg = "Code didn't match (${5 - failedAttempts} tries left)"
+                                            errorMsg = String.format(strings.extras.authCodeMismatchTriesTemplate, 5 - failedAttempts)
                                         }
                                         // Horizontal shake animation
                                         listOf(-18f, 18f, -12f, 12f, -6f, 0f).forEach { target ->
@@ -518,7 +519,7 @@ fun AuthScreen(
                 value = socialName,
                 onValueChange = { socialName = it },
                 label = strings.buyer.fullNameLabel,
-                placeholder = "e.g. Meron Tadesse"
+                placeholder = strings.extras.placeholderFullNameMeron
             )
             Spacer(modifier = Modifier.height(12.dp))
             SuqiTextField(
@@ -532,7 +533,7 @@ fun AuthScreen(
                 text = if (isTg) strings.buyer.continueTelegram else strings.buyer.continueGoogle,
                 onClick = {
                     coroutineScope.launch {
-                        val finalName = socialName.trim().ifBlank { if (isTg) "Telegram User" else "Google Shopper" }
+                        val finalName = socialName.trim().ifBlank { if (isTg) strings.extras.telegramUserName else strings.extras.googleShopperName }
                         val res = if (isTg) {
                             viewModel.repository.loginWithTelegram(finalName, socialHandle.trim().ifBlank { "+251 911 234 567" })
                         } else {
@@ -699,7 +700,7 @@ fun OnboardingScreen(
                                     .padding(horizontal = 16.dp, vertical = 10.dp)
                             ) {
                                 Text(
-                                    text = reg,
+                                    text = placeLabel(reg),
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
                                     fontSize = 13.sp,
@@ -733,7 +734,7 @@ fun OnboardingScreen(
                                     .padding(horizontal = 16.dp, vertical = 10.dp)
                             ) {
                                 Text(
-                                    text = sc,
+                                    text = placeLabel(sc),
                                     fontFamily = SuqiFontFamily,
                                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
                                     fontSize = 13.sp,
@@ -840,19 +841,19 @@ fun BecomeSellerScreen(
                                 value = shopName,
                                 onValueChange = { shopName = it },
                                 label = strings.checkout.shopNameRequiredLabel,
-                                placeholder = "e.g. Addis Gadgets Hub"
+                                placeholder = strings.extras.placeholderShopName
                             )
                             SuqiTextField(
                                 value = shopType,
                                 onValueChange = { shopType = it },
                                 label = strings.checkout.shopTypeLabel,
-                                placeholder = "Retail Shop, Wholesaler, Boutique"
+                                placeholder = strings.extras.placeholderShopType
                             )
                             SuqiTextField(
                                 value = category,
                                 onValueChange = { category = it },
                                 label = strings.buyer.categoryLabel,
-                                placeholder = "Electronics, Fashion, Home & Living"
+                                placeholder = strings.extras.placeholderCategories
                             )
                             SuqiTextField(
                                 value = description,
@@ -884,7 +885,7 @@ fun BecomeSellerScreen(
                                 value = address,
                                 onValueChange = { address = it },
                                 label = strings.checkout.businessAddressLabel,
-                                placeholder = "e.g. Edna Mall Ground Floor #12"
+                                placeholder = strings.extras.placeholderLandmark
                             )
                             SuqiTextField(
                                 value = city,
@@ -928,7 +929,7 @@ fun BecomeSellerScreen(
                                             "shopName" to shopName.trim(),
                                             "shopType" to shopType.trim(),
                                             "category" to category.trim(),
-                                            "description" to description.trim().ifBlank { "Welcome to ${shopName.trim()} on Suqi!" },
+                                            "description" to description.trim().ifBlank { String.format(strings.extras.defaultShopDescriptionTemplate, shopName.trim()) },
                                             "address" to address.trim(),
                                             "city" to city.trim(),
                                             "subCity" to subCity.trim(),

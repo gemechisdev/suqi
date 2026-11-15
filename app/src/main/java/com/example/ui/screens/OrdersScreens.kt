@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.i18n.localizeDeliveryTitle
+import com.example.ui.i18n.localizeEta
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -501,7 +503,7 @@ fun OrderDetailScreen(
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Text(currentOrder.deliveryOptionTitle.ifBlank { strings.checkout.courierDeliveryTitle }, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                                    Text(strings.extras.localizeDeliveryTitle(currentOrder.deliveryOptionTitle).ifBlank { strings.checkout.courierDeliveryTitle }, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                                     val courierInfo = listOfNotNull(
                                         currentOrder.courierName.takeIf { it.isNotBlank() },
                                         currentOrder.courierPhone.takeIf { it.isNotBlank() }
@@ -513,7 +515,7 @@ fun OrderDetailScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "${String.format(strings.checkout.etaEstimateTemplate, currentOrder.deliveryEstimatedDays)} • ${currentOrder.deliveryAddress}",
+                            text = "${String.format(strings.checkout.etaEstimateTemplate, strings.extras.localizeEta(currentOrder.deliveryEstimatedDays, com.example.ui.i18n.LocalSuqiLanguage.current))} • ${currentOrder.deliveryAddress}",
                             fontFamily = SuqiFontFamily,
                             fontSize = 12.sp,
                             color = colors.mutedText
@@ -582,7 +584,7 @@ fun OrderDetailScreen(
                     )
                     TimelineStep(
                         title = strings.checkout.filterDelivered,
-                        time = if (isDelivered) strings.common.doneLabel else String.format(strings.checkout.etaEstimateTemplate, currentOrder.deliveryEstimatedDays),
+                        time = if (isDelivered) strings.common.doneLabel else String.format(strings.checkout.etaEstimateTemplate, strings.extras.localizeEta(currentOrder.deliveryEstimatedDays, com.example.ui.i18n.LocalSuqiLanguage.current)),
                         isDone = isDelivered,
                         isLast = true
                     )
@@ -752,7 +754,7 @@ fun OrderDetailScreen(
                                     subject = "$category — Order #${currentOrder.orderReference}",
                                     description = description.trim(),
                                     status = "OPEN",
-                                    createdAt = "Just now"
+                                    createdAt = strings.extras.justNowLabel
                                 )
                             )
                             viewModel.showToast(strings.common.doneLabel)
