@@ -67,6 +67,7 @@ fun HomeScreen(
     val selectedCity by viewModel.selectedCity.collectAsState()
     val selectedSubCity by viewModel.selectedSubCity.collectAsState()
     val recentlyViewed by viewModel.recentlyViewed.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val lang = LocalSuqiLanguage.current
@@ -107,11 +108,22 @@ fun HomeScreen(
             viewModel.repository.getAdminSettings().data?.let { adminSettings = it }
             val bannerRes = viewModel.repository.getPromoBanners(activeOnly = true)
             if (bannerRes.success && bannerRes.data != null) {
+                val userOrdersCount = if (currentUser != null && !currentUser!!.role.equals("GUEST", ignoreCase = true)) {
+                    viewModel.repository.getOrders().data?.size ?: 0
+                } else {
+                    0
+                }
                 liveBanners = bannerRes.data
                     .filter { b ->
                         val afterStart = b.startDate.isBlank() || todayIso >= b.startDate
                         val beforeEnd = b.endDate.isBlank() || todayIso <= b.endDate
-                        afterStart && beforeEnd
+                        val audienceOk = com.example.util.EthiopianMarketplaceUtils.matchesBannerAudience(
+                            audience = b.audience,
+                            user = currentUser,
+                            userOrdersCount = userOrdersCount,
+                            selectedCity = selectedCity
+                        )
+                        afterStart && beforeEnd && audienceOk
                     }
                     .map { b ->
                         PromoBanner(
@@ -156,7 +168,7 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(selectedCity, currentUser?.id, currentUser?.createdAt) {
         loadHomeData()
     }
 

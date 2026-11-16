@@ -56,7 +56,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 city = "Addis Ababa",
                 subCity = "Bole",
                 activeRole = "CUSTOMER",
-                isActiveSession = true
+                isActiveSession = true,
+                createdAt = getCurrentTime()
             ).also { db.userDao().insertUser(it) }
         }
         ApiResponse(success = true, data = user.toDto())
@@ -86,7 +87,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 city = "Addis Ababa",
                 subCity = "Bole",
                 activeRole = "CUSTOMER",
-                isActiveSession = true
+                isActiveSession = true,
+                createdAt = getCurrentTime()
             ).also { db.userDao().insertUser(it) }
         }
         ApiResponse(success = true, data = user.toDto())
@@ -127,7 +129,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 city = "Addis Ababa",
                 subCity = "Bole",
                 activeRole = "CUSTOMER",
-                isActiveSession = true
+                isActiveSession = true,
+                createdAt = getCurrentTime()
             ).also { db.userDao().insertUser(it) }
         }
         ApiResponse(success = true, data = user.toDto())
@@ -200,7 +203,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 subCity = "Kirkos",
                 adminTier = tier,
                 activeRole = "ADMIN",
-                isActiveSession = true
+                isActiveSession = true,
+                createdAt = getCurrentTime()
             ).also { db.userDao().insertUser(it) }
         }
         ApiResponse(success = true, data = admin.toDto())
@@ -260,7 +264,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             productCount = 0,
             isVacationMode = false,
             acceptsOrders = true,
-            isFollowing = false
+            isFollowing = false,
+            createdAt = getCurrentTime()
         )
         db.shopDao().insertShop(newShop)
 
@@ -1631,6 +1636,9 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun getOwnerDashboardMetrics(rangeDays: Int): ApiResponse<OwnerDashboardMetricsDto> = withContext(Dispatchers.IO) {
         db.ensureSeeded()
+        val nowMillis = System.currentTimeMillis()
+        val dayMs = 86_400_000L
+
         val orders = db.orderDao().getAllOrders()
         val shops = db.shopDao().getAllShops()
         val users = db.userDao().getAllUsers()
@@ -1638,50 +1646,121 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val categories = db.categoryDao().getAllCategories()
         val flaggedReviews = db.flaggedReviewDao().getAllFlagged()
         val tickets = db.supportTicketDao().getAllTickets()
+        val adminSettings = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
 
         val validOrders = orders.filter { !it.orderStatus.equals("Cancelled", ignoreCase = true) }
-        val allOrdersGmv = validOrders.sumOf { it.totalAmount }
-        val factor = when (rangeDays) {
-            7 -> 0.28
-            30 -> 0.68
-            90 -> 0.92
-            else -> 1.0
+        val orderTimestamps = orders.associate { o ->
+            o.id to (EthiopianMarketplaceUtils.resolveTimestampMillis(o.createdAt, nowMillis) ?: nowMillis)
         }
-        val scaledOrders = validOrders.filterIndexed { idx, _ ->
-            when (rangeDays) {
-                7 -> idx % 3 == 0 || validOrders.size <= 3
-                30 -> idx % 4 != 3 || validOrders.size <= 4
-                else -> true
+        val userTimestamps = users.associate { u ->
+            u.id to EthiopianMarketplaceUtils.resolveTimestampMillis(u.createdAt, nowMillis)
+        }
+        val shopTimestamps = shops.associate { s ->
+            val raw = s.createdAt.ifBlank { VerificationDocsCodec.parse(s.verificationDocsJson).submittedAt }
+            s.id to EthiopianMarketplaceUtils.resolveTimestampMillis(raw, nowMillis)
+        }
+
+        val isAllRange = rangeDays <= 0 || rangeDays >= 365
+        val windowMs = if (isAllRange) {
+            val earliestOrderTs = orders.mapNotNull { orderTimestamps[it.id] }.minOrNull() ?: (nowMillis - 90L * dayMs)
+            (nowMillis - earliestOrderTs).coerceAtLeast(30L * dayMs)
+        } else {
+            rangeDays.toLong() * dayMs
+        }
+        val currentStart = nowMillis - windowMs
+        val prevStart = currentStart - windowMs
+
+        val currentOrders = if (isAllRange) {
+            validOrders
+        } else {
+            validOrders.filter { (orderTimestamps[it.id] ?: nowMillis) in currentStart..nowMillis }
+        }
+        val previousOrders = if (isAllRange) {
+            emptyList()
+        } else {
+            validOrders.filter {
+                val ts = orderTimestamps[it.id] ?: nowMillis
+                ts >= prevStart && ts < currentStart
             }
         }
-        val rangeGmv = if (rangeDays >= 365 || rangeDays <= 0) allOrdersGmv else maxOf(scaledOrders.sumOf { it.totalAmount }, allOrdersGmv * factor)
-        val prevGmv = (rangeGmv * 0.84).coerceAtLeast(0.0)
-        val subscriptionRevenue = shops.count { it.isVerified } * 299.0
-        val commissionRevenue = rangeGmv * 0.05 + if (rangeDays >= 30 || rangeDays <= 0) subscriptionRevenue else subscriptionRevenue * 0.25
-
-        val bucketLabels = when (rangeDays) {
-            7 -> listOf("D1", "D2", "D3", "D4", "D5", "D6", "D7")
-            30 -> listOf("W1", "W2", "W3", "W4")
-            90 -> listOf("M1", "M2", "M3")
-            else -> listOf("Q1", "Q2", "Q3", "Q4")
-        }
-        val bucketWeights = when (bucketLabels.size) {
-            7 -> listOf(0.11, 0.14, 0.12, 0.16, 0.15, 0.18, 0.14)
-            4 -> listOf(0.21, 0.24, 0.27, 0.28)
-            else -> listOf(0.29, 0.34, 0.37)
-        }
-        val baseGmvForCurve = maxOf(rangeGmv, 12000.0)
-        val gmvValues = bucketWeights.map { w -> (baseGmvForCurve * w).roundToInt().toDouble() }
-        val prevValues = bucketWeights.mapIndexed { i, w ->
-            val drift = if (i % 2 == 0) 0.78 else 0.88
-            (baseGmvForCurve * w * drift).roundToInt().toDouble()
+        val allOrdersInWindow = if (isAllRange) {
+            orders
+        } else {
+            orders.filter { (orderTimestamps[it.id] ?: nowMillis) in currentStart..nowMillis }
         }
 
+        val rangeGmv = currentOrders.sumOf { it.totalAmount }
+        val prevGmv = previousOrders.sumOf { it.totalAmount }
+
+        val subscriptionRevenue = if (adminSettings.isSubscriptionModeEnabled) {
+            val proShops = shops.count { it.isVerified }
+            val monthFactor = if (isAllRange || rangeDays >= 30) 1.0 else (rangeDays.toDouble() / 30.0)
+            proShops * adminSettings.activePlanPrice * monthFactor
+        } else {
+            0.0
+        }
+        val platformRevenue = currentOrders.sumOf { it.totalAmount * 0.05 } + subscriptionRevenue
+
+        // Real chronological buckets for GMV & sparklines
+        val bucketCount = when {
+            rangeDays == 7 -> 7
+            rangeDays == 30 -> 4
+            rangeDays == 90 -> 3
+            else -> 4
+        }
+        val bucketSpanMs = (windowMs / bucketCount).coerceAtLeast(1L)
+        val dayLabelFmt = SimpleDateFormat("EEE", Locale.US)
+        val monthLabelFmt = SimpleDateFormat("MMM", Locale.US)
+        val dateLabelFmt = SimpleDateFormat("MMM d", Locale.US)
+
+        val bucketLabels = (0 until bucketCount).map { idx ->
+            val midMs = currentStart + idx * bucketSpanMs + bucketSpanMs / 2L
+            when {
+                rangeDays == 7 -> dayLabelFmt.format(Date(midMs))
+                rangeDays == 30 -> "W${idx + 1}"
+                rangeDays == 90 -> monthLabelFmt.format(Date(midMs))
+                else -> dateLabelFmt.format(Date(midMs))
+            }
+        }
+
+        fun bucketIndexFor(ts: Long, startMs: Long, spanMs: Long, count: Int): Int? {
+            if (ts < startMs || ts > startMs + spanMs * count + dayMs) return null
+            return (((ts - startMs) / spanMs).toInt()).coerceIn(0, count - 1)
+        }
+
+        val gmvBuckets = DoubleArray(bucketCount)
+        currentOrders.forEach { order ->
+            val ts = orderTimestamps[order.id] ?: nowMillis
+            val idx = if (isAllRange) {
+                (((ts - currentStart) / bucketSpanMs).toInt()).coerceIn(0, bucketCount - 1)
+            } else {
+                bucketIndexFor(ts, currentStart, bucketSpanMs, bucketCount)
+            }
+            if (idx != null) {
+                gmvBuckets[idx] += order.totalAmount
+            }
+        }
+        val prevGmvBuckets = DoubleArray(bucketCount)
+        if (!isAllRange) {
+            previousOrders.forEach { order ->
+                val ts = orderTimestamps[order.id] ?: return@forEach
+                val idx = (((ts - prevStart) / bucketSpanMs).toInt()).coerceIn(0, bucketCount - 1)
+                if (ts >= prevStart && ts < currentStart) {
+                    prevGmvBuckets[idx] += order.totalAmount
+                }
+            }
+        }
+        val gmvValues = gmvBuckets.toList()
+        val prevValues = prevGmvBuckets.toList()
+
+        // Orders by Status strictly from orders inside the selected window
         val statusGroups = listOf("Pending", "Confirmed", "Dispatched", "Delivered", "Cancelled")
         val statusCounts = statusGroups.map { grp ->
-            orders.count { o ->
+            allOrdersInWindow.count { o ->
                 when (grp) {
-                    "Pending" -> o.orderStatus.contains("Pending", true) || o.orderStatus.contains("Awaiting", true) || o.paymentStatus == "PENDING_VERIFICATION"
+                    "Pending" -> o.orderStatus.contains("Pending", true) ||
+                        o.orderStatus.contains("Awaiting", true) ||
+                        o.paymentStatus == "PENDING_VERIFICATION"
                     "Confirmed" -> o.orderStatus.equals("Confirmed", true) || o.orderStatus.equals("Processing", true)
                     "Dispatched" -> o.orderStatus.equals("Dispatched", true) || o.orderStatus.contains("Delivery", true)
                     "Delivered" -> o.orderStatus.equals("Delivered", true)
@@ -1690,58 +1769,132 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             }.toDouble()
         }
 
-        val newUsersTotal = maxOf(users.size, 1)
-        val newShopsTotal = maxOf(shops.size, 1)
-        val growthLabels = bucketLabels.take(4)
-        val newUsersSeries = growthLabels.indices.map { i -> ((newUsersTotal * (0.2 + i * 0.08))).coerceAtLeast(1.0) }
-        val newShopsSeries = growthLabels.indices.map { i -> ((newShopsTotal * (0.18 + i * 0.05))).coerceAtLeast(1.0) }
-
-        val prodByCategory = products.groupBy { it.categoryId }
-        val topCategories = categories
-            .map { c ->
-                val countWeight = prodByCategory[c.id]?.sumOf { maxOf(it.price * 0.1, 100.0) } ?: 0.0
-                OwnerChartSlice(id = c.id, label = c.name, value = countWeight)
+        // New Users vs New Shops strictly computed from real creation timestamps in the window
+        val nonGuestUsers = users.filter { !it.role.equals("GUEST", ignoreCase = true) }
+        val usersInWindow = if (isAllRange) {
+            nonGuestUsers
+        } else {
+            nonGuestUsers.filter { u ->
+                val ts = userTimestamps[u.id]
+                ts != null && ts in currentStart..nowMillis
             }
+        }
+        val shopsInWindow = if (isAllRange) {
+            shops
+        } else {
+            shops.filter { s ->
+                val ts = shopTimestamps[s.id]
+                ts != null && ts in currentStart..nowMillis
+            }
+        }
+
+        val growthBucketCount = 4
+        val growthSpanMs = (windowMs / growthBucketCount).coerceAtLeast(1L)
+        val growthLabels = (0 until growthBucketCount).map { idx ->
+            val midMs = currentStart + idx * growthSpanMs + growthSpanMs / 2L
+            when {
+                rangeDays == 30 -> "W${idx + 1}"
+                else -> dateLabelFmt.format(Date(midMs))
+            }
+        }
+        val userSeries = DoubleArray(growthBucketCount)
+        usersInWindow.forEach { u ->
+            val ts = userTimestamps[u.id] ?: nowMillis
+            val idx = (((ts - currentStart) / growthSpanMs).toInt()).coerceIn(0, growthBucketCount - 1)
+            userSeries[idx] += 1.0
+        }
+        val shopSeries = DoubleArray(growthBucketCount)
+        shopsInWindow.forEach { s ->
+            val ts = shopTimestamps[s.id] ?: nowMillis
+            val idx = (((ts - currentStart) / growthSpanMs).toInt()).coerceIn(0, growthBucketCount - 1)
+            shopSeries[idx] += 1.0
+        }
+
+        // Top Categories ranked strictly by actual line-item sales revenue in currentOrders
+        val productCategoryMap = products.associateBy({ it.id }, { it.categoryId })
+        val categoryMap = categories.associateBy { it.id }
+        val categorySales = mutableMapOf<String, Double>()
+        currentOrders.forEach { order ->
+            var attributedFromItems = false
+            try {
+                val arr = JSONArray(order.itemsJson)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val productId = obj.optString("productId")
+                    val catId = productCategoryMap[productId]
+                    val lineRevenue = obj.optDouble("totalPrice", Double.NaN).takeIf { !it.isNaN() && it > 0.0 }
+                        ?: (obj.optDouble("unitPrice", 0.0) * obj.optInt("quantity", 1).coerceAtLeast(1))
+                    if (!catId.isNullOrBlank() && lineRevenue > 0.0) {
+                        categorySales[catId] = (categorySales[catId] ?: 0.0) + lineRevenue
+                        attributedFromItems = true
+                    }
+                }
+            } catch (_: Exception) {
+            }
+            if (!attributedFromItems && order.totalAmount > 0.0) {
+                val shopCatName = shops.firstOrNull { it.id == order.shopId }?.category.orEmpty()
+                val matchedCatId = categories.firstOrNull { it.name.equals(shopCatName, ignoreCase = true) }?.id
+                if (!matchedCatId.isNullOrBlank()) {
+                    categorySales[matchedCatId] = (categorySales[matchedCatId] ?: 0.0) + order.totalAmount
+                }
+            }
+        }
+        val topCategories = categorySales.entries
             .filter { it.value > 0.0 }
             .sortedByDescending { it.value }
             .take(5)
+            .map { (catId, sales) ->
+                OwnerChartSlice(
+                    id = catId,
+                    label = categoryMap[catId]?.name ?: catId,
+                    value = sales
+                )
+            }
 
-        val ordersByShop = validOrders.groupBy { it.shopId }
+        // Top Shops ranked by real GMV in currentOrders, with sparklines from chronological bucket sums
+        val ordersByShop = currentOrders.groupBy { it.shopId }
         val topShops = shops.map { shop ->
             val shopOrders = ordersByShop[shop.id].orEmpty()
             val shopGmv = shopOrders.sumOf { it.totalAmount }
-            val sparkBase = maxOf(shopGmv.toFloat() / 4f, shop.productCount * 400f)
-            val spark = listOf(0.65f, 0.82f, 0.78f, 1.0f, 1.15f).map { it * sparkBase }
+            val sparkBuckets = FloatArray(bucketCount)
+            shopOrders.forEach { order ->
+                val ts = orderTimestamps[order.id] ?: nowMillis
+                val idx = (((ts - currentStart) / bucketSpanMs).toInt()).coerceIn(0, bucketCount - 1)
+                sparkBuckets[idx] += order.totalAmount.toFloat()
+            }
             OwnerTopShopMetric(
                 shopId = shop.id,
                 shopName = shop.name,
                 isVerified = shop.isVerified,
                 gmv = shopGmv,
                 ordersCount = shopOrders.size,
-                sparkline = spark
+                sparkline = sparkBuckets.toList()
             )
-        }.sortedWith(compareByDescending<OwnerTopShopMetric> { it.gmv }.thenByDescending { it.ordersCount }).take(5)
+        }
+            .sortedWith(compareByDescending<OwnerTopShopMetric> { it.gmv }.thenByDescending { it.ordersCount })
+            .take(5)
 
         val verifOver24h = shops.count { s ->
             if (s.verificationStatus !in listOf("PENDING_REVIEW", "RESUBMITTED", "CHANGES_REQUESTED")) {
                 false
             } else {
                 val parsed = VerificationDocsCodec.parse(s.verificationDocsJson)
-                val hours = EthiopianMarketplaceUtils.computeElapsedHours(parsed.submittedAt)
+                val hours = EthiopianMarketplaceUtils.computeElapsedHours(parsed.submittedAt, nowMillis)
                 hours == null || hours >= 24.0
             }
         }
         val flaggedOrStalePayments = orders.count { o ->
             val mismatch = o.transferredAmount != null && kotlin.math.abs(o.transferredAmount - o.totalAmount) > 0.5
-            val hours = EthiopianMarketplaceUtils.computeElapsedHours(o.createdAt)
+            val hours = EthiopianMarketplaceUtils.computeElapsedHours(o.createdAt, nowMillis)
             o.paymentStatus == "REJECTED" || (o.paymentStatus == "PENDING_VERIFICATION" && (mismatch || (hours != null && hours >= 6.0)))
         }
         val openTickets = tickets.count { it.status.equals("OPEN", ignoreCase = true) } +
             flaggedReviews.count { it.status == "REPORTED" }
 
         val activeShopsCount = shops.count { !it.isVacationMode && it.acceptsOrders }
-        val rangeOrderCount = if (rangeDays >= 365 || rangeDays <= 0) orders.size else maxOf(scaledOrders.size, 1)
-        val conversion = ((validOrders.size.toDouble() / maxOf(products.size, 1).toDouble()) * 14.5).coerceIn(1.2, 18.5)
+        val uniqueOrderingBuyers = currentOrders.map { it.customerUserId }.distinct().size
+        val conversion = ((uniqueOrderingBuyers.toDouble() / maxOf(nonGuestUsers.size, 1).toDouble()) * 100.0)
+            .coerceIn(0.0, 100.0)
 
         ApiResponse(
             success = true,
@@ -1749,12 +1902,12 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 rangeDays = rangeDays,
                 totalGmv = rangeGmv,
                 previousGmv = prevGmv,
-                platformRevenue = commissionRevenue,
-                totalOrders = rangeOrderCount,
+                platformRevenue = platformRevenue,
+                totalOrders = allOrdersInWindow.size,
                 activeShops = activeShopsCount,
-                totalUsers = users.size,
-                newUsersCount = maxOf((users.size * factor).roundToInt(), 1),
-                newShopsCount = maxOf((shops.size * factor).roundToInt(), 1),
+                totalUsers = nonGuestUsers.size,
+                newUsersCount = usersInWindow.size,
+                newShopsCount = shopsInWindow.size,
                 conversionRate = conversion,
                 gmvLabels = bucketLabels,
                 gmvValues = gmvValues,
@@ -1762,8 +1915,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 statusLabels = statusGroups,
                 statusCounts = statusCounts,
                 growthLabels = growthLabels,
-                newUsersSeries = newUsersSeries,
-                newShopsSeries = newShopsSeries,
+                newUsersSeries = userSeries.toList(),
+                newShopsSeries = shopSeries.toList(),
                 topCategories = topCategories,
                 topShops = topShops,
                 verificationsWaitingOver24h = verifOver24h,
@@ -1834,7 +1987,7 @@ fun UserEntity.toDto() = UserDto(
     role = role, preferredLanguage = preferredLanguage, region = region, city = city,
     subCity = subCity, shopId = shopId, defaultAddressId = defaultAddressId,
     adminTier = adminTier, gender = gender, birthday = birthday,
-    activeRole = activeRole.ifBlank { role }, isActiveSession = isActiveSession
+    activeRole = activeRole.ifBlank { role }, isActiveSession = isActiveSession, createdAt = createdAt
 )
 
 fun ShopEntity.toDto() = ShopDto(
@@ -1848,7 +2001,8 @@ fun ShopEntity.toDto() = ShopDto(
     requireReceiptScreenshot = requireReceiptScreenshot, businessHoursJson = businessHoursJson,
     vacationReturnDate = vacationReturnDate, vacationNote = vacationNote,
     freeDeliveryThreshold = freeDeliveryThreshold, coverageSubCitiesCsv = coverageSubCitiesCsv,
-    verificationDocsJson = verificationDocsJson, verificationRejectionReason = verificationRejectionReason
+    verificationDocsJson = verificationDocsJson, verificationRejectionReason = verificationRejectionReason,
+    createdAt = createdAt
 )
 
 fun ProductEntity.toDto() = ProductDto(

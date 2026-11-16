@@ -522,7 +522,7 @@ fun OwnerDashboardScreen(
                             title = strings.adminGov.flaggedPaymentsAlert,
                             badge = data.flaggedOrStalePaymentsCount.toString(),
                             badgeColor = if (data.flaggedOrStalePaymentsCount > 0) SuqiError else SuqiSuccess,
-                            onClick = { viewModel.navigate(ScreenDestination.AdminConsole) },
+                            onClick = { viewModel.openAdminConsoleTab("queues") },
                             testTag = "owner_alert_payments"
                         )
                         HorizontalDivider(color = colors.border)
@@ -531,7 +531,7 @@ fun OwnerDashboardScreen(
                             title = strings.adminGov.openDisputesAlert,
                             badge = data.openTicketsAndDisputesCount.toString(),
                             badgeColor = if (data.openTicketsAndDisputesCount > 0) SuqiWarning else SuqiSuccess,
-                            onClick = { viewModel.navigate(ScreenDestination.AdminModeration) },
+                            onClick = { viewModel.openAdminConsoleTab("queues") },
                             testTag = "owner_alert_disputes"
                         )
                     }

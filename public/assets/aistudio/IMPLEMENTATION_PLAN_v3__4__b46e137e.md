@@ -334,27 +334,27 @@ Staff list (avatar, name, role pill: Manager / Order handler / Catalog), invite-
 
 | Item | Status | What is left |
 |---|---|---|
-| A-02 Owner dashboard | ⛔ | Full screen (console shows only 4 counts) |
-| A-03 Console home | 🟠 | Queue cards with oldest-item age; quick-tools grid; collapsible Platform switches |
+| A-02 Owner dashboard | ✅ | Done (`OwnerDashboardScreen`, real date-windowed metrics/charts, CSV export; flagged-payments/disputes alerts route to Console Queues until A-14 & A-08 land) |
+| A-03 Console home | ✅ | Done (`AdminConsoleScreen`: 4 tabs, 6 queues, quick tools, collapsible switches, live Support Resolve, 15m lock; `Reported listings` & `Payout requests` queues use temporary review/payment stand-ins until A-07 & A-14) |
 | A-04 Users | ⛔ | Full |
 | A-05 Shops | ⛔ | Full |
 | A-07 Listings moderation | ⛔ | Full |
 | A-08 Orders & disputes | ⛔ | Full |
 | A-09 Review moderation | 🟠 | Tabs (Reported · Hidden · Restored), restore, bulk, reason chips |
-| A-10 Categories | 🟠 | Tree, reorder (`SuqiDragHandleList`), icon picker, sub-category chip editor, linked item types (cover picker done) |
-| A-11 Item types | ⛔ | Full (templates still live in `ProductTemplates.kt`) |
-| A-12 Banners | 🟠 | Live preview, destination picker, schedule (`SuqiDateField`), audience, reorder, Home sections order (4:5 image picker done) |
+| A-10 Categories | ✅ | Done (`AdminCategoriesScreen`: active count, tree, reorder, 48dp thumb, 3-lang names, icon grid, chip sub-cats, linked item types; Shop Types tab displays live read-only counts) |
+| A-11 Item types | ✅ | Done (`AdminItemTypesScreen` backed by Room `item_types` synced into `ProductTemplates`, seller & buyer previews) |
+| A-12 Banners | ✅ | Done (`AdminBannersScreen`: drag reorder, live `SuqiPromoCarousel` preview, destination/schedule/audience filters applied on Home, Home Sections order & visibility) |
 | A-13 Plans | 🟠 | Structured benefits editor, popular flag, revenue card, pilot end date, pending approvals |
 | A-14 Finance | ⛔ | Full |
-| A-15 Broadcast | ⛔ | Full |
-| A-16 Support inbox | ⛔ | Full (tickets exist from buyers, admin only sees a "no open tickets" line) |
-| A-17 Locations | ⛔ | Full |
+| A-15 Broadcast | 🟠 | Basic compose sheet in Console Quick Tools (`A-03`); full live preview, scheduling, history & templates deferred to Phase 5 (`A-15`) |
+| A-16 Support inbox | 🟠 | Live ticket resolution available inside Console Queues (`A-03`); full multi-tab inbox & thread UI deferred to Phase 5 (`A-16`) |
+| A-17 Locations | 🟠 | View hierarchy sheet in Console Quick Tools (`A-03`); full CRUD tree deferred to Phase 6 (`A-17`) |
 | A-18 Payment providers | ⛔ | Full |
-| A-19 Content manager | ⛔ | Full |
+| A-19 Content manager | 🟠 | Help/Terms preview sheet in Console Quick Tools (`A-03`); full multi-language Markdown editor deferred to Phase 6 (`A-19`) |
 | A-20 Audit log | ⛔ | Full |
 | A-21 Reports & exports | ⛔ | Full |
 | A-22 Developer tools | 🟠 | Environment, data tools, act-as, flags, logs, design gallery, maintenance |
-| A-23 Platform switches | 🟠 | Grouped switch cards (only 3 toggles now) |
+| A-23 Platform switches | 🟠 | Grouped switch cards (4 localized toggles live in collapsible card; grouping expansion deferred to Phase 6) |
 
 ### 8.2 Plans (priority order)
 
@@ -437,9 +437,9 @@ Grouped switch cards: Commerce (chat, external contact, reviews, Q&A), Media (vi
 
 | Phase | Goal | Items |
 |---|---|---|
-| **0 · Quick wins** | Finish what is built | H-2, `SuqiSwitchRow` / `SuqiListRow` settings pattern |
-| **1 · Verification follow-ups** | Complete the trust loop | A-06 age badges, S-06 tabs/amount chip reusing `SuqiDocumentViewer` |
-| **2 · Operate the platform** | Admin can run it | A-03, A-12, A-11, A-10, A-02 |
+| **0 · Quick wins** ✅ | Finish what is built | H-2, `SuqiSwitchRow` / `SuqiListRow` settings pattern |
+| **1 · Verification follow-ups** ✅ | Complete the trust loop | A-06 age badges, S-06 tabs/amount chip reusing `SuqiDocumentViewer` |
+| **2 · Operate the platform** ✅ | Admin can run it | A-03, A-12, A-11, A-10, A-02 (stand-ins: `Reported listings` & `Payout requests` queues and owner alerts route via Console/Moderation until A-07, A-08, A-14 land) |
 | **3 · Seller daily work** | Run a shop without leaving the app | S-03, S-04, S-07, S-14, S-06, S-08 |
 | **4 · Buyer completion** | Close the purchase loop | B-07 invoice, B-09 preferences, B-10, B-14 About, B-02 delete, B-18, B-17 |
 | **5 · Money & retention** | Revenue, returns, growth | B-08 + S-13, S-12 + A-14, S-16 + A-13, S-09 + B-12, S-02, B-11, A-09, A-16, A-15 |

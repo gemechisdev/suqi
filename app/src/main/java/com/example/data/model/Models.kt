@@ -20,7 +20,8 @@ data class UserDto(
     val gender: String = "",
     val birthday: String = "",
     val activeRole: String = role,
-    val isActiveSession: Boolean = true
+    val isActiveSession: Boolean = true,
+    val createdAt: String = ""
 )
 
 @JsonClass(generateAdapter = true)
@@ -57,7 +58,8 @@ data class ShopDto(
     val freeDeliveryThreshold: Double = 0.0,
     val coverageSubCitiesCsv: String = "",
     val verificationDocsJson: String = "",
-    val verificationRejectionReason: String? = null
+    val verificationRejectionReason: String? = null,
+    val createdAt: String = ""
 )
 
 @JsonClass(generateAdapter = true)

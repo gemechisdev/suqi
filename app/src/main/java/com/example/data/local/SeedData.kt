@@ -8,6 +8,11 @@ import com.example.data.model.legacyProductDetails
 import com.example.data.model.toJson
 
 object SeedData {
+    private fun daysAgoTimestamp(daysAgo: Int): String {
+        val millis = System.currentTimeMillis() - daysAgo.toLong() * 86_400_000L
+        return java.text.SimpleDateFormat("MMM d, yyyy • hh:mm a", java.util.Locale.US).format(java.util.Date(millis))
+    }
+
     suspend fun seedDatabase(db: SuqiDatabase) {
         // Admin Settings
         db.adminSettingsDao().insert(
@@ -39,7 +44,8 @@ object SeedData {
             defaultAddressId = "addr_1",
             adminTier = "NONE",
             activeRole = "SELLER",
-            isActiveSession = true
+            isActiveSession = true,
+            createdAt = daysAgoTimestamp(25)
         )
         val adminUser = UserEntity(
             id = "user_admin",
@@ -56,7 +62,8 @@ object SeedData {
             defaultAddressId = null,
             adminTier = "OWNER",
             activeRole = "ADMIN",
-            isActiveSession = false
+            isActiveSession = false,
+            createdAt = daysAgoTimestamp(60)
         )
         db.userDao().insertUser(defaultUser)
         db.userDao().insertUser(adminUser)
@@ -134,7 +141,8 @@ object SeedData {
                 productCount = 24,
                 isVacationMode = false,
                 acceptsOrders = true,
-                isFollowing = true
+                isFollowing = true,
+                createdAt = daysAgoTimestamp(60)
             ),
             ShopEntity(
                 id = "shop_fashionworld",
@@ -161,7 +169,8 @@ object SeedData {
                 productCount = 42,
                 isVacationMode = false,
                 acceptsOrders = true,
-                isFollowing = false
+                isFollowing = false,
+                createdAt = daysAgoTimestamp(22)
             ),
             ShopEntity(
                 id = "shop_homeplus",
@@ -188,7 +197,8 @@ object SeedData {
                 productCount = 18,
                 isVacationMode = false,
                 acceptsOrders = true,
-                isFollowing = false
+                isFollowing = false,
+                createdAt = daysAgoTimestamp(6)
             ),
             ShopEntity(
                 id = "shop_royalstore",
@@ -215,7 +225,8 @@ object SeedData {
                 productCount = 35,
                 isVacationMode = false,
                 acceptsOrders = true,
-                isFollowing = false
+                isFollowing = false,
+                createdAt = daysAgoTimestamp(2)
             )
         )
         db.shopDao().insertAll(shops)
@@ -688,7 +699,7 @@ object SeedData {
                 transactionReference = "TXN-TB-9823145",
                 paymentStatus = "PENDING_VERIFICATION",
                 orderStatus = "Awaiting Payment Confirmation",
-                createdAt = "Apr 28, 2026 • 10:24 AM",
+                createdAt = daysAgoTimestamp(1),
                 transferredAmount = 25049.0
             ),
             OrderEntity(
@@ -714,7 +725,7 @@ object SeedData {
                 transactionReference = "TXN-TB-8841203",
                 paymentStatus = "VERIFIED",
                 orderStatus = "Confirmed",
-                createdAt = "Apr 27, 2026 • 04:15 PM",
+                createdAt = daysAgoTimestamp(10),
                 transferredAmount = 12549.0
             ),
             OrderEntity(
@@ -740,7 +751,7 @@ object SeedData {
                 transactionReference = "FT26117A718290",
                 paymentStatus = "VERIFIED",
                 orderStatus = "Delivered",
-                createdAt = "Apr 26, 2026 • 11:30 AM",
+                createdAt = daysAgoTimestamp(45),
                 transferredAmount = 9999.0
             )
         )
@@ -879,7 +890,8 @@ object SeedData {
                     subCity = "Kirkos",
                     adminTier = "OWNER",
                     activeRole = "ADMIN",
-                    isActiveSession = false
+                    isActiveSession = false,
+                    createdAt = daysAgoTimestamp(60)
                 )
             )
         }

@@ -153,6 +153,20 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         _isOffline.value = offline
     }
 
+    private val _adminConsoleInitialTab = MutableStateFlow("overview")
+    val adminConsoleInitialTab: StateFlow<String> = _adminConsoleInitialTab.asStateFlow()
+
+    fun openAdminConsoleTab(tabKey: String = "overview") {
+        _adminConsoleInitialTab.value = tabKey
+        navigate(ScreenDestination.AdminConsole)
+    }
+
+    fun consumeAdminConsoleInitialTab(): String {
+        val current = _adminConsoleInitialTab.value
+        _adminConsoleInitialTab.value = "overview"
+        return current
+    }
+
     // Cart Count
     val cartCount = repository.cartCount
 

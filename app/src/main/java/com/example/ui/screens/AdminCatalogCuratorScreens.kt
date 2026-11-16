@@ -110,9 +110,19 @@ fun AdminCategoriesScreen(
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Categories, 1 = Shop Types
     var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
     var itemTypes by remember { mutableStateOf<List<ItemTypeDto>>(emptyList()) }
+    var shops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
     var expandedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var editingCategory by remember { mutableStateOf<CategoryDto?>(null) }
     var showCategorySheet by remember { mutableStateOf(false) }
+
+    val shopTypeEntries = remember(strings) {
+        listOf(
+            Triple("Retail", strings.extras.shopTypeRetailName, strings.extras.shopTypeRetailDesc),
+            Triple("Brand", strings.extras.shopTypeBrandName, strings.extras.shopTypeBrandDesc),
+            Triple("Artisan", strings.extras.shopTypeArtisanName, strings.extras.shopTypeArtisanDesc),
+            Triple("Wholesale", strings.extras.shopTypeWholesaleName, strings.extras.shopTypeWholesaleDesc)
+        )
+    }
 
     fun loadCatalog() {
         coroutineScope.launch {
@@ -123,6 +133,10 @@ fun AdminCategoriesScreen(
             val typeRes = viewModel.repository.getItemTypes()
             if (typeRes.success && typeRes.data != null) {
                 itemTypes = typeRes.data
+            }
+            val shopRes = viewModel.repository.getShops()
+            if (shopRes.success && shopRes.data != null) {
+                shops = shopRes.data
             }
         }
     }
@@ -168,7 +182,7 @@ fun AdminCategoriesScreen(
             SuqiTabs(
                 tabs = listOf(
                     SuqiTabItem("categories", strings.categoriesTitle, count = categories.size),
-                    SuqiTabItem("shop_types", strings.sellerOps.shopBrandingRowTitle, count = 4)
+                    SuqiTabItem("shop_types", strings.sellerOps.shopBrandingRowTitle, count = shopTypeEntries.size)
                 ),
                 selectedIndex = selectedTab,
                 onSelectTab = { selectedTab = it },
@@ -389,13 +403,12 @@ fun AdminCategoriesScreen(
                         }
                     }
                 } else {
-                    val shopTypes = listOf(
-                        strings.extras.shopTypeRetailName to strings.extras.shopTypeRetailDesc,
-                        strings.extras.shopTypeBrandName to strings.extras.shopTypeBrandDesc,
-                        strings.extras.shopTypeArtisanName to strings.extras.shopTypeArtisanDesc,
-                        strings.extras.shopTypeWholesaleName to strings.extras.shopTypeWholesaleDesc
-                    )
-                    shopTypes.forEach { (title, desc) ->
+                    shopTypeEntries.forEach { (key, title, desc) ->
+                        val matchingCount = shops.count { s ->
+                            s.shopType.contains(key, ignoreCase = true) ||
+                                (key == "Retail" && s.shopType.contains("Boutique", ignoreCase = true)) ||
+                                (key == "Artisan" && s.shopType.contains("Decor", ignoreCase = true))
+                        }
                         item(key = title) {
                             SuqiSectionCard(padding = 16.dp) {
                                 Row(
@@ -419,7 +432,10 @@ fun AdminCategoriesScreen(
                                             Text(desc, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.secondaryText)
                                         }
                                     }
-                                    SuqiStatusBadge(strings.adminOps.activeStatus, StatusType.SUCCESS)
+                                    SuqiStatusBadge(
+                                        statusText = "$matchingCount",
+                                        type = if (matchingCount > 0) StatusType.SUCCESS else StatusType.NEUTRAL
+                                    )
                                 }
                             }
                         }

@@ -105,7 +105,7 @@ fun AdminConsoleScreen(
     val isDevVisible = effectiveTier.equals("DEVELOPER", ignoreCase = true) ||
         isOwnerTier || isDeveloperUnlocked
 
-    var selectedTab by remember { mutableStateOf("overview") }
+    var selectedTab by remember { mutableStateOf(viewModel.consumeAdminConsoleInitialTab()) }
     var settings by remember { mutableStateOf(AdminSettingsDto()) }
     var pendingShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
     var flaggedReviews by remember { mutableStateOf<List<FlaggedReviewDto>>(emptyList()) }
@@ -487,7 +487,7 @@ fun AdminConsoleScreen(
                                         Spacer(Modifier.height(4.dp))
                                         SuqiSwitchRow(
                                             title = strings.chatWithSeller,
-                                            subtitle = "In-app buyer & seller messaging",
+                                            subtitle = strings.adminGov.switchChatSub,
                                             checked = settings.isChatEnabled,
                                             onCheckedChange = { enabled ->
                                                 settings = settings.copy(isChatEnabled = enabled)
@@ -499,7 +499,7 @@ fun AdminConsoleScreen(
                                         )
                                         SuqiSwitchRow(
                                             title = strings.buyer.contactUsTitle,
-                                            subtitle = "Telegram, WhatsApp & phone external contact",
+                                            subtitle = strings.adminGov.switchExternalContactSub,
                                             checked = settings.isExternalContactEnabled,
                                             onCheckedChange = { enabled ->
                                                 settings = settings.copy(isExternalContactEnabled = enabled)
@@ -511,7 +511,7 @@ fun AdminConsoleScreen(
                                         )
                                         SuqiSwitchRow(
                                             title = strings.seller.subscriptionTitle,
-                                            subtitle = "Seller monetization plans enforcement",
+                                            subtitle = strings.adminGov.switchSubscriptionSub,
                                             checked = settings.isSubscriptionModeEnabled,
                                             onCheckedChange = { enabled ->
                                                 settings = settings.copy(isSubscriptionModeEnabled = enabled)
@@ -523,7 +523,7 @@ fun AdminConsoleScreen(
                                         )
                                         SuqiSwitchRow(
                                             title = strings.customerReviews,
-                                            subtitle = "Verified buyer product & shop reviews",
+                                            subtitle = strings.adminGov.switchReviewsSub,
                                             checked = settings.sellerReviewsEnabled,
                                             onCheckedChange = { enabled ->
                                                 settings = settings.copy(sellerReviewsEnabled = enabled)

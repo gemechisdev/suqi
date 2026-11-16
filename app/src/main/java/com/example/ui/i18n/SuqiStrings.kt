@@ -512,7 +512,11 @@ data class SuqiAdminGovStrings(
     val openDisputesAlert: String,
     val copyCsvBtn: String,
     val shareReportBtn: String,
-    val csvCopiedToast: String
+    val csvCopiedToast: String,
+    val switchChatSub: String,
+    val switchExternalContactSub: String,
+    val switchSubscriptionSub: String,
+    val switchReviewsSub: String
 )
 
 data class SuqiCheckoutOrderStrings(
@@ -1566,7 +1570,11 @@ object SuqiStringCatalog {
             openDisputesAlert = "Open tickets & disputes",
             copyCsvBtn = "Copy CSV",
             shareReportBtn = "Share Report",
-            csvCopiedToast = "CSV report copied to clipboard"
+            csvCopiedToast = "CSV report copied to clipboard",
+            switchChatSub = "In-app buyer & seller messaging",
+            switchExternalContactSub = "Telegram, WhatsApp & phone external contact",
+            switchSubscriptionSub = "Seller monetization plans enforcement",
+            switchReviewsSub = "Verified buyer product & shop reviews"
         ),
         checkout = SuqiCheckoutOrderStrings(
             defaultCityAddis = "Addis Ababa",
@@ -2485,7 +2493,11 @@ object SuqiStringCatalog {
             openDisputesAlert = "ክፍት ቲኬቶች እና አለመግባባቶች",
             copyCsvBtn = "CSV ቅዳ",
             shareReportBtn = "ሪፖርት አጋራ",
-            csvCopiedToast = "የCSV ሪፖርት ተቀድቷል"
+            csvCopiedToast = "የCSV ሪፖርት ተቀድቷል",
+            switchChatSub = "በመተግበሪያ ውስጥ የገዢና የሻጭ መልዕክት",
+            switchExternalContactSub = "በቴሌግራም፣ ዋትስአፕ እና ስልክ መገናኛ",
+            switchSubscriptionSub = "የሻጮች የደንበኝነት ክፍያ እቅዶች ቁጥጥር",
+            switchReviewsSub = "የተረጋገጡ የገዢ የምርትና የሱቅ ግምገማዎች"
         ),
         checkout = SuqiCheckoutOrderStrings(
             defaultCityAddis = "አዲስ አበባ",
@@ -3404,7 +3416,11 @@ object SuqiStringCatalog {
             openDisputesAlert = "Tikeetotaa fi falmii banaa",
             copyCsvBtn = "CSV Waraabi",
             shareReportBtn = "Gabaasa Qoodi",
-            csvCopiedToast = "Gabaasni CSV waraabameera"
+            csvCopiedToast = "Gabaasni CSV waraabameera",
+            switchChatSub = "Ergaa bitaa fi gurguraa appii keessaa",
+            switchExternalContactSub = "Quunnamtii Telegram, WhatsApp fi bilbilaa",
+            switchSubscriptionSub = "To'annoo karoora kaffaltii gurgurtootaa",
+            switchReviewsSub = "Yaada bitaa mirkanaa'aa meeshaa fi suuqii"
         ),
         checkout = SuqiCheckoutOrderStrings(
             defaultCityAddis = "Finfinnee",

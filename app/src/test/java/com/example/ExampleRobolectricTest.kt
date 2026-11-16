@@ -658,15 +658,28 @@ class ExampleRobolectricTest {
     fun testOwnerMetricsSupportResolveAndBroadcast() = runBlocking {
         val m7 = backend.getOwnerDashboardMetrics(7).data
         val m30 = backend.getOwnerDashboardMetrics(30).data
+        val m90 = backend.getOwnerDashboardMetrics(90).data
         val mAll = backend.getOwnerDashboardMetrics(365).data
         assertNotNull(m7)
         assertNotNull(m30)
+        assertNotNull(m90)
         assertNotNull(mAll)
         assertEquals(7, m7!!.rangeDays)
         assertEquals(30, m30!!.rangeDays)
-        assertTrue(m30.gmvValues.isNotEmpty())
+        // Seeded orders are 1d (25,049), 10d (12,549), and 45d (9,999) ago
+        assertTrue("7D GMV (${m7.totalGmv}) should be strictly less than 30D GMV (${m30.totalGmv})", m7.totalGmv < m30.totalGmv)
+        assertTrue("30D GMV (${m30.totalGmv}) should be strictly less than 90D GMV (${m90!!.totalGmv})", m30.totalGmv < m90.totalGmv)
+        assertEquals("GMV buckets must sum to real range GMV without artificial floor", m30.totalGmv, m30.gmvValues.sum(), 0.01)
+        assertEquals("7D GMV buckets must sum to real 7D GMV", m7.totalGmv, m7.gmvValues.sum(), 0.01)
+        assertEquals(7, m7.gmvValues.size)
+        assertEquals(4, m30.gmvValues.size)
+        assertEquals(3, m90.gmvValues.size)
         assertEquals(m30.gmvValues.size, m30.previousGmvValues.size)
+        // Top categories ranked by actual ordered item sales
+        assertTrue(m30.topCategories.isNotEmpty())
+        assertEquals("cat_electronics", m30.topCategories.first().id)
         assertTrue(m30.topShops.isNotEmpty())
+        assertEquals(m30.gmvValues.size, m30.topShops.first().sparkline.size)
 
         // Support ticket creation + resolution
         val ticketRes = backend.submitSupportTicket(
@@ -699,6 +712,30 @@ class ExampleRobolectricTest {
         assertTrue(broadcastRes.success)
         val notifs = backend.getNotifications().data.orEmpty()
         assertTrue(notifs.any { it.title == "System Maintenance Notice" })
+    }
+
+    @Test
+    fun testBannerAudienceFilteringAndWindowedPreviousPeriod() = runBlocking {
+        val now = System.currentTimeMillis()
+        val sdf = java.text.SimpleDateFormat("MMM d, yyyy • hh:mm a", java.util.Locale.US)
+        val recentUser = com.example.data.model.UserDto(
+            id = "u_new", name = "New User", phone = "+251911000000", email = "",
+            avatarUrl = "", role = "CUSTOMER", preferredLanguage = "English",
+            region = "Addis Ababa", city = "Addis Ababa", subCity = "Bole",
+            createdAt = sdf.format(java.util.Date(now - 2L * 86_400_000L))
+        )
+        val olderUser = recentUser.copy(
+            id = "u_old",
+            city = "Adama",
+            createdAt = sdf.format(java.util.Date(now - 40L * 86_400_000L))
+        )
+
+        assertTrue(EthiopianMarketplaceUtils.matchesBannerAudience("ALL", olderUser, 3, "Adama", now))
+        assertTrue(EthiopianMarketplaceUtils.matchesBannerAudience("NEW_USERS", recentUser, 2, "Adama", now))
+        assertTrue(EthiopianMarketplaceUtils.matchesBannerAudience("NEW_USERS", olderUser, 0, "Adama", now))
+        assertFalse(EthiopianMarketplaceUtils.matchesBannerAudience("NEW_USERS", olderUser, 3, "Adama", now))
+        assertTrue(EthiopianMarketplaceUtils.matchesBannerAudience("ADDIS_ONLY", olderUser, 3, "Addis Ababa", now))
+        assertFalse(EthiopianMarketplaceUtils.matchesBannerAudience("ADDIS_ONLY", olderUser, 3, "Adama", now))
     }
 }
 

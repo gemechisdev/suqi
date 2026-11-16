@@ -39,7 +39,7 @@ import kotlinx.coroutines.sync.withLock
         SupportTicketEntity::class,
         ItemTypeEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -279,6 +279,14 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v7: createdAt timestamps on users and shops for real time-windowed analytics & NEW_USERS audience targeting. */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN createdAt TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN createdAt TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -288,7 +296,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     context.applicationContext,
                     SuqiDatabase::class.java,
                     "suqi_marketplace.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).addCallback(object : Callback() {
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).addCallback(object : Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         super.onOpen(db)
                         CoroutineScope(Dispatchers.IO).launch {

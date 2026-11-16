@@ -109,7 +109,9 @@ object EthiopianMarketplaceUtils {
 
     private val timestampPatterns = listOf(
         "yyyy-MM-dd HH:mm",
+        "yyyy-MM-dd HH:mm:ss",
         "MMM d, yyyy • hh:mm a",
+        "MMM d, yyyy • h:mm a",
         "MMM d, yyyy hh:mm a",
         "yyyy-MM-dd'T'HH:mm:ss'Z'",
         "yyyy-MM-dd'T'HH:mm:ss",
@@ -130,6 +132,54 @@ object EthiopianMarketplaceUtils {
             }
         }
         return null
+    }
+
+    fun resolveTimestampMillis(raw: String, nowMillis: Long = System.currentTimeMillis()): Long? {
+        val trimmed = raw.trim()
+        if (trimmed.isBlank()) return null
+        val lower = trimmed.lowercase(Locale.US)
+        when {
+            lower == "just now" -> return nowMillis
+            lower == "today" -> return nowMillis - 3_600_000L
+            lower == "yesterday" -> return nowMillis - 86_400_000L
+            lower.endsWith("hours ago") || lower.endsWith("hour ago") -> {
+                val hours = lower.substringBefore(" ").toLongOrNull()
+                if (hours != null) return nowMillis - hours.coerceAtLeast(0L) * 3_600_000L
+            }
+            lower.endsWith("days ago") || lower.endsWith("day ago") -> {
+                val days = lower.substringBefore(" ").toLongOrNull()
+                if (days != null) return nowMillis - days.coerceAtLeast(0L) * 86_400_000L
+            }
+        }
+        return parseMarketplaceTimestampMillis(trimmed)
+    }
+
+    fun matchesBannerAudience(
+        audience: String,
+        user: com.example.data.model.UserDto?,
+        userOrdersCount: Int,
+        selectedCity: String,
+        nowMillis: Long = System.currentTimeMillis()
+    ): Boolean {
+        return when (audience.trim().uppercase(Locale.US)) {
+            "NEW_USERS" -> {
+                if (user == null || user.role.equals("GUEST", ignoreCase = true)) {
+                    true
+                } else {
+                    val createdHours = computeElapsedHours(user.createdAt, nowMillis)
+                    val joinedRecently = createdHours != null && createdHours <= 14L * 24L
+                    joinedRecently || userOrdersCount == 0
+                }
+            }
+            "ADDIS_ONLY" -> {
+                val cityToCheck = selectedCity.ifBlank { user?.city.orEmpty() }
+                cityToCheck.equals("Addis Ababa", ignoreCase = true) ||
+                    cityToCheck.contains("Addis", ignoreCase = true) ||
+                    cityToCheck == "አዲስ አበባ" ||
+                    cityToCheck.equals("Finfinnee", ignoreCase = true)
+            }
+            else -> true
+        }
     }
 
     fun computeElapsedHours(raw: String, nowMillis: Long = System.currentTimeMillis()): Long? {

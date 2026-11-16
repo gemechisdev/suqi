@@ -21,7 +21,8 @@ data class UserEntity(
     val gender: String = "",
     val birthday: String = "",
     val activeRole: String = "",
-    val isActiveSession: Boolean = false
+    val isActiveSession: Boolean = false,
+    val createdAt: String = ""
 )
 
 @Entity(tableName = "shops")
@@ -58,7 +59,8 @@ data class ShopEntity(
     val freeDeliveryThreshold: Double = 0.0,
     val coverageSubCitiesCsv: String = "",
     val verificationDocsJson: String = "",
-    val verificationRejectionReason: String? = null
+    val verificationRejectionReason: String? = null,
+    val createdAt: String = ""
 )
 
 @Entity(tableName = "products")
