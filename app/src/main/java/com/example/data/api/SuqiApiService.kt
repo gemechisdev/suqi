@@ -243,14 +243,41 @@ interface SuqiApiService {
     @POST(SuqiEndpoints.ADMIN_CATEGORIES)
     suspend fun saveCategory(@Body category: CategoryDto): ApiResponse<CategoryDto>
 
+    @PUT(SuqiEndpoints.ADMIN_CATEGORIES_REORDER)
+    suspend fun reorderCategories(@Body orderedIds: List<String>): ApiResponse<Boolean>
+
     @DELETE(SuqiEndpoints.ADMIN_CATEGORIES)
     suspend fun deleteCategory(@Query("id") id: String): ApiResponse<Boolean>
 
     @POST(SuqiEndpoints.BANNERS)
     suspend fun savePromoBanner(@Body banner: PromoBannerDto): ApiResponse<PromoBannerDto>
 
+    @PUT(SuqiEndpoints.BANNERS_REORDER)
+    suspend fun reorderPromoBanners(@Body orderedIds: List<String>): ApiResponse<Boolean>
+
     @DELETE(SuqiEndpoints.BANNERS)
     suspend fun deletePromoBanner(@Query("id") id: String): ApiResponse<Boolean>
+
+    @PUT(SuqiEndpoints.ADMIN_HOME_SECTIONS)
+    suspend fun updateHomeSectionsConfig(@Body payload: Map<String, List<String>>): ApiResponse<AdminSettingsDto>
+
+    @GET(SuqiEndpoints.ADMIN_ITEM_TYPES)
+    suspend fun getItemTypes(): ApiResponse<List<ItemTypeDto>>
+
+    @POST(SuqiEndpoints.ADMIN_ITEM_TYPES)
+    suspend fun saveItemType(@Body itemType: ItemTypeDto): ApiResponse<ItemTypeDto>
+
+    @DELETE(SuqiEndpoints.ADMIN_ITEM_TYPES)
+    suspend fun deleteItemType(@Query("id") id: String): ApiResponse<Boolean>
+
+    @GET(SuqiEndpoints.ADMIN_OWNER_METRICS)
+    suspend fun getOwnerDashboardMetrics(@Query("rangeDays") rangeDays: Int = 30): ApiResponse<OwnerDashboardMetricsDto>
+
+    @POST(SuqiEndpoints.SUPPORT_TICKET_RESOLVE)
+    suspend fun resolveSupportTicket(@Path("id") id: String): ApiResponse<Boolean>
+
+    @POST(SuqiEndpoints.ADMIN_BROADCAST)
+    suspend fun sendAdminBroadcast(@Body payload: Map<String, String>): ApiResponse<Int>
 
     @GET(SuqiEndpoints.ADMIN_MODERATION)
     suspend fun getFlaggedReviews(): ApiResponse<List<FlaggedReviewDto>>

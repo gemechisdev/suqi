@@ -187,9 +187,20 @@ class SuqiRepository private constructor(context: Context) {
         failedKeys: String? = null
     ) = api.adminVerifySellerDecision(shopId, decision, reason, failedKeys)
     suspend fun saveCategory(category: CategoryDto) = api.saveCategory(category)
+    suspend fun reorderCategories(orderedIds: List<String>) = api.reorderCategories(orderedIds)
     suspend fun deleteCategory(id: String) = api.deleteCategory(id)
     suspend fun savePromoBanner(banner: PromoBannerDto) = api.savePromoBanner(banner)
+    suspend fun reorderPromoBanners(orderedIds: List<String>) = api.reorderPromoBanners(orderedIds)
     suspend fun deletePromoBanner(id: String) = api.deletePromoBanner(id)
+    suspend fun updateHomeSectionsConfig(order: List<String>, hidden: List<String>) =
+        api.updateHomeSectionsConfig(mapOf("order" to order, "hidden" to hidden))
+    suspend fun getItemTypes() = api.getItemTypes()
+    suspend fun saveItemType(itemType: ItemTypeDto) = api.saveItemType(itemType)
+    suspend fun deleteItemType(id: String) = api.deleteItemType(id)
+    suspend fun getOwnerDashboardMetrics(rangeDays: Int = 30) = api.getOwnerDashboardMetrics(rangeDays)
+    suspend fun resolveSupportTicket(id: String) = api.resolveSupportTicket(id)
+    suspend fun sendAdminBroadcast(title: String, body: String, audience: String = "ALL") =
+        api.sendAdminBroadcast(mapOf("title" to title, "body" to body, "audience" to audience))
     suspend fun getFlaggedReviews() = api.getFlaggedReviews()
     suspend fun reportOrModerateReview(payload: Map<String, String>) = api.reportOrModerateReview(payload)
     suspend fun getSubscriptionPlans() = api.getSubscriptionPlans()

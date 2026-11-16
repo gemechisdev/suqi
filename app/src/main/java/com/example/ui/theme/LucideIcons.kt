@@ -3165,4 +3165,43 @@ object LucideIcons {
     val Menu: ImageVector by lazy {
         stroked("Menu", "M4 12h16", "M4 6h16", "M4 18h16")
     }
+    val Gift: ImageVector by lazy {
+        stroked(
+            "Gift",
+            "M20 12v10H4V12",
+            "M2 7h20v5H2z",
+            "M12 22V7",
+            "M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z",
+            "M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"
+        )
+    }
+    val Palette: ImageVector by lazy {
+        stroked(
+            "Palette",
+            "M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z",
+            "M7.5 11.5h.01",
+            "M10.5 7.5h.01",
+            "M15.5 7.5h.01",
+            "M17.5 11.5h.01"
+        )
+    }
+    val Download: ImageVector by lazy {
+        stroked(
+            "Download",
+            "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
+            "M7 10l5 5 5-5",
+            "M12 15V3"
+        )
+    }
+    val GripVertical: ImageVector by lazy {
+        stroked(
+            "GripVertical",
+            "M9 5h.01",
+            "M9 12h.01",
+            "M9 19h.01",
+            "M15 5h.01",
+            "M15 12h.01",
+            "M15 19h.01"
+        )
+    }
 }

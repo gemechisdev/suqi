@@ -391,4 +391,22 @@ interface SupportTicketDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(ticket: SupportTicketEntity)
+
+    @Query("UPDATE support_tickets SET status = :status WHERE id = :id")
+    suspend fun updateStatus(id: String, status: String)
+}
+
+@Dao
+interface ItemTypeDao {
+    @Query("SELECT * FROM item_types ORDER BY sortOrder ASC, label ASC")
+    suspend fun getAllItemTypes(): List<ItemTypeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(itemType: ItemTypeEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(itemTypes: List<ItemTypeEntity>)
+
+    @Query("DELETE FROM item_types WHERE id = :id")
+    suspend fun deleteById(id: String)
 }

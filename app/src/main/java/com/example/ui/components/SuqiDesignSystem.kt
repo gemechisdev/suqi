@@ -34,6 +34,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -814,11 +815,13 @@ fun SuqiLineChart(
     labels: List<String>,
     values: List<Double>,
     modifier: Modifier = Modifier,
-    lineColor: Color = SuqiPrimary
+    lineColor: Color = SuqiPrimary,
+    previousValues: List<Double> = emptyList(),
+    previousLineColor: Color = LocalSuqiColors.current.mutedText
 ) {
     val colors = LocalSuqiColors.current
     if (values.isEmpty()) return
-    val maxVal = (values.maxOrNull() ?: 1.0).coerceAtLeast(1.0)
+    val maxVal = maxOf(values.maxOrNull() ?: 1.0, previousValues.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
     var selectedIdx by remember(values) { mutableIntStateOf(values.lastIndex) }
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -866,6 +869,36 @@ fun SuqiLineChart(
                     start = Offset(0f, y),
                     end = Offset(w, y),
                     strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            // Optional dashed previous-period comparison line
+            if (previousValues.size >= 2) {
+                val prevCount = previousValues.size
+                val prevStepX = w / (prevCount - 1).toFloat()
+                val prevPts = previousValues.mapIndexed { idx, v ->
+                    val x = idx * prevStepX
+                    val ratio = (v / maxVal).toFloat().coerceIn(0f, 1f)
+                    val y = padTop + chartH * (1f - ratio)
+                    Offset(x, y)
+                }
+                val prevPath = Path().apply {
+                    moveTo(prevPts.first().x, prevPts.first().y)
+                    for (i in 1 until prevPts.size) {
+                        val prev = prevPts[i - 1]
+                        val curr = prevPts[i]
+                        val midX = (prev.x + curr.x) / 2f
+                        cubicTo(midX, prev.y, midX, curr.y, curr.x, curr.y)
+                    }
+                }
+                drawPath(
+                    path = prevPath,
+                    color = previousLineColor.copy(alpha = 0.72f),
+                    style = Stroke(
+                        width = 2.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f), 0f)
+                    )
                 )
             }
 
@@ -1295,4 +1328,35 @@ fun SuqiGuestGateSheet(
             testTag = "guest_gate_sheet"
         )
     }
+}
+
+/** Canonical category icon registry & picker options. */
+object SuqiCategoryIcons {
+    val options: List<Pair<String, ImageVector>> = listOf(
+        "laptop" to LucideIcons.Laptop,
+        "tshirt" to LucideIcons.Shirt,
+        "home" to LucideIcons.House,
+        "sparkles" to LucideIcons.Sparkles,
+        "sports" to LucideIcons.Award,
+        "shopping-bag" to LucideIcons.ShoppingBag,
+        "armchair" to LucideIcons.Sofa,
+        "heart-pulse" to LucideIcons.Heart,
+        "baby" to LucideIcons.Smile,
+        "groceries" to LucideIcons.Package,
+        "shirt" to LucideIcons.Shirt,
+        "car" to LucideIcons.Truck,
+        "book-open" to LucideIcons.FileText,
+        "palette" to LucideIcons.Palette,
+        "sprout" to LucideIcons.Star,
+        "gift" to LucideIcons.Gift,
+        "tag" to LucideIcons.Tag,
+        "smartphone" to LucideIcons.Smartphone,
+        "store" to LucideIcons.Store,
+        "star" to LucideIcons.Star
+    )
+
+    private val map: Map<String, ImageVector> = options.toMap()
+
+    fun iconFor(key: String?): ImageVector =
+        map[key?.trim()?.lowercase()] ?: LucideIcons.Tag
 }

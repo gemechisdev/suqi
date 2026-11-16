@@ -233,6 +233,42 @@ fun parseProductDetails(json: String): ProductDetails? {
     }
 }
 
+fun attributesToJson(attributes: List<AttributeDef>): String =
+    JSONArray().apply {
+        attributes.forEach { a ->
+            put(
+                JSONObject()
+                    .put("key", a.key).put("label", a.label).put("type", a.type)
+                    .put("options", JSONArray(a.options)).put("unit", a.unit)
+                    .put("required", a.required).put("enabled", a.enabled)
+                    .put("selectable", a.selectable).put("group", a.group)
+            )
+        }
+    }.toString()
+
+fun parseAttributesJson(json: String): List<AttributeDef> {
+    if (json.isBlank()) return emptyList()
+    return try {
+        val arr = JSONArray(json)
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            AttributeDef(
+                key = o.optString("key"),
+                label = o.optString("label"),
+                type = o.optString("type").ifBlank { AttrType.TEXT },
+                options = o.optJSONArray("options")?.strings().orEmpty(),
+                unit = o.optString("unit"),
+                required = o.optBoolean("required", false),
+                enabled = o.optBoolean("enabled", true),
+                selectable = o.optBoolean("selectable", false),
+                group = o.optString("group").ifBlank { "General" }
+            )
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+}
+
 /**
  * Backward compatibility: products created before the dynamic system only have
  * an image list plus colour / size CSVs. Map them onto the new model.

@@ -886,7 +886,13 @@ object SeedData {
         if (db.userDao().getActiveSessionUser() == null) {
             db.userDao().getFirstUser()?.let { db.userDao().setActiveSession(it.id) }
         }
-        if (db.categoryDao().getAllCategories().isEmpty()) {
+        val linkedByCat = ProductTemplates.defaultAll
+            .filter { it.categoryId.isNotBlank() }
+            .groupBy { it.categoryId }
+            .mapValues { (_, list) -> list.joinToString(",") { it.id } }
+
+        val existingCategories = db.categoryDao().getAllCategories()
+        if (existingCategories.isEmpty()) {
             db.categoryDao().insertAll(
                 MarketplaceCategories.all.map { c ->
                     CategoryEntity(
@@ -898,11 +904,35 @@ object SeedData {
                         imageUrl = c.imageUrl,
                         subCategoriesCsv = c.subCategories.joinToString(","),
                         isActive = true,
-                        sortOrder = c.sortOrder
+                        sortOrder = c.sortOrder,
+                        linkedItemTypesCsv = linkedByCat[c.id].orEmpty()
+                    )
+                }
+            )
+        } else if (existingCategories.all { it.linkedItemTypesCsv.isBlank() }) {
+            db.categoryDao().insertAll(
+                existingCategories.map { cat ->
+                    cat.copy(linkedItemTypesCsv = linkedByCat[cat.id].orEmpty())
+                }
+            )
+        }
+
+        if (db.itemTypeDao().getAllItemTypes().isEmpty()) {
+            db.itemTypeDao().insertAll(
+                ProductTemplates.defaultAll.mapIndexed { idx, t ->
+                    ItemTypeEntity(
+                        id = t.id,
+                        label = t.label,
+                        emoji = t.emoji,
+                        categoryId = t.categoryId,
+                        groupName = t.group,
+                        attributesJson = com.example.data.model.attributesToJson(t.attributes),
+                        sortOrder = idx
                     )
                 }
             )
         }
+
         if (db.promoBannerDao().getAllBanners().isEmpty()) {
             db.promoBannerDao().insertAll(
                 listOf(
@@ -917,7 +947,10 @@ object SeedData {
                         targetCategory = "cat_electronics",
                         targetName = "Electronics",
                         isActive = true,
-                        sortOrder = 0
+                        sortOrder = 0,
+                        badgeIcon = "flame",
+                        destinationType = "CATEGORY",
+                        targetId = "cat_electronics"
                     ),
                     PromoBannerEntity(
                         id = "banner_2",
@@ -930,7 +963,10 @@ object SeedData {
                         targetCategory = "cat_fashion",
                         targetName = "Fashion",
                         isActive = true,
-                        sortOrder = 1
+                        sortOrder = 1,
+                        badgeIcon = "sparkles",
+                        destinationType = "CATEGORY",
+                        targetId = "cat_fashion"
                     ),
                     PromoBannerEntity(
                         id = "banner_3",
@@ -943,7 +979,10 @@ object SeedData {
                         targetCategory = "cat_home",
                         targetName = "Home & Living",
                         isActive = true,
-                        sortOrder = 2
+                        sortOrder = 2,
+                        badgeIcon = "house",
+                        destinationType = "CATEGORY",
+                        targetId = "cat_home"
                     )
                 )
             )

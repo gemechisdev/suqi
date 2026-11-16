@@ -7,6 +7,8 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import com.example.data.model.MarketplaceCategories
 import com.example.data.model.ProductTemplates
+import com.example.data.model.attributesToJson
+import com.example.data.model.parseAttributesJson
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,9 +36,10 @@ import kotlinx.coroutines.sync.withLock
         FlaggedReviewEntity::class,
         ProductQuestionEntity::class,
         SubscriptionPlanEntity::class,
-        SupportTicketEntity::class
+        SupportTicketEntity::class,
+        ItemTypeEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -59,6 +62,7 @@ abstract class SuqiDatabase : RoomDatabase() {
     abstract fun productQuestionDao(): ProductQuestionDao
     abstract fun subscriptionPlanDao(): SubscriptionPlanDao
     abstract fun supportTicketDao(): SupportTicketDao
+    abstract fun itemTypeDao(): ItemTypeDao
 
     private val seedMutex = Mutex()
     @Volatile
@@ -72,6 +76,21 @@ abstract class SuqiDatabase : RoomDatabase() {
                 SeedData.seedDatabase(this)
             } else {
                 SeedData.ensureSecondaryTablesSeeded(this)
+            }
+            val persistedTypes = itemTypeDao().getAllItemTypes()
+            if (persistedTypes.isNotEmpty()) {
+                ProductTemplates.syncFromPersisted(
+                    persistedTypes.map {
+                        com.example.data.model.ItemType(
+                            id = it.id,
+                            label = it.label,
+                            emoji = it.emoji,
+                            categoryId = it.categoryId,
+                            group = it.groupName,
+                            attributes = parseAttributesJson(it.attributesJson)
+                        )
+                    }
+                )
             }
             isSeedVerified = true
         }
@@ -218,6 +237,48 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v6: persisted item_types templates, category linked item types, banner destination/schedule/audience, and home section ordering. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE categories ADD COLUMN linkedItemTypesCsv TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE admin_settings ADD COLUMN homeSectionsOrderCsv TEXT NOT NULL DEFAULT 'featured_shops,new_arrivals,popular,recommended,recently_viewed'")
+                db.execSQL("ALTER TABLE admin_settings ADD COLUMN hiddenHomeSectionsCsv TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE promo_banners ADD COLUMN badgeIcon TEXT NOT NULL DEFAULT 'sparkles'")
+                db.execSQL("ALTER TABLE promo_banners ADD COLUMN destinationType TEXT NOT NULL DEFAULT 'CATEGORY'")
+                db.execSQL("ALTER TABLE promo_banners ADD COLUMN targetId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE promo_banners ADD COLUMN startDate TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE promo_banners ADD COLUMN endDate TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE promo_banners ADD COLUMN audience TEXT NOT NULL DEFAULT 'ALL'")
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `item_types` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `label` TEXT NOT NULL,
+                        `emoji` TEXT NOT NULL DEFAULT '✨',
+                        `categoryId` TEXT NOT NULL DEFAULT '',
+                        `groupName` TEXT NOT NULL DEFAULT 'Other',
+                        `attributesJson` TEXT NOT NULL DEFAULT '[]',
+                        `sortOrder` INTEGER NOT NULL DEFAULT 0
+                    )"""
+                )
+                ProductTemplates.defaultAll.forEachIndexed { idx, t ->
+                    db.execSQL(
+                        """INSERT OR IGNORE INTO item_types
+                            (id, label, emoji, categoryId, groupName, attributesJson, sortOrder)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        arrayOf<Any?>(t.id, t.label, t.emoji, t.categoryId, t.group, attributesToJson(t.attributes), idx)
+                    )
+                }
+                ProductTemplates.defaultAll.groupBy { it.categoryId }.forEach { (catId, list) ->
+                    if (catId.isNotBlank()) {
+                        db.execSQL(
+                            "UPDATE categories SET linkedItemTypesCsv = ? WHERE id = ? AND linkedItemTypesCsv = ''",
+                            arrayOf<Any?>(list.joinToString(",") { it.id }, catId)
+                        )
+                    }
+                }
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -227,7 +288,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     context.applicationContext,
                     SuqiDatabase::class.java,
                     "suqi_marketplace.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).addCallback(object : Callback() {
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).addCallback(object : Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         super.onOpen(db)
                         CoroutineScope(Dispatchers.IO).launch {

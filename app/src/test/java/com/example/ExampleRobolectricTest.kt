@@ -547,5 +547,159 @@ class ExampleRobolectricTest {
         assertEquals("PENDING_VERIFICATION", resubmitted.paymentStatus)
         assertEquals(expectedTotal, resubmitted.transferredAmount ?: -1.0, 0.01)
     }
+
+    @Test
+    fun testItemTypesCrudAndTemplateSync() = runBlocking {
+        val initialRes = backend.getItemTypes()
+        assertTrue(initialRes.success)
+        val initialTypes = initialRes.data.orEmpty()
+        assertTrue("Default item types should be seeded into Room", initialTypes.size >= 10)
+
+        val customId = "type_test_${System.currentTimeMillis()}"
+        val newType = com.example.data.model.ItemTypeDto(
+            id = customId,
+            label = "Ethiopian Jebena",
+            emoji = "☕",
+            categoryId = "cat_home",
+            group = "Home & Living",
+            attributes = listOf(
+                com.example.data.model.AttributeDef(
+                    key = "capacity",
+                    label = "Capacity",
+                    type = com.example.data.model.AttrType.MEASUREMENT,
+                    options = listOf("ml", "L"),
+                    unit = "ml",
+                    required = true,
+                    selectable = true
+                )
+            ),
+            sortOrder = initialTypes.size
+        )
+        val saveRes = backend.saveItemType(newType)
+        assertTrue(saveRes.success)
+        val afterSave = backend.getItemTypes().data.orEmpty()
+        assertTrue(afterSave.any { it.id == customId && it.label == "Ethiopian Jebena" })
+        assertTrue(
+            "ProductTemplates.all should sync from persisted item types",
+            com.example.data.model.ProductTemplates.byId(customId).label == "Ethiopian Jebena"
+        )
+
+        val delRes = backend.deleteItemType(customId)
+        assertTrue(delRes.success)
+        val afterDelete = backend.getItemTypes().data.orEmpty()
+        assertFalse(afterDelete.any { it.id == customId })
+    }
+
+    @Test
+    fun testCategoriesBannersReorderAndHomeSectionsConfig() = runBlocking {
+        val initialCats = backend.getCategories().data.orEmpty()
+        assertTrue(initialCats.size >= 3)
+        val initialCatIds = initialCats.map { it.id }
+        val initialBanners = backend.getPromoBanners(activeOnly = false).data.orEmpty()
+        val initialBannerIds = initialBanners.map { it.id }
+        val initialSettings = backend.getAdminSettings().data!!
+
+        val reversedIds = initialCatIds.reversed()
+        val targetOriginalCat = initialCats.first { it.id == reversedIds.first() }
+        try {
+            val reorderCatsRes = backend.reorderCategories(reversedIds)
+            assertTrue(reorderCatsRes.success)
+            val reorderedCats = backend.getCategories().data.orEmpty()
+            assertEquals(reversedIds.first(), reorderedCats.first().id)
+
+            // Update linked item types on first category
+            val targetCat = reorderedCats.first()
+            val savedCatRes = backend.saveCategory(
+                targetCat.copy(linkedItemTypes = listOf("laptop", "smartphone"))
+            )
+            assertTrue(savedCatRes.success)
+            assertEquals(listOf("laptop", "smartphone"), savedCatRes.data!!.linkedItemTypes)
+
+            // Banners reorder & Home sections visibility/order
+            if (initialBanners.size >= 2) {
+                val revBanners = initialBannerIds.reversed()
+                val reorderBannerRes = backend.reorderPromoBanners(revBanners)
+                assertTrue(reorderBannerRes.success)
+                val reorderedBanners = backend.getPromoBanners(activeOnly = false).data.orEmpty()
+                assertEquals(revBanners.first(), reorderedBanners.first().id)
+            }
+
+            val customOrder = listOf(
+                com.example.data.model.HomeSectionKeys.NEW_ARRIVALS,
+                com.example.data.model.HomeSectionKeys.FEATURED_SHOPS,
+                com.example.data.model.HomeSectionKeys.POPULAR,
+                com.example.data.model.HomeSectionKeys.RECOMMENDED,
+                com.example.data.model.HomeSectionKeys.RECENTLY_VIEWED
+            )
+            val hidden = listOf(com.example.data.model.HomeSectionKeys.RECENTLY_VIEWED)
+            val secRes = backend.updateHomeSectionsConfig(
+                mapOf("order" to customOrder, "hidden" to hidden)
+            )
+            assertTrue(secRes.success)
+            val updatedSettings = backend.getAdminSettings().data!!
+            assertEquals(customOrder, updatedSettings.homeSectionsOrder)
+            assertEquals(hidden, updatedSettings.hiddenHomeSections)
+        } finally {
+            backend.saveCategory(targetOriginalCat)
+            backend.reorderCategories(initialCatIds)
+            if (initialBannerIds.size >= 2) {
+                backend.reorderPromoBanners(initialBannerIds)
+            }
+            backend.updateHomeSectionsConfig(
+                mapOf(
+                    "order" to initialSettings.homeSectionsOrder,
+                    "hidden" to initialSettings.hiddenHomeSections
+                )
+            )
+        }
+    }
+
+    @Test
+    fun testOwnerMetricsSupportResolveAndBroadcast() = runBlocking {
+        val m7 = backend.getOwnerDashboardMetrics(7).data
+        val m30 = backend.getOwnerDashboardMetrics(30).data
+        val mAll = backend.getOwnerDashboardMetrics(365).data
+        assertNotNull(m7)
+        assertNotNull(m30)
+        assertNotNull(mAll)
+        assertEquals(7, m7!!.rangeDays)
+        assertEquals(30, m30!!.rangeDays)
+        assertTrue(m30.gmvValues.isNotEmpty())
+        assertEquals(m30.gmvValues.size, m30.previousGmvValues.size)
+        assertTrue(m30.topShops.isNotEmpty())
+
+        // Support ticket creation + resolution
+        val ticketRes = backend.submitSupportTicket(
+            com.example.data.model.SupportTicketDto(
+                id = "",
+                userId = "",
+                category = "Order Issue",
+                subject = "Receipt inquiry #99",
+                description = "Need help verifying receipt",
+                status = "OPEN",
+                createdAt = ""
+            )
+        )
+        assertTrue(ticketRes.success)
+        val ticketId = ticketRes.data!!.id
+        val resolveRes = backend.resolveSupportTicket(ticketId)
+        assertTrue(resolveRes.success)
+        assertEquals(true, resolveRes.data)
+        val ticketsAfterResolve = backend.getSupportTickets().data.orEmpty()
+        assertEquals("RESOLVED", ticketsAfterResolve.first { it.id == ticketId }.status)
+
+        // Admin broadcast creates notification
+        val broadcastRes = backend.sendAdminBroadcast(
+            mapOf(
+                "title" to "System Maintenance Notice",
+                "body" to "Scheduled upgrade tonight at 11 PM EAT.",
+                "audience" to "ALL"
+            )
+        )
+        assertTrue(broadcastRes.success)
+        val notifs = backend.getNotifications().data.orEmpty()
+        assertTrue(notifs.any { it.title == "System Maintenance Notice" })
+    }
 }
+
 

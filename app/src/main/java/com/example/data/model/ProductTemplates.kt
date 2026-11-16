@@ -97,7 +97,17 @@ object ProductTemplates {
 
     val custom = ItemType("custom", "Custom / Other", "✨", "", "Other", emptyList())
 
-    val all: List<ItemType> = listOf(
+    @Volatile
+    private var syncedTypes: List<ItemType>? = null
+
+    val all: List<ItemType>
+        get() = syncedTypes ?: defaultAll
+
+    fun syncFromPersisted(types: List<ItemType>) {
+        syncedTypes = if (types.isEmpty()) null else types
+    }
+
+    val defaultAll: List<ItemType> = listOf(
         // ───────── Electronics ─────────
         ItemType("laptop", "Laptop", "💻", "cat_electronics", "Electronics", listOf(
             brand, model,
@@ -463,11 +473,11 @@ object ProductTemplates {
     val pickerTypes: List<ItemType> get() = all + custom
 
     /** Every parameter we know about, de-duplicated by key, for the "Add parameter" picker. */
-    val library: List<AttributeDef> by lazy {
-        all.flatMap { it.attributes }
+    val library: List<AttributeDef>
+        get() = (defaultAll + all)
+            .flatMap { it.attributes }
             .distinctBy { it.key }
             .sortedBy { it.label.lowercase() }
-    }
 
     /** Categories referenced by item types (used to create missing category rows). */
     val extraCategories = listOf(

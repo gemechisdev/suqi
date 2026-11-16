@@ -77,7 +77,34 @@ data class PromoBanner(
     val imageUrl: String,
     val badgeIcon: ImageVector? = null,
     val targetCategory: String = "",
-    val targetName: String = ""
+    val targetName: String = "",
+    val destinationType: String = "CATEGORY",
+    val targetId: String = ""
+)
+
+fun promoBadgeIconVector(key: String): ImageVector = when (key.lowercase()) {
+    "flame" -> LucideIcons.Flame
+    "house", "home" -> LucideIcons.House
+    "tag" -> LucideIcons.Tag
+    "percent" -> LucideIcons.Percent
+    "zap" -> LucideIcons.Zap
+    "gift" -> LucideIcons.Gift
+    "award" -> LucideIcons.Award
+    "star" -> LucideIcons.Star
+    "trending", "trending-up" -> LucideIcons.TrendingUp
+    else -> LucideIcons.Sparkles
+}
+
+val promoBadgeIconOptions: List<Pair<String, ImageVector>> = listOf(
+    "sparkles" to LucideIcons.Sparkles,
+    "flame" to LucideIcons.Flame,
+    "tag" to LucideIcons.Tag,
+    "percent" to LucideIcons.Percent,
+    "zap" to LucideIcons.Zap,
+    "gift" to LucideIcons.Gift,
+    "award" to LucideIcons.Award,
+    "house" to LucideIcons.House,
+    "star" to LucideIcons.Star
 )
 
 /**
@@ -131,7 +158,7 @@ fun SuqiPromoCarousel(
                     .height(208.dp)
             ) { page ->
                 val banner = banners[page]
-                PromoBannerPage(
+                SuqiPromoBannerSlide(
                     banner = banner,
                     onClick = { onBannerClick(banner) },
                     modifier = Modifier.graphicsLayer {
@@ -159,7 +186,7 @@ fun SuqiPromoCarousel(
 }
 
 @Composable
-private fun PromoBannerPage(
+fun SuqiPromoBannerSlide(
     banner: PromoBanner,
     onClick: () -> Unit,
     modifier: Modifier = Modifier

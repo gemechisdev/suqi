@@ -249,7 +249,8 @@ data class CategoryEntity(
     val imageUrl: String = "",
     val subCategoriesCsv: String,
     val isActive: Boolean = true,
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    val linkedItemTypesCsv: String = ""
 )
 
 @Entity(tableName = "admin_settings")
@@ -261,7 +262,9 @@ data class AdminSettingsEntity(
     val sellerReviewsEnabled: Boolean = true,
     val showFeaturedShops: Boolean = true,
     val activePlanName: String = "Pro Seller Plan",
-    val activePlanPrice: Double = 299.0
+    val activePlanPrice: Double = 299.0,
+    val homeSectionsOrderCsv: String = "featured_shops,new_arrivals,popular,recommended,recently_viewed",
+    val hiddenHomeSectionsCsv: String = ""
 )
 
 @Entity(tableName = "promo_banners")
@@ -276,6 +279,23 @@ data class PromoBannerEntity(
     val targetCategory: String,
     val targetName: String,
     val isActive: Boolean = true,
+    val sortOrder: Int = 0,
+    val badgeIcon: String = "sparkles",
+    val destinationType: String = "CATEGORY",
+    val targetId: String = "",
+    val startDate: String = "",
+    val endDate: String = "",
+    val audience: String = "ALL"
+)
+
+@Entity(tableName = "item_types")
+data class ItemTypeEntity(
+    @PrimaryKey val id: String,
+    val label: String,
+    val emoji: String = "✨",
+    val categoryId: String = "",
+    val groupName: String = "Other",
+    val attributesJson: String = "[]",
     val sortOrder: Int = 0
 )
 

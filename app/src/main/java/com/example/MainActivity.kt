@@ -288,8 +288,25 @@ fun SuqiAppRoot(
                                 AdminConsoleScreen(viewModel = viewModel)
                             }
                         }
+                        is ScreenDestination.OwnerDashboard -> {
+                            val isOwnerTier = currentUser?.adminTier?.equals("OWNER", ignoreCase = true) == true ||
+                                viewModel.adminTier.collectAsState().value.equals("OWNER", ignoreCase = true)
+                            if (!hasAdminAccess || !isOwnerTier) {
+                                SuqiRestrictedState(
+                                    title = strings.adminGov.tierOwnerOnlyNotice,
+                                    subtitle = strings.adminGov.unlockOwnerHint,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "owner_restricted"
+                                )
+                            } else {
+                                OwnerDashboardScreen(viewModel = viewModel)
+                            }
+                        }
                         is ScreenDestination.AdminFeatures -> AdminFeaturesScreen(viewModel = viewModel)
                         is ScreenDestination.AdminCategories -> AdminCategoriesScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminItemTypes -> AdminItemTypesScreen(viewModel = viewModel)
                         is ScreenDestination.AdminBanners -> AdminBannersScreen(viewModel = viewModel)
                         is ScreenDestination.AdminModeration -> AdminModerationScreen(viewModel = viewModel)
                         is ScreenDestination.AdminSubscriptionPlans -> AdminSubscriptionPlansScreen(viewModel = viewModel)

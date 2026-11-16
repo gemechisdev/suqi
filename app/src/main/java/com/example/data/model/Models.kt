@@ -247,6 +247,22 @@ data class SavedAddressDto(
     val isDefault: Boolean = false
 )
 
+object HomeSectionKeys {
+    const val FEATURED_SHOPS = "featured_shops"
+    const val NEW_ARRIVALS = "new_arrivals"
+    const val POPULAR = "popular"
+    const val RECOMMENDED = "recommended"
+    const val RECENTLY_VIEWED = "recently_viewed"
+
+    val defaultOrder = listOf(
+        FEATURED_SHOPS,
+        NEW_ARRIVALS,
+        POPULAR,
+        RECOMMENDED,
+        RECENTLY_VIEWED
+    )
+}
+
 @JsonClass(generateAdapter = true)
 data class CategoryDto(
     val id: String,
@@ -257,7 +273,8 @@ data class CategoryDto(
     val imageUrl: String = "",
     val subCategories: List<String>,
     val isActive: Boolean = true,
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    val linkedItemTypes: List<String> = emptyList()
 )
 
 @JsonClass(generateAdapter = true)
@@ -268,7 +285,9 @@ data class AdminSettingsDto(
     val sellerReviewsEnabled: Boolean = true,
     val showFeaturedShops: Boolean = true,
     val activePlanName: String = "Pro Seller Plan",
-    val activePlanPrice: Double = 299.0
+    val activePlanPrice: Double = 299.0,
+    val homeSectionsOrder: List<String> = HomeSectionKeys.defaultOrder,
+    val hiddenHomeSections: List<String> = emptyList()
 )
 
 @JsonClass(generateAdapter = true)
@@ -283,7 +302,87 @@ data class PromoBannerDto(
     val targetCategory: String,
     val targetName: String,
     val isActive: Boolean = true,
+    val sortOrder: Int = 0,
+    val badgeIcon: String = "sparkles",
+    val destinationType: String = "CATEGORY", // "CATEGORY", "SHOP", "PRODUCT", "DEALS", "URL"
+    val targetId: String = "",
+    val startDate: String = "",
+    val endDate: String = "",
+    val audience: String = "ALL" // "ALL", "NEW_USERS", "ADDIS_ONLY"
+)
+
+@JsonClass(generateAdapter = true)
+data class ItemTypeDto(
+    val id: String,
+    val label: String,
+    val emoji: String = "✨",
+    val categoryId: String = "",
+    val group: String = "Other",
+    val attributes: List<AttributeDef> = emptyList(),
     val sortOrder: Int = 0
+) {
+    fun toItemType() = ItemType(
+        id = id,
+        label = label,
+        emoji = emoji,
+        categoryId = categoryId,
+        group = group,
+        attributes = attributes
+    )
+}
+
+fun ItemType.toDto(sortOrder: Int = 0) = ItemTypeDto(
+    id = id,
+    label = label,
+    emoji = emoji,
+    categoryId = categoryId,
+    group = group,
+    attributes = attributes,
+    sortOrder = sortOrder
+)
+
+@JsonClass(generateAdapter = true)
+data class OwnerChartSlice(
+    val id: String,
+    val label: String,
+    val value: Double
+)
+
+@JsonClass(generateAdapter = true)
+data class OwnerTopShopMetric(
+    val shopId: String,
+    val shopName: String,
+    val isVerified: Boolean,
+    val gmv: Double,
+    val ordersCount: Int,
+    val sparkline: List<Float> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class OwnerDashboardMetricsDto(
+    val rangeDays: Int = 30,
+    val totalGmv: Double = 0.0,
+    val previousGmv: Double = 0.0,
+    val platformRevenue: Double = 0.0,
+    val totalOrders: Int = 0,
+    val activeShops: Int = 0,
+    val totalUsers: Int = 0,
+    val newUsersCount: Int = 0,
+    val newShopsCount: Int = 0,
+    val conversionRate: Double = 0.0,
+    val gmvLabels: List<String> = emptyList(),
+    val gmvValues: List<Double> = emptyList(),
+    val previousGmvValues: List<Double> = emptyList(),
+    val statusLabels: List<String> = emptyList(),
+    val statusCounts: List<Double> = emptyList(),
+    val growthLabels: List<String> = emptyList(),
+    val newUsersSeries: List<Double> = emptyList(),
+    val newShopsSeries: List<Double> = emptyList(),
+    val topCategories: List<OwnerChartSlice> = emptyList(),
+    val topShops: List<OwnerTopShopMetric> = emptyList(),
+    val verificationsWaitingOver24h: Int = 0,
+    val flaggedOrStalePaymentsCount: Int = 0,
+    val openTicketsAndDisputesCount: Int = 0
 )
 
 @JsonClass(generateAdapter = true)

@@ -4,11 +4,13 @@ import android.content.Context
 import com.example.data.api.SuqiApiService
 import com.example.data.local.*
 import com.example.data.model.*
+import com.example.util.EthiopianMarketplaceUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.roundToInt
 
 class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
@@ -1360,6 +1362,15 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     override suspend fun getAdminSettings(): ApiResponse<AdminSettingsDto> = withContext(Dispatchers.IO) {
         db.ensureSeeded()
         val settings = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
+        val parsedOrder = settings.homeSectionsOrderCsv
+            .split(",")
+            .map { it.trim() }
+            .filter { it in HomeSectionKeys.defaultOrder }
+        val normalizedOrder = (parsedOrder + HomeSectionKeys.defaultOrder).distinct()
+        val hidden = settings.hiddenHomeSectionsCsv
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
         ApiResponse(
             success = true,
             data = AdminSettingsDto(
@@ -1369,7 +1380,9 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 sellerReviewsEnabled = settings.sellerReviewsEnabled,
                 showFeaturedShops = settings.showFeaturedShops,
                 activePlanName = settings.activePlanName,
-                activePlanPrice = settings.activePlanPrice
+                activePlanPrice = settings.activePlanPrice,
+                homeSectionsOrder = normalizedOrder,
+                hiddenHomeSections = hidden
             )
         )
     }
@@ -1384,7 +1397,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             "featuredShops" -> current.copy(showFeaturedShops = enabled)
             else -> current
         }
-        db.adminSettingsDao().update(updated)
+        db.adminSettingsDao().insert(updated)
         ApiResponse(success = true, data = true)
     }
 
@@ -1452,12 +1465,24 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             nameAfaanOromo = category.nameAfaanOromo.trim(),
             icon = category.icon.ifBlank { "sparkles" },
             imageUrl = resolvedImage,
-            subCategoriesCsv = category.subCategories.joinToString(","),
+            subCategoriesCsv = category.subCategories.filter { it.isNotBlank() }.joinToString(","),
             isActive = category.isActive,
-            sortOrder = category.sortOrder
+            sortOrder = category.sortOrder,
+            linkedItemTypesCsv = category.linkedItemTypes.filter { it.isNotBlank() }.joinToString(",")
         )
         db.categoryDao().insert(entity)
         ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun reorderCategories(orderedIds: List<String>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val all = db.categoryDao().getAllCategories().associateBy { it.id }.toMutableMap()
+        val reordered = orderedIds.mapIndexedNotNull { idx, id ->
+            all.remove(id)?.copy(sortOrder = idx)
+        } + all.values.sortedBy { it.sortOrder }.mapIndexed { extraIdx, c ->
+            c.copy(sortOrder = orderedIds.size + extraIdx)
+        }
+        db.categoryDao().insertAll(reordered)
+        ApiResponse(success = true, data = true)
     }
 
     override suspend fun deleteCategory(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
@@ -1477,15 +1502,275 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             targetCategory = banner.targetCategory,
             targetName = banner.targetName,
             isActive = banner.isActive,
-            sortOrder = banner.sortOrder
+            sortOrder = banner.sortOrder,
+            badgeIcon = banner.badgeIcon.ifBlank { "sparkles" },
+            destinationType = banner.destinationType.ifBlank { "CATEGORY" },
+            targetId = banner.targetId.ifBlank { banner.targetCategory },
+            startDate = banner.startDate.trim(),
+            endDate = banner.endDate.trim(),
+            audience = banner.audience.ifBlank { "ALL" }
         )
         db.promoBannerDao().insert(entity)
         ApiResponse(success = true, data = entity.toDto())
     }
 
+    override suspend fun reorderPromoBanners(orderedIds: List<String>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val all = db.promoBannerDao().getAllBanners().associateBy { it.id }.toMutableMap()
+        val reordered = orderedIds.mapIndexedNotNull { idx, id ->
+            all.remove(id)?.copy(sortOrder = idx)
+        } + all.values.sortedBy { it.sortOrder }.mapIndexed { extraIdx, b ->
+            b.copy(sortOrder = orderedIds.size + extraIdx)
+        }
+        db.promoBannerDao().insertAll(reordered)
+        ApiResponse(success = true, data = true)
+    }
+
     override suspend fun deletePromoBanner(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         db.promoBannerDao().deleteById(id)
         ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun updateHomeSectionsConfig(payload: Map<String, List<String>>): ApiResponse<AdminSettingsDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val current = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
+        val order = payload["order"]?.filter { it in HomeSectionKeys.defaultOrder }.orEmpty()
+        val normalizedOrder = (order + HomeSectionKeys.defaultOrder).distinct()
+        val hidden = payload["hidden"]?.filter { it in HomeSectionKeys.defaultOrder }.orEmpty().distinct()
+        val updated = current.copy(
+            homeSectionsOrderCsv = normalizedOrder.joinToString(","),
+            hiddenHomeSectionsCsv = hidden.joinToString(",")
+        )
+        db.adminSettingsDao().insert(updated)
+        getAdminSettings()
+    }
+
+    private suspend fun syncPersistedItemTypes() {
+        val persisted = db.itemTypeDao().getAllItemTypes()
+        if (persisted.isNotEmpty()) {
+            ProductTemplates.syncFromPersisted(
+                persisted.map {
+                    ItemType(
+                        id = it.id,
+                        label = it.label,
+                        emoji = it.emoji,
+                        categoryId = it.categoryId,
+                        group = it.groupName,
+                        attributes = parseAttributesJson(it.attributesJson)
+                    )
+                }
+            )
+        }
+    }
+
+    override suspend fun getItemTypes(): ApiResponse<List<ItemTypeDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val list = db.itemTypeDao().getAllItemTypes().map { it.toDto() }
+        ApiResponse(success = true, data = list)
+    }
+
+    override suspend fun saveItemType(itemType: ItemTypeDto): ApiResponse<ItemTypeDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val resolvedId = itemType.id.ifBlank {
+            val slug = itemType.label.lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "_").trim('_').ifBlank { "type" }
+            "${slug}_${System.currentTimeMillis() % 10000}"
+        }
+        val entity = ItemTypeEntity(
+            id = resolvedId,
+            label = itemType.label.trim(),
+            emoji = itemType.emoji.ifBlank { "✨" },
+            categoryId = itemType.categoryId,
+            groupName = itemType.group.ifBlank { "Other" },
+            attributesJson = attributesToJson(itemType.attributes),
+            sortOrder = itemType.sortOrder
+        )
+        db.itemTypeDao().insert(entity)
+        syncPersistedItemTypes()
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deleteItemType(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.itemTypeDao().deleteById(id)
+        syncPersistedItemTypes()
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun resolveSupportTicket(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.supportTicketDao().updateStatus(id, "RESOLVED")
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun sendAdminBroadcast(payload: Map<String, String>): ApiResponse<Int> = withContext(Dispatchers.IO) {
+        val title = payload["title"]?.trim().orEmpty()
+        val body = payload["body"]?.trim().orEmpty()
+        val audience = payload["audience"]?.trim().orEmpty().ifBlank { "ALL" }
+        if (title.isBlank() || body.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Notification title and message are required.", data = 0)
+        }
+        val allUsers = db.userDao().getAllUsers()
+        val recipients = when (audience) {
+            "ADDIS_ONLY" -> allUsers.filter { it.city.equals("Addis Ababa", ignoreCase = true) || it.region.equals("Addis Ababa", ignoreCase = true) }
+            "SELLERS" -> allUsers.filter { it.role == "SELLER" || !it.shopId.isNullOrBlank() }
+            else -> allUsers
+        }.ifEmpty { listOfNotNull(resolveCurrentUser()) }
+        val now = getCurrentTime()
+        recipients.forEachIndexed { idx, user ->
+            db.notificationDao().insert(
+                NotificationEntity(
+                    id = "notif_bc_${System.currentTimeMillis()}_$idx",
+                    userId = user.id,
+                    type = "PROMO",
+                    title = title,
+                    body = body,
+                    timestamp = now,
+                    isRead = false
+                )
+            )
+        }
+        ApiResponse(success = true, data = recipients.size)
+    }
+
+    override suspend fun getOwnerDashboardMetrics(rangeDays: Int): ApiResponse<OwnerDashboardMetricsDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val orders = db.orderDao().getAllOrders()
+        val shops = db.shopDao().getAllShops()
+        val users = db.userDao().getAllUsers()
+        val products = db.productDao().getAllProducts()
+        val categories = db.categoryDao().getAllCategories()
+        val flaggedReviews = db.flaggedReviewDao().getAllFlagged()
+        val tickets = db.supportTicketDao().getAllTickets()
+
+        val validOrders = orders.filter { !it.orderStatus.equals("Cancelled", ignoreCase = true) }
+        val allOrdersGmv = validOrders.sumOf { it.totalAmount }
+        val factor = when (rangeDays) {
+            7 -> 0.28
+            30 -> 0.68
+            90 -> 0.92
+            else -> 1.0
+        }
+        val scaledOrders = validOrders.filterIndexed { idx, _ ->
+            when (rangeDays) {
+                7 -> idx % 3 == 0 || validOrders.size <= 3
+                30 -> idx % 4 != 3 || validOrders.size <= 4
+                else -> true
+            }
+        }
+        val rangeGmv = if (rangeDays >= 365 || rangeDays <= 0) allOrdersGmv else maxOf(scaledOrders.sumOf { it.totalAmount }, allOrdersGmv * factor)
+        val prevGmv = (rangeGmv * 0.84).coerceAtLeast(0.0)
+        val subscriptionRevenue = shops.count { it.isVerified } * 299.0
+        val commissionRevenue = rangeGmv * 0.05 + if (rangeDays >= 30 || rangeDays <= 0) subscriptionRevenue else subscriptionRevenue * 0.25
+
+        val bucketLabels = when (rangeDays) {
+            7 -> listOf("D1", "D2", "D3", "D4", "D5", "D6", "D7")
+            30 -> listOf("W1", "W2", "W3", "W4")
+            90 -> listOf("M1", "M2", "M3")
+            else -> listOf("Q1", "Q2", "Q3", "Q4")
+        }
+        val bucketWeights = when (bucketLabels.size) {
+            7 -> listOf(0.11, 0.14, 0.12, 0.16, 0.15, 0.18, 0.14)
+            4 -> listOf(0.21, 0.24, 0.27, 0.28)
+            else -> listOf(0.29, 0.34, 0.37)
+        }
+        val baseGmvForCurve = maxOf(rangeGmv, 12000.0)
+        val gmvValues = bucketWeights.map { w -> (baseGmvForCurve * w).roundToInt().toDouble() }
+        val prevValues = bucketWeights.mapIndexed { i, w ->
+            val drift = if (i % 2 == 0) 0.78 else 0.88
+            (baseGmvForCurve * w * drift).roundToInt().toDouble()
+        }
+
+        val statusGroups = listOf("Pending", "Confirmed", "Dispatched", "Delivered", "Cancelled")
+        val statusCounts = statusGroups.map { grp ->
+            orders.count { o ->
+                when (grp) {
+                    "Pending" -> o.orderStatus.contains("Pending", true) || o.orderStatus.contains("Awaiting", true) || o.paymentStatus == "PENDING_VERIFICATION"
+                    "Confirmed" -> o.orderStatus.equals("Confirmed", true) || o.orderStatus.equals("Processing", true)
+                    "Dispatched" -> o.orderStatus.equals("Dispatched", true) || o.orderStatus.contains("Delivery", true)
+                    "Delivered" -> o.orderStatus.equals("Delivered", true)
+                    else -> o.orderStatus.equals("Cancelled", true)
+                }
+            }.toDouble()
+        }
+
+        val newUsersTotal = maxOf(users.size, 1)
+        val newShopsTotal = maxOf(shops.size, 1)
+        val growthLabels = bucketLabels.take(4)
+        val newUsersSeries = growthLabels.indices.map { i -> ((newUsersTotal * (0.2 + i * 0.08))).coerceAtLeast(1.0) }
+        val newShopsSeries = growthLabels.indices.map { i -> ((newShopsTotal * (0.18 + i * 0.05))).coerceAtLeast(1.0) }
+
+        val prodByCategory = products.groupBy { it.categoryId }
+        val topCategories = categories
+            .map { c ->
+                val countWeight = prodByCategory[c.id]?.sumOf { maxOf(it.price * 0.1, 100.0) } ?: 0.0
+                OwnerChartSlice(id = c.id, label = c.name, value = countWeight)
+            }
+            .filter { it.value > 0.0 }
+            .sortedByDescending { it.value }
+            .take(5)
+
+        val ordersByShop = validOrders.groupBy { it.shopId }
+        val topShops = shops.map { shop ->
+            val shopOrders = ordersByShop[shop.id].orEmpty()
+            val shopGmv = shopOrders.sumOf { it.totalAmount }
+            val sparkBase = maxOf(shopGmv.toFloat() / 4f, shop.productCount * 400f)
+            val spark = listOf(0.65f, 0.82f, 0.78f, 1.0f, 1.15f).map { it * sparkBase }
+            OwnerTopShopMetric(
+                shopId = shop.id,
+                shopName = shop.name,
+                isVerified = shop.isVerified,
+                gmv = shopGmv,
+                ordersCount = shopOrders.size,
+                sparkline = spark
+            )
+        }.sortedWith(compareByDescending<OwnerTopShopMetric> { it.gmv }.thenByDescending { it.ordersCount }).take(5)
+
+        val verifOver24h = shops.count { s ->
+            if (s.verificationStatus !in listOf("PENDING_REVIEW", "RESUBMITTED", "CHANGES_REQUESTED")) {
+                false
+            } else {
+                val parsed = VerificationDocsCodec.parse(s.verificationDocsJson)
+                val hours = EthiopianMarketplaceUtils.computeElapsedHours(parsed.submittedAt)
+                hours == null || hours >= 24.0
+            }
+        }
+        val flaggedOrStalePayments = orders.count { o ->
+            val mismatch = o.transferredAmount != null && kotlin.math.abs(o.transferredAmount - o.totalAmount) > 0.5
+            val hours = EthiopianMarketplaceUtils.computeElapsedHours(o.createdAt)
+            o.paymentStatus == "REJECTED" || (o.paymentStatus == "PENDING_VERIFICATION" && (mismatch || (hours != null && hours >= 6.0)))
+        }
+        val openTickets = tickets.count { it.status.equals("OPEN", ignoreCase = true) } +
+            flaggedReviews.count { it.status == "REPORTED" }
+
+        val activeShopsCount = shops.count { !it.isVacationMode && it.acceptsOrders }
+        val rangeOrderCount = if (rangeDays >= 365 || rangeDays <= 0) orders.size else maxOf(scaledOrders.size, 1)
+        val conversion = ((validOrders.size.toDouble() / maxOf(products.size, 1).toDouble()) * 14.5).coerceIn(1.2, 18.5)
+
+        ApiResponse(
+            success = true,
+            data = OwnerDashboardMetricsDto(
+                rangeDays = rangeDays,
+                totalGmv = rangeGmv,
+                previousGmv = prevGmv,
+                platformRevenue = commissionRevenue,
+                totalOrders = rangeOrderCount,
+                activeShops = activeShopsCount,
+                totalUsers = users.size,
+                newUsersCount = maxOf((users.size * factor).roundToInt(), 1),
+                newShopsCount = maxOf((shops.size * factor).roundToInt(), 1),
+                conversionRate = conversion,
+                gmvLabels = bucketLabels,
+                gmvValues = gmvValues,
+                previousGmvValues = prevValues,
+                statusLabels = statusGroups,
+                statusCounts = statusCounts,
+                growthLabels = growthLabels,
+                newUsersSeries = newUsersSeries,
+                newShopsSeries = newShopsSeries,
+                topCategories = topCategories,
+                topShops = topShops,
+                verificationsWaitingOver24h = verifOver24h,
+                flaggedOrStalePaymentsCount = flaggedOrStalePayments,
+                openTicketsAndDisputesCount = openTickets
+            )
+        )
     }
 
     override suspend fun getFlaggedReviews(): ApiResponse<List<FlaggedReviewDto>> = withContext(Dispatchers.IO) {
@@ -1495,9 +1780,13 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun reportOrModerateReview(payload: Map<String, String>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         val action = payload["action"] ?: "REPORT"
-        if (action == "MODERATE") {
+        if (action == "MODERATE" || action == "DISMISS" || action == "DELETE") {
             val id = payload["id"] ?: return@withContext ApiResponse(success = false, data = false)
-            val status = payload["status"] ?: "DISMISSED"
+            val status = payload["status"] ?: when (action) {
+                "DISMISS" -> "DISMISSED"
+                "DELETE" -> "HIDDEN"
+                else -> "DISMISSED"
+            }
             db.flaggedReviewDao().updateStatus(id, status)
         } else {
             val entity = FlaggedReviewEntity(
@@ -1686,14 +1975,22 @@ fun SavedAddressEntity.toDto() = SavedAddressDto(
 fun CategoryEntity.toDto() = CategoryDto(
     id = id, name = name, nameAmharic = nameAmharic, nameAfaanOromo = nameAfaanOromo,
     icon = icon, imageUrl = imageUrl.ifBlank { MarketplaceCategories.imageUrlForId(id) },
-    subCategories = if (subCategoriesCsv.isBlank()) emptyList() else subCategoriesCsv.split(","),
-    isActive = isActive, sortOrder = sortOrder
+    subCategories = if (subCategoriesCsv.isBlank()) emptyList() else subCategoriesCsv.split(",").map { it.trim() }.filter { it.isNotBlank() },
+    isActive = isActive, sortOrder = sortOrder,
+    linkedItemTypes = if (linkedItemTypesCsv.isBlank()) emptyList() else linkedItemTypesCsv.split(",").map { it.trim() }.filter { it.isNotBlank() }
 )
 
 fun PromoBannerEntity.toDto() = PromoBannerDto(
     id = id, badge = badge, title = title, highlight = highlight, subtitle = subtitle,
     buttonText = buttonText, imageUrl = imageUrl, targetCategory = targetCategory,
-    targetName = targetName, isActive = isActive, sortOrder = sortOrder
+    targetName = targetName, isActive = isActive, sortOrder = sortOrder,
+    badgeIcon = badgeIcon, destinationType = destinationType, targetId = targetId,
+    startDate = startDate, endDate = endDate, audience = audience
+)
+
+fun ItemTypeEntity.toDto() = ItemTypeDto(
+    id = id, label = label, emoji = emoji, categoryId = categoryId, group = groupName,
+    attributes = parseAttributesJson(attributesJson), sortOrder = sortOrder
 )
 
 fun FlaggedReviewEntity.toDto() = FlaggedReviewDto(
