@@ -432,6 +432,7 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
 
     // Cart Count
     val cartCount = repository.cartCount
+    val cartItems = repository.cartItems
 
     // Theme Mode: null = system default, true = dark mode, false = light mode
     val isDarkMode = MutableStateFlow<Boolean?>(null)
@@ -527,14 +528,19 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         toastMessage.value = null
     }
 
-    /** One-tap add from product cards (quantity 1, default variation). */
-    fun quickAddToCart(product: ProductDto) {
+    /** One-tap add from product cards (quantity 1). The card then shows a - qty + stepper. */
+    fun quickAddToCart(product: ProductDto) = changeCartQuantity(product, 1)
+
+    /** Adds ([delta] > 0) or removes ([delta] < 0) units of a product; failures show a toast. */
+    fun changeCartQuantity(product: ProductDto, delta: Int) {
         viewModelScope.launch {
-            val res = repository.addToCart(product.id, 1, "")
-            val strings = com.example.ui.i18n.SuqiStringCatalog.forLanguage(
-                com.example.ui.i18n.SuqiLanguage.fromSetting(selectedLanguage.value)
-            )
-            showToast(if (res.success) strings.addedToCart else (res.message ?: strings.common.failedToAddToast))
+            val res = repository.changeCartLine(product.id, delta)
+            if (!res.success) {
+                val strings = com.example.ui.i18n.SuqiStringCatalog.forLanguage(
+                    com.example.ui.i18n.SuqiLanguage.fromSetting(selectedLanguage.value)
+                )
+                showToast(res.message ?: strings.common.failedToAddToast)
+            }
         }
     }
 

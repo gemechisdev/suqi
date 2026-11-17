@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -315,8 +316,57 @@ fun SuqiProductCard(
                 )
             }
 
-            // Add to Cart
-            if (onAddToCart != null) {
+            // Add to Cart, or a - qty + stepper once the product is in the cart
+            val cartState = LocalCartUiState.current
+            val inCart = cartState.quantities[product.id] ?: 0
+            if (onAddToCart != null && inCart > 0 && !soldOut) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(SuqiPrimary)
+                ) {
+                    IconButton(
+                        onClick = { cartState.onChange(product, -1) },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .testTag("card_cart_minus_${product.id}")
+                    ) {
+                        Icon(
+                            imageVector = LucideIcons.Minus,
+                            contentDescription = strings.common.decreaseQtyDesc,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Text(
+                        text = inCart.toString(),
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = Color.White,
+                        modifier = Modifier.testTag("card_cart_qty_${product.id}")
+                    )
+                    IconButton(
+                        onClick = onAddToCart,
+                        enabled = inCart < product.stockQuantity,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .testTag("card_cart_plus_${product.id}")
+                    ) {
+                        Icon(
+                            imageVector = LucideIcons.Plus,
+                            contentDescription = strings.common.increaseQtyDesc,
+                            tint = if (inCart < product.stockQuantity) Color.White else Color.White.copy(alpha = 0.45f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            } else if (onAddToCart != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = onAddToCart,

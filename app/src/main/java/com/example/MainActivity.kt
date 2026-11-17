@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import com.example.ui.components.CartUiState
+import com.example.ui.components.LocalCartUiState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,6 +61,13 @@ fun SuqiAppRoot(
     val currentScreen = currentNavEntry.destination
     val disposedNavIds by viewModel.disposedNavIds.collectAsState()
     val saveableStateHolder = rememberSaveableStateHolder()
+    val cartLines by viewModel.cartItems.collectAsState(initial = emptyList())
+    val cartUiState = remember(cartLines) {
+        CartUiState(
+            quantities = cartLines.groupBy { it.productId }.mapValues { (_, lines) -> lines.sumOf { it.quantity } },
+            onChange = { product, delta -> viewModel.changeCartQuantity(product, delta) }
+        )
+    }
     val toastMessage by viewModel.toastMessage.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
@@ -186,6 +195,7 @@ fun SuqiAppRoot(
 
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     saveableStateHolder.SaveableStateProvider(key = currentNavEntry.id) {
+                        CompositionLocalProvider(LocalCartUiState provides cartUiState) {
                         when (val dest = currentNavEntry.destination) {
                             is ScreenDestination.Home -> HomeScreen(viewModel = viewModel)
                         is ScreenDestination.Categories -> CategoriesScreen(viewModel = viewModel)
@@ -328,6 +338,7 @@ fun SuqiAppRoot(
                         is ScreenDestination.AppSettings -> AppSettingsScreen(viewModel = viewModel)
                         is ScreenDestination.HelpLegal -> HelpLegalScreen(viewModel = viewModel)
                         }
+                    }
                     }
                 }
             }

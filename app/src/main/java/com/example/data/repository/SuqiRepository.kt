@@ -9,6 +9,8 @@ import com.example.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -43,12 +45,47 @@ class SuqiRepository private constructor(context: Context) {
     private val _cartCount = MutableStateFlow(0)
     val cartCount: Flow<Int> = _cartCount.asStateFlow()
 
+    // Live cart lines so product cards and details can show the quantity already in the cart.
+    private val _cartItems = MutableStateFlow<List<CartItemDto>>(emptyList())
+    val cartItems: Flow<List<CartItemDto>> = _cartItems.asStateFlow()
+    private val cartLock = Mutex()
+
     suspend fun refreshCartCount() {
         val res = api.getCartItems()
         if (res.success && res.data != null) {
             _cartCount.value = res.data.sumOf { it.quantity }
+            _cartItems.value = res.data
         }
     }
+
+    /**
+     * Adds or removes [delta] units of a product in the cart, serialized so rapid taps on - / +
+     * never race. With [variation] = null it targets the default line (variation "") or, if the
+     * product only exists in the cart with a variation, its first line. Reaching 0 removes the line.
+     */
+    suspend fun changeCartLine(productId: String, delta: Int, variation: String? = null): ApiResponse<Boolean> =
+        cartLock.withLock {
+            val lines = api.getCartItems().data.orEmpty().filter { it.productId == productId }
+            val line = if (variation != null) {
+                lines.firstOrNull { it.selectedVariation == variation }
+            } else {
+                lines.firstOrNull { it.selectedVariation.isEmpty() } ?: lines.firstOrNull()
+            }
+            val result: ApiResponse<Boolean> = when {
+                delta > 0 && line == null -> {
+                    val added = api.addToCart(
+                        mapOf("productId" to productId, "quantity" to delta, "selectedVariation" to (variation ?: ""))
+                    )
+                    ApiResponse(success = added.success, data = added.success, message = added.message)
+                }
+                line == null -> ApiResponse(success = true, data = true)
+                delta > 0 && line.quantity + delta > line.stockAvailable ->
+                    ApiResponse(success = false, data = false, message = "Only ${line.stockAvailable} items in stock!")
+                else -> api.updateCartQuantity(line.id, line.quantity + delta)
+            }
+            refreshCartCount()
+            result
+        }
 
     // User & Auth
     suspend fun getCurrentUser(): ApiResponse<UserDto> = api.getCurrentUser()

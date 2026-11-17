@@ -197,21 +197,44 @@ fun ProductDetailsScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                val res = viewModel.repository.addToCart(currentProd.id, 1, variationLabel)
-                                viewModel.showToast(if (res.success) strings.addedToCart else (res.message ?: strings.common.failedToAddToast))
-                            }
-                        },
-                        shape = RoundedCornerShape(999.dp),
-                        border = BorderStroke(1.5.dp, SuqiPrimary),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                            .testTag("btn_add_to_cart")
-                    ) {
-                        Text(strings.addToCart, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = SuqiPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    val cartLines by viewModel.cartItems.collectAsState(initial = emptyList())
+                    val lineQty = cartLines
+                        .firstOrNull { it.productId == currentProd.id && it.selectedVariation == variationLabel }
+                        ?.quantity ?: 0
+                    fun changeLine(delta: Int) {
+                        coroutineScope.launch {
+                            val res = viewModel.repository.changeCartLine(currentProd.id, delta, variationLabel)
+                            if (!res.success) viewModel.showToast(res.message ?: strings.common.failedToAddToast)
+                        }
+                    }
+                    if (lineQty > 0) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            SuqiStepper(
+                                quantity = lineQty,
+                                minValue = 0,
+                                maxValue = currentProd.stockQuantity,
+                                onDecrement = { changeLine(-1) },
+                                onIncrement = { changeLine(1) },
+                                testTagPrefix = "details_cart"
+                            )
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { changeLine(1) },
+                            shape = RoundedCornerShape(999.dp),
+                            border = BorderStroke(1.5.dp, SuqiPrimary),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                                .testTag("btn_add_to_cart")
+                        ) {
+                            Text(strings.addToCart, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = SuqiPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
                     }
 
                     Button(

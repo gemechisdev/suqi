@@ -107,6 +107,9 @@ interface CartDao {
     @Query("SELECT * FROM cart_items WHERE userId = :userId")
     fun observeCartItems(userId: String): Flow<List<CartItemEntity>>
 
+    @Query("SELECT * FROM cart_items WHERE userId = :userId AND productId = :productId AND selectedVariation = :variation LIMIT 1")
+    suspend fun findLine(userId: String, productId: String, variation: String): CartItemEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCartItem(item: CartItemEntity): Long
 

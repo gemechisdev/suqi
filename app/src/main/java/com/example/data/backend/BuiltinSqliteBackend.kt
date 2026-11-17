@@ -476,8 +476,18 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val available = variant?.stock ?: product.stockQuantity
         val unitPrice = variant?.price ?: product.price
 
-        if (available < quantity) {
+        // Same product + variation is one cart line: merge instead of inserting a duplicate row.
+        val existing = db.cartDao().findLine(userId, productId, variation)
+        val mergedQuantity = (existing?.quantity ?: 0) + quantity
+        if (available < mergedQuantity) {
             return@withContext ApiResponse(success = false, message = "Only $available items in stock!")
+        }
+        if (existing != null) {
+            db.cartDao().updateQuantity(existing.id, mergedQuantity)
+            return@withContext ApiResponse(
+                success = true,
+                data = existing.copy(quantity = mergedQuantity, stockAvailable = available).toDto()
+            )
         }
 
         val cartEntity = CartItemEntity(
