@@ -70,43 +70,231 @@ sealed class ScreenDestination {
     data object HelpLegal : ScreenDestination()
 }
 
+data class NavEntry(
+    val id: String,
+    val destination: ScreenDestination
+)
+
 class SuqiViewModel(application: Application) : AndroidViewModel(application) {
 
     val repository = SuqiRepository.getInstance(application)
 
-    // Navigation Stack
-    private val _navStack = MutableStateFlow<List<ScreenDestination>>(listOf(ScreenDestination.Home))
+    private var navSequence = 0L
+    private fun nextNavId(): String = "nav_${++navSequence}"
+
+    private val sellerRootDestinations = setOf(
+        ScreenDestination.SellerStudio,
+        ScreenDestination.SellerOrders,
+        ScreenDestination.ProductManagement,
+        ScreenDestination.SellerInbox,
+        ScreenDestination.SellerMore
+    )
+
+    // Navigation Stack with unique entry IDs for SaveableStateHolder state & scroll preservation
+    private val initialHomeEntry = NavEntry(nextNavId(), ScreenDestination.Home)
+    private val _navStack = MutableStateFlow<List<NavEntry>>(listOf(initialHomeEntry))
+    val navBackStack: StateFlow<List<NavEntry>> = _navStack.asStateFlow()
+
+    private val _currentNavEntry = MutableStateFlow(initialHomeEntry)
+    val currentNavEntry: StateFlow<NavEntry> = _currentNavEntry.asStateFlow()
+
     private val _currentScreenState = MutableStateFlow<ScreenDestination>(ScreenDestination.Home)
     val screen: StateFlow<ScreenDestination> = _currentScreenState.asStateFlow()
 
+    private val _disposedNavIds = MutableStateFlow<Set<String>>(emptySet())
+    val disposedNavIds: StateFlow<Set<String>> = _disposedNavIds.asStateFlow()
+
+    fun acknowledgeDisposedNavIds(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        _disposedNavIds.value = _disposedNavIds.value - ids
+    }
+
+    private fun updateNavStack(next: List<NavEntry>) {
+        val prev = _navStack.value
+        val normalized = next.ifEmpty { listOf(NavEntry(nextNavId(), ScreenDestination.Home)) }
+        val keptIds = normalized.mapTo(HashSet()) { it.id }
+        val removedIds = prev.map { it.id }.filter { it !in keptIds }
+        if (removedIds.isNotEmpty()) {
+            _disposedNavIds.value = _disposedNavIds.value + removedIds
+        }
+        _navStack.value = normalized
+        val top = normalized.last()
+        _currentNavEntry.value = top
+        _currentScreenState.value = top.destination
+    }
+
     fun navigate(destination: ScreenDestination) {
-        val currentList = _navStack.value.toMutableList()
-        currentList.add(destination)
-        _navStack.value = currentList
-        _currentScreenState.value = destination
+        val currentList = _navStack.value
+        if (currentList.lastOrNull()?.destination == destination) return
+        updateNavStack(currentList + NavEntry(nextNavId(), destination))
+    }
+
+    fun switchBuyerTab(destination: ScreenDestination) {
+        val currentList = _navStack.value
+        if (currentList.lastOrNull()?.destination == destination) return
+        val homeRoot = currentList.firstOrNull { it.destination == ScreenDestination.Home }
+            ?: NavEntry(nextNavId(), ScreenDestination.Home)
+        if (destination == ScreenDestination.Home) {
+            updateNavStack(listOf(homeRoot))
+        } else {
+            updateNavStack(listOf(homeRoot, NavEntry(nextNavId(), destination)))
+        }
     }
 
     fun switchSellerTab(destination: ScreenDestination) {
-        // Keeps Home on the bottom of stack so user can back out to Buyer Hub cleanly
-        _navStack.value = listOf(ScreenDestination.Home, ScreenDestination.Account, destination)
-        _currentScreenState.value = destination
+        val currentList = _navStack.value
+        if (currentList.lastOrNull()?.destination == destination) return
+        val firstSellerIdx = currentList.indexOfFirst { it.destination in sellerRootDestinations }
+        val prefix: List<NavEntry>
+        val studioEntry: NavEntry
+        if (firstSellerIdx >= 0) {
+            prefix = currentList.subList(0, firstSellerIdx)
+            studioEntry = currentList.getOrNull(firstSellerIdx)
+                ?.takeIf { it.destination == ScreenDestination.SellerStudio }
+                ?: NavEntry(nextNavId(), ScreenDestination.SellerStudio)
+        } else {
+            val homeRoot = currentList.firstOrNull { it.destination == ScreenDestination.Home }
+                ?: NavEntry(nextNavId(), ScreenDestination.Home)
+            prefix = if (currentList.size > 1) {
+                currentList
+            } else {
+                listOf(homeRoot, NavEntry(nextNavId(), ScreenDestination.Account))
+            }
+            studioEntry = NavEntry(nextNavId(), ScreenDestination.SellerStudio)
+        }
+        if (destination == ScreenDestination.SellerStudio) {
+            updateNavStack(prefix + listOf(studioEntry))
+        } else {
+            updateNavStack(prefix + listOf(studioEntry, NavEntry(nextNavId(), destination)))
+        }
+    }
+
+    fun completeAdminSignIn() {
+        val currentList = _navStack.value.toMutableList()
+        while (currentList.isNotEmpty() && currentList.last().destination in setOf(
+                ScreenDestination.AdminSignIn,
+                ScreenDestination.AdminConsole,
+                ScreenDestination.OwnerDashboard
+            )
+        ) {
+            currentList.removeAt(currentList.lastIndex)
+        }
+        val prefix = if (currentList.isEmpty()) {
+            listOf(
+                NavEntry(nextNavId(), ScreenDestination.Home),
+                NavEntry(nextNavId(), ScreenDestination.Account)
+            )
+        } else {
+            currentList
+        }
+        updateNavStack(prefix + NavEntry(nextNavId(), ScreenDestination.AdminConsole))
+    }
+
+    fun lockAdminSession() {
+        setActiveRole("CUSTOMER")
+        val adminFlowDestinations = setOf(
+            ScreenDestination.AdminSignIn,
+            ScreenDestination.AdminConsole,
+            ScreenDestination.OwnerDashboard,
+            ScreenDestination.AdminFeatures,
+            ScreenDestination.AdminCategories,
+            ScreenDestination.AdminItemTypes,
+            ScreenDestination.AdminBanners,
+            ScreenDestination.AdminModeration,
+            ScreenDestination.AdminSubscriptionPlans,
+            ScreenDestination.AdminDevTools
+        )
+        val currentList = _navStack.value.toMutableList()
+        while (currentList.isNotEmpty() && currentList.last().destination in adminFlowDestinations) {
+            currentList.removeAt(currentList.lastIndex)
+        }
+        val prefix = if (currentList.isEmpty()) {
+            listOf(
+                NavEntry(nextNavId(), ScreenDestination.Home),
+                NavEntry(nextNavId(), ScreenDestination.Account)
+            )
+        } else {
+            currentList
+        }
+        updateNavStack(prefix + NavEntry(nextNavId(), ScreenDestination.AdminSignIn))
+    }
+
+    fun completeAuth() {
+        val currentList = _navStack.value
+        if (currentList.size > 1 && currentList.last().destination == ScreenDestination.Auth) {
+            goBack()
+        } else {
+            popToRoot(ScreenDestination.Home)
+        }
+    }
+
+    fun navigateAfterOrderSubmitted(destination: ScreenDestination.OrderSubmitted) {
+        val currentList = _navStack.value.toMutableList()
+        while (currentList.isNotEmpty() && (
+                currentList.last().destination is ScreenDestination.CheckoutDelivery ||
+                    currentList.last().destination is ScreenDestination.CheckoutPayment
+                )
+        ) {
+            currentList.removeAt(currentList.lastIndex)
+        }
+        updateNavStack(currentList + NavEntry(nextNavId(), destination))
     }
 
     fun goBack(): Boolean {
-        val currentList = _navStack.value.toMutableList()
+        val currentList = _navStack.value
         if (currentList.size > 1) {
-            currentList.removeAt(currentList.size - 1)
-            _navStack.value = currentList
-            _currentScreenState.value = currentList.last()
+            updateNavStack(currentList.dropLast(1))
             return true
         }
         return false
     }
 
     fun popToRoot(destination: ScreenDestination = ScreenDestination.Home) {
-        _navStack.value = listOf(destination)
-        _currentScreenState.value = destination
+        val reusable = if (destination == ScreenDestination.Home) {
+            _navStack.value.firstOrNull { it.destination == ScreenDestination.Home }
+        } else {
+            null
+        }
+        updateNavStack(listOf(reusable ?: NavEntry(nextNavId(), destination)))
     }
+
+    // Lightweight In-Memory Screen Caches so returning via Back renders lists immediately at restored scroll offsets
+    var cachedHomeProducts: List<ProductDto> = emptyList()
+    var cachedHomeShops: List<ShopDto> = emptyList()
+    var cachedHomeCategories: List<CategoryDto> = emptyList()
+    var cachedHomeBanners: List<PromoBannerDto> = emptyList()
+    var cachedAdminSettings: AdminSettingsDto? = null
+    val cachedCategoryProducts: MutableMap<String, List<ProductDto>> = mutableMapOf()
+    var cachedAllProducts: List<ProductDto> = emptyList()
+    var cachedAllShops: List<ShopDto> = emptyList()
+    var cachedAllCategories: List<CategoryDto> = emptyList()
+    val cachedProductDetails: MutableMap<String, ProductDto> = mutableMapOf()
+    val cachedProductReviews: MutableMap<String, List<ReviewDto>> = mutableMapOf()
+    val cachedProductQuestions: MutableMap<String, List<ProductQuestionDto>> = mutableMapOf()
+    val cachedShopDeliveryOptions: MutableMap<String, List<ShopDeliveryOptionDto>> = mutableMapOf()
+    val cachedShopsByFilter: MutableMap<String, List<ShopDto>> = mutableMapOf()
+    val cachedShopDetails: MutableMap<String, ShopDto> = mutableMapOf()
+    val cachedShopProducts: MutableMap<String, List<ProductDto>> = mutableMapOf()
+    val cachedShopReviews: MutableMap<String, List<ReviewDto>> = mutableMapOf()
+    var cachedBuyerOrders: List<OrderDto> = emptyList()
+    var cachedCartItems: List<CartItemDto> = emptyList()
+    var cachedNotifications: List<NotificationDto> = emptyList()
+    var cachedSavedAddresses: List<SavedAddressDto> = emptyList()
+    var cachedFollowedShops: List<ShopDto> = emptyList()
+    var cachedBuyerConversations: List<ChatMessageDto> = emptyList()
+    var cachedSellerDashboard: Map<String, Any> = emptyMap()
+    var cachedSellerQueue: List<OrderDto> = emptyList()
+    var cachedSellerOrders: List<OrderDto> = emptyList()
+    var cachedSellerProducts: List<ProductDto> = emptyList()
+    var cachedSellerConversations: List<ChatMessageDto> = emptyList()
+    var cachedAdminAllShops: List<ShopDto> = emptyList()
+    var cachedAdminPendingShops: List<ShopDto> = emptyList()
+    var cachedAdminFlaggedReviews: List<FlaggedReviewDto> = emptyList()
+    var cachedAdminTickets: List<SupportTicketDto> = emptyList()
+    var cachedAdminAllOrders: List<OrderDto> = emptyList()
+    var cachedAdminItemTypes: List<ItemTypeDto> = emptyList()
+    var cachedAdminPlans: List<SubscriptionPlanDto> = emptyList()
+    val cachedOwnerMetrics: MutableMap<Int, OwnerDashboardMetricsDto> = mutableMapOf()
 
     // Session & Role State (F-02, B-16, A-01)
     private val _currentUser = MutableStateFlow<UserDto?>(null)
@@ -167,6 +355,7 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         _adminConsoleInitialTab.value = "overview"
         return current
     }
+
 
     // Cart Count
     val cartCount = repository.cartCount

@@ -13,10 +13,12 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,13 +54,14 @@ fun SellerInventoryScreen(
     val isOffline by viewModel.isOffline.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    var isLoading by remember { mutableStateOf(true) }
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf("ALL") }
+    var products by remember { mutableStateOf(viewModel.cachedSellerProducts) }
+    var isLoading by remember { mutableStateOf(products.isEmpty()) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedFilter by rememberSaveable { mutableStateOf("ALL") }
     val expandedIds = remember { mutableStateMapOf<String, Boolean>() }
     val selectedIds = remember { mutableStateListOf<String>() }
     var isSelectionMode by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     var showBulkStockDialog by remember { mutableStateOf(false) }
     var bulkStockInput by remember { mutableStateOf("10") }
@@ -69,17 +72,24 @@ fun SellerInventoryScreen(
     var variantStockInput by remember { mutableStateOf("") }
     var variantPriceInput by remember { mutableStateOf("") }
 
-    BackHandler(enabled = isSelectionMode) {
-        isSelectionMode = false
-        selectedIds.clear()
+    BackHandler(enabled = showBulkStockDialog || editingVariantTarget != null || isSelectionMode) {
+        when {
+            showBulkStockDialog -> showBulkStockDialog = false
+            editingVariantTarget != null -> editingVariantTarget = null
+            isSelectionMode -> {
+                isSelectionMode = false
+                selectedIds.clear()
+            }
+        }
     }
 
     fun loadInventory() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = products.isEmpty()
             val res = viewModel.repository.getSellerProducts()
             if (res.success && res.data != null) {
                 products = res.data
+                viewModel.cachedSellerProducts = res.data
             }
             isLoading = false
         }
@@ -326,6 +336,7 @@ fun SellerInventoryScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)

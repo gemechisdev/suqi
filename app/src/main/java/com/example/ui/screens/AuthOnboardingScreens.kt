@@ -77,12 +77,26 @@ fun AuthScreen(
         }
     }
 
+    BackHandler(enabled = otpSent) {
+        otpSent = false
+        otpInput = ""
+        otpHasError = false
+        errorMsg = null
+    }
+
     Scaffold(
         topBar = {
             SuqiHeader(
                 title = strings.welcomeToSuqi,
                 onBackClick = {
-                    if (!viewModel.goBack()) viewModel.popToRoot(ScreenDestination.Home)
+                    if (otpSent) {
+                        otpSent = false
+                        otpInput = ""
+                        otpHasError = false
+                        errorMsg = null
+                    } else if (!viewModel.goBack()) {
+                        viewModel.popToRoot(ScreenDestination.Home)
+                    }
                 }
             )
         },
@@ -399,7 +413,7 @@ fun AuthScreen(
                                         otpHasError = false
                                         viewModel.refreshSession()
                                         viewModel.showToast(String.format(strings.extras.welcomeToastTemplate, res.data?.name ?: "Suqi"))
-                                        viewModel.popToRoot(ScreenDestination.Home)
+                                        viewModel.completeAuth()
                                     } else {
                                         otpHasError = true
                                         failedAttempts += 1
@@ -476,7 +490,7 @@ fun AuthScreen(
                                 viewModel.repository.loginAsGuest()
                                 viewModel.refreshSession()
                                 viewModel.showToast(strings.checkout.guestSessionLabel)
-                                viewModel.popToRoot(ScreenDestination.Home)
+                                viewModel.completeAuth()
                             }
                         },
                         modifier = Modifier
@@ -543,7 +557,7 @@ fun AuthScreen(
                         if (res.success) {
                             viewModel.refreshSession()
                             viewModel.showToast("${strings.welcomeToSuqi} $finalName")
-                            viewModel.popToRoot(ScreenDestination.Home)
+                            viewModel.completeAuth()
                         }
                     }
                 },
@@ -600,7 +614,7 @@ fun OnboardingScreen(
                         color = colors.secondaryText,
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
-                            .clickable { viewModel.popToRoot(ScreenDestination.Home) }
+                            .clickable { if (!viewModel.goBack()) viewModel.popToRoot(ScreenDestination.Home) }
                             .padding(horizontal = 8.dp, vertical = 6.dp)
                     )
                     Text(
@@ -760,7 +774,7 @@ fun OnboardingScreen(
                                 )
                             )
                             viewModel.refreshSession()
-                            viewModel.popToRoot(ScreenDestination.Home)
+                            if (!viewModel.goBack()) viewModel.popToRoot(ScreenDestination.Home)
                         }
                     },
                     isPill = true,

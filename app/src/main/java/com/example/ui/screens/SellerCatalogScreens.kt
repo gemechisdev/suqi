@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,13 +63,14 @@ fun ProductManagementScreen(
     val isOffline by viewModel.isOffline.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    var isLoading by remember { mutableStateOf(true) }
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
-    var selectedTab by remember { mutableStateOf("ALL") }
-    var searchQuery by remember { mutableStateOf("") }
-    var sortOption by remember { mutableStateOf("NEWEST") }
+    var products by remember { mutableStateOf(viewModel.cachedSellerProducts) }
+    var categories by remember { mutableStateOf(viewModel.cachedAllCategories) }
+    var isLoading by remember { mutableStateOf(products.isEmpty()) }
+    var selectedTab by rememberSaveable { mutableStateOf("ALL") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var sortOption by rememberSaveable { mutableStateOf("NEWEST") }
     var showSortSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     var actionProduct by remember { mutableStateOf<ProductDto?>(null) }
     var confirmDeleteProduct by remember { mutableStateOf<ProductDto?>(null) }
@@ -79,8 +82,20 @@ fun ProductManagementScreen(
     var showBulkDiscountDialog by remember { mutableStateOf(false) }
     var bulkDiscountInput by remember { mutableStateOf("10") }
 
-    BackHandler(enabled = actionProduct != null || isSelectionMode || showSortSheet) {
+    BackHandler(
+        enabled = confirmDeleteProduct != null ||
+            confirmBulkDelete ||
+            showBulkCategorySheet ||
+            showBulkDiscountDialog ||
+            actionProduct != null ||
+            showSortSheet ||
+            isSelectionMode
+    ) {
         when {
+            confirmDeleteProduct != null -> confirmDeleteProduct = null
+            confirmBulkDelete -> confirmBulkDelete = false
+            showBulkCategorySheet -> showBulkCategorySheet = false
+            showBulkDiscountDialog -> showBulkDiscountDialog = false
             actionProduct != null -> actionProduct = null
             showSortSheet -> showSortSheet = false
             isSelectionMode -> {
@@ -92,14 +107,16 @@ fun ProductManagementScreen(
 
     fun loadProducts() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = products.isEmpty()
             val res = viewModel.repository.getSellerProducts()
             if (res.success && res.data != null) {
                 products = res.data
+                viewModel.cachedSellerProducts = res.data
             }
             val catRes = viewModel.repository.getCategories()
             if (catRes.success && catRes.data != null) {
                 categories = catRes.data
+                viewModel.cachedAllCategories = catRes.data
             }
             isLoading = false
         }
@@ -376,6 +393,7 @@ fun ProductManagementScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = 16.dp,

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,15 +55,26 @@ fun SuqiAppRoot(
     viewModel: SuqiViewModel,
     onFinish: () -> Unit
 ) {
-    val currentScreen by viewModel.screen.collectAsState()
+    val currentNavEntry by viewModel.currentNavEntry.collectAsState()
+    val currentScreen = currentNavEntry.destination
+    val disposedNavIds by viewModel.disposedNavIds.collectAsState()
+    val saveableStateHolder = rememberSaveableStateHolder()
     val toastMessage by viewModel.toastMessage.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
+    val adminTier by viewModel.adminTier.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
     val guestGateAction by viewModel.guestGateAction.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val strings = com.example.ui.i18n.suqiStrings()
+
+    LaunchedEffect(disposedNavIds) {
+        if (disposedNavIds.isNotEmpty()) {
+            disposedNavIds.forEach { saveableStateHolder.removeState(it) }
+            viewModel.acknowledgeDisposedNavIds(disposedNavIds)
+        }
+    }
 
     var sellerPendingCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(currentScreen, currentUser?.id) {
@@ -173,8 +185,9 @@ fun SuqiAppRoot(
                 }
 
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    when (val dest = currentScreen) {
-                        is ScreenDestination.Home -> HomeScreen(viewModel = viewModel)
+                    saveableStateHolder.SaveableStateProvider(key = currentNavEntry.id) {
+                        when (val dest = currentNavEntry.destination) {
+                            is ScreenDestination.Home -> HomeScreen(viewModel = viewModel)
                         is ScreenDestination.Categories -> CategoriesScreen(viewModel = viewModel)
                         is ScreenDestination.CategoryListing -> CategoryListingScreen(
                             categoryId = dest.categoryId,
@@ -291,7 +304,7 @@ fun SuqiAppRoot(
                         }
                         is ScreenDestination.OwnerDashboard -> {
                             val isOwnerTier = currentUser?.adminTier?.equals("OWNER", ignoreCase = true) == true ||
-                                viewModel.adminTier.collectAsState().value.equals("OWNER", ignoreCase = true)
+                                adminTier.equals("OWNER", ignoreCase = true)
                             if (!hasAdminAccess || !isOwnerTier) {
                                 SuqiRestrictedState(
                                     title = strings.adminGov.tierOwnerOnlyNotice,
@@ -314,6 +327,7 @@ fun SuqiAppRoot(
                         is ScreenDestination.AdminDevTools -> AdminDevToolsScreen(viewModel = viewModel)
                         is ScreenDestination.AppSettings -> AppSettingsScreen(viewModel = viewModel)
                         is ScreenDestination.HelpLegal -> HelpLegalScreen(viewModel = viewModel)
+                        }
                     }
                 }
             }
@@ -324,11 +338,11 @@ fun SuqiAppRoot(
                     currentRoute = currentBuyerRouteKey,
                     onNavigate = { route ->
                         when (route) {
-                            "home" -> viewModel.popToRoot(ScreenDestination.Home)
-                            "categories" -> viewModel.navigate(ScreenDestination.Categories)
-                            "search" -> viewModel.navigate(ScreenDestination.Search)
-                            "shops" -> viewModel.navigate(ScreenDestination.Shops)
-                            "account" -> viewModel.navigate(ScreenDestination.Account)
+                            "home" -> viewModel.switchBuyerTab(ScreenDestination.Home)
+                            "categories" -> viewModel.switchBuyerTab(ScreenDestination.Categories)
+                            "search" -> viewModel.switchBuyerTab(ScreenDestination.Search)
+                            "shops" -> viewModel.switchBuyerTab(ScreenDestination.Shops)
+                            "account" -> viewModel.switchBuyerTab(ScreenDestination.Account)
                         }
                     },
                     modifier = Modifier.align(Alignment.BottomCenter)

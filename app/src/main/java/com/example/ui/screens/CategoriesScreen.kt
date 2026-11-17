@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -43,16 +44,21 @@ fun CategoriesScreen(
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isOffline by viewModel.isOffline.collectAsState()
     var categories by remember {
-        mutableStateOf(MarketplaceCategories.all.map { it.toDto() })
+        mutableStateOf(
+            viewModel.cachedHomeCategories.ifEmpty { MarketplaceCategories.all.map { it.toDto() } }
+        )
     }
+    val listState = rememberLazyListState()
 
     fun loadCategories() {
         coroutineScope.launch {
             val res = viewModel.repository.getCategories()
             if (res.success && !res.data.isNullOrEmpty()) {
-                categories = res.data
+                val sorted = res.data
                     .filter { it.isActive }
                     .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                categories = sorted
+                viewModel.cachedHomeCategories = sorted
             }
         }
     }
@@ -161,6 +167,7 @@ fun CategoriesScreen(
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),

@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +44,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -105,13 +108,14 @@ fun AdminConsoleScreen(
     val isDevVisible = effectiveTier.equals("DEVELOPER", ignoreCase = true) ||
         isOwnerTier || isDeveloperUnlocked
 
-    var selectedTab by remember { mutableStateOf(viewModel.consumeAdminConsoleInitialTab()) }
-    var settings by remember { mutableStateOf(AdminSettingsDto()) }
-    var pendingShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var flaggedReviews by remember { mutableStateOf<List<FlaggedReviewDto>>(emptyList()) }
-    var supportTickets by remember { mutableStateOf<List<SupportTicketDto>>(emptyList()) }
-    var allOrders by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
-    var switchesExpanded by remember { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableStateOf(viewModel.consumeAdminConsoleInitialTab()) }
+    var settings by remember { mutableStateOf(viewModel.cachedAdminSettings ?: AdminSettingsDto()) }
+    var pendingShops by remember { mutableStateOf(viewModel.cachedAdminPendingShops) }
+    var flaggedReviews by remember { mutableStateOf(viewModel.cachedAdminFlaggedReviews) }
+    var supportTickets by remember { mutableStateOf(viewModel.cachedAdminTickets) }
+    var allOrders by remember { mutableStateOf(viewModel.cachedAdminAllOrders) }
+    var switchesExpanded by rememberSaveable { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     // Quick tools sheets
     var showBroadcastSheet by remember { mutableStateOf(false) }
@@ -122,6 +126,18 @@ fun AdminConsoleScreen(
     var lastActivityMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showIdleDialog by remember { mutableStateOf(false) }
 
+    BackHandler(enabled = showBroadcastSheet || showLocationsSheet || showContentSheet || showIdleDialog) {
+        when {
+            showIdleDialog -> {
+                showIdleDialog = false
+                lastActivityMs = System.currentTimeMillis()
+            }
+            showBroadcastSheet -> showBroadcastSheet = false
+            showLocationsSheet -> showLocationsSheet = false
+            showContentSheet -> showContentSheet = false
+        }
+    }
+
     LaunchedEffect(lastActivityMs) {
         delay(15L * 60L * 1000L)
         showIdleDialog = true
@@ -129,22 +145,30 @@ fun AdminConsoleScreen(
 
     fun loadConsoleData() {
         coroutineScope.launch {
-            viewModel.repository.getAdminSettings().data?.let { settings = it }
+            viewModel.repository.getAdminSettings().data?.let {
+                settings = it
+                viewModel.cachedAdminSettings = it
+            }
             val shopsRes = viewModel.repository.getAdminSellerVerificationQueue()
             if (shopsRes.success && shopsRes.data != null) {
                 pendingShops = shopsRes.data
+                viewModel.cachedAdminPendingShops = shopsRes.data
             }
             val revRes = viewModel.repository.getFlaggedReviews()
             if (revRes.success && revRes.data != null) {
-                flaggedReviews = revRes.data.filter { it.status == "REPORTED" }
+                val reported = revRes.data.filter { it.status == "REPORTED" }
+                flaggedReviews = reported
+                viewModel.cachedAdminFlaggedReviews = reported
             }
             val ticketRes = viewModel.repository.getSupportTickets()
             if (ticketRes.success && ticketRes.data != null) {
                 supportTickets = ticketRes.data
+                viewModel.cachedAdminTickets = ticketRes.data
             }
             val ordersRes = viewModel.repository.getOrders()
             if (ordersRes.success && ordersRes.data != null) {
                 allOrders = ordersRes.data
+                viewModel.cachedAdminAllOrders = ordersRes.data
             }
         }
     }
@@ -225,6 +249,7 @@ fun AdminConsoleScreen(
             )
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -787,8 +812,7 @@ fun AdminConsoleScreen(
                                     title = strings.adminOps.lockSessionTitle,
                                     subtitle = strings.adminOps.lockSessionSub,
                                     onClick = {
-                                        viewModel.setActiveRole("CUSTOMER")
-                                        viewModel.navigate(ScreenDestination.AdminSignIn)
+                                        viewModel.lockAdminSession()
                                     },
                                     testTag = "tools_lock_session"
                                 )

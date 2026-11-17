@@ -11,11 +11,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,12 +47,16 @@ fun AdminVerificationV2Screen(
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var allShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var selectedMainTab by remember { mutableIntStateOf(0) } // 0: Pending, 1: Verified, 2: Rejected
-    var pendingSubFilter by remember { mutableStateOf("ALL") } // ALL, NEW, RESUBMITTED, WAITING_INFO
+    var allShops by remember { mutableStateOf(viewModel.cachedAdminAllShops) }
+    var isLoading by remember { mutableStateOf(allShops.isEmpty()) }
+    var selectedMainTab by rememberSaveable { mutableIntStateOf(0) } // 0: Pending, 1: Verified, 2: Rejected
+    var pendingSubFilter by rememberSaveable { mutableStateOf("ALL") } // ALL, NEW, RESUBMITTED, WAITING_INFO
+    var selectedShopId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedShop = remember(allShops, selectedShopId) {
+        selectedShopId?.let { id -> allShops.firstOrNull { it.id == id } }
+    }
+    val listState = rememberLazyListState()
 
-    var selectedShop by remember { mutableStateOf<ShopDto?>(null) }
     val checklistState = remember { mutableStateMapOf<String, Boolean>() }
     var viewerPages by remember { mutableStateOf<List<SuqiDocumentPage>?>(null) }
     var viewerInitialIndex by remember { mutableIntStateOf(0) }
@@ -63,8 +69,18 @@ fun AdminVerificationV2Screen(
     var showRejectDialog by remember { mutableStateOf(false) }
     var rejectReason by remember { mutableStateOf("") }
 
-    BackHandler(enabled = selectedShop != null) {
-        selectedShop = null
+    BackHandler(
+        enabled = !viewerPages.isNullOrEmpty() ||
+            showRequestChangesDialog ||
+            showRejectDialog ||
+            selectedShop != null
+    ) {
+        when {
+            !viewerPages.isNullOrEmpty() -> viewerPages = null
+            showRequestChangesDialog -> showRequestChangesDialog = false
+            showRejectDialog -> showRejectDialog = false
+            selectedShop != null -> selectedShopId = null
+        }
     }
 
     fun slotLabel(key: String, fallback: String): String = when (key) {
@@ -96,13 +112,12 @@ fun AdminVerificationV2Screen(
 
     fun loadShops() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = allShops.isEmpty()
             val res = viewModel.repository.getShops()
             if (res.success && res.data != null) {
                 allShops = res.data
-                selectedShop?.let { current ->
-                    selectedShop = res.data.firstOrNull { it.id == current.id }
-                }
+                viewModel.cachedAdminAllShops = res.data
+                viewModel.cachedAllShops = res.data
             }
             isLoading = false
         }
@@ -136,7 +151,7 @@ fun AdminVerificationV2Screen(
     }
 
     fun openReview(shop: ShopDto) {
-        selectedShop = shop
+        selectedShopId = shop.id
         checklistState.clear()
         VerificationDocsCodec.checklistItems.forEach { (k, _) ->
             checklistState[k] = shop.verificationStatus == "VERIFIED"
@@ -147,7 +162,7 @@ fun AdminVerificationV2Screen(
         title = if (selectedShop != null) strings.adminOps.reviewShopTitle else strings.admin.adminVerificationTitle,
         subtitle = "${pendingAll.size} ${strings.admin.queuePending} · ${verifiedList.size} ${strings.admin.queueVerified}",
         onBackClick = {
-            if (selectedShop != null) selectedShop = null else viewModel.goBack()
+            if (selectedShop != null) selectedShopId = null else viewModel.goBack()
         },
         isOffline = isOffline,
         modifier = modifier
@@ -490,6 +505,7 @@ fun AdminVerificationV2Screen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)

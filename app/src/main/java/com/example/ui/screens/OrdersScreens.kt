@@ -12,10 +12,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,9 +65,10 @@ fun MyOrdersScreen(
     val strings = com.example.ui.i18n.suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var orders by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var selectedFilter by remember { mutableStateOf("All") }
+    var orders by remember { mutableStateOf(viewModel.cachedBuyerOrders) }
+    var isLoading by remember { mutableStateOf(orders.isEmpty()) }
+    var selectedFilter by rememberSaveable { mutableStateOf("All") }
+    val listState = rememberLazyListState()
 
     val filterTabs = listOf("All", "Pending", "Confirmed", "Delivered", "Cancelled")
 
@@ -75,6 +78,7 @@ fun MyOrdersScreen(
             val res = viewModel.repository.getOrders()
             if (res.success && res.data != null) {
                 orders = res.data
+                viewModel.cachedBuyerOrders = res.data
             }
             isLoading = false
         }
@@ -109,6 +113,7 @@ fun MyOrdersScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),

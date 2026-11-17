@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import com.example.ui.i18n.placeLabel
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,10 +11,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,10 +56,12 @@ fun ShopsScreen(
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var shops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var selectedFilter by remember { mutableStateOf("All") }
-    var selectedCategory by remember { mutableStateOf("All Categories") }
+    var selectedFilter by rememberSaveable { mutableStateOf("All") }
+    var selectedCategory by rememberSaveable { mutableStateOf("All Categories") }
+    val initialShops = viewModel.cachedShopsByFilter[selectedFilter] ?: if (selectedFilter == "All") viewModel.cachedHomeShops else emptyList()
+    var shops by remember { mutableStateOf(initialShops) }
+    var isLoading by remember { mutableStateOf(initialShops.isEmpty()) }
+    val listState = rememberLazyListState()
 
     val filterOptions = listOf(
         "All" to strings.allLabel,
@@ -77,10 +82,11 @@ fun ShopsScreen(
 
     fun loadShops() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = shops.isEmpty()
             val res = viewModel.repository.getShops(filter = selectedFilter.uppercase().replace(" ", "_"))
             if (res.success && res.data != null) {
                 shops = res.data
+                viewModel.cachedShopsByFilter[selectedFilter] = res.data
             }
             isLoading = false
         }
@@ -132,6 +138,7 @@ fun ShopsScreen(
             )
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
             ) {
@@ -336,26 +343,37 @@ fun ShopStorefrontScreen(
     val clipboardManager = LocalClipboardManager.current
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var shop by remember { mutableStateOf<ShopDto?>(null) }
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var reviews by remember { mutableStateOf<List<ReviewDto>>(emptyList()) }
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Products, 1: Collections, 2: Reviews
-    var activeCollectionFilter by remember { mutableStateOf<String?>(null) }
-    var shopSearchQuery by remember { mutableStateOf("") }
+    val cachedShop = viewModel.cachedShopDetails[shopId]
+        ?: viewModel.cachedHomeShops.firstOrNull { it.id == shopId }
+        ?: viewModel.cachedAllShops.firstOrNull { it.id == shopId }
+    var shop by remember { mutableStateOf(cachedShop) }
+    var products by remember { mutableStateOf(viewModel.cachedShopProducts[shopId].orEmpty()) }
+    var reviews by remember { mutableStateOf(viewModel.cachedShopReviews[shopId].orEmpty()) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0: Products, 1: Collections, 2: Reviews
+    var activeCollectionFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var shopSearchQuery by rememberSaveable { mutableStateOf("") }
     var showShareSheet by remember { mutableStateOf(false) }
+    val storefrontListState = rememberLazyListState()
+
+    BackHandler(enabled = showShareSheet) {
+        showShareSheet = false
+    }
 
     LaunchedEffect(shopId) {
         val sRes = viewModel.repository.getShopDetails(shopId)
         if (sRes.success && sRes.data != null) {
             shop = sRes.data
+            viewModel.cachedShopDetails[shopId] = sRes.data
         }
         val pRes = viewModel.repository.getProducts(shopId = shopId)
         if (pRes.success && pRes.data != null) {
             products = pRes.data
+            viewModel.cachedShopProducts[shopId] = pRes.data
         }
         val rRes = viewModel.repository.getReviews(targetId = shopId)
         if (rRes.success && rRes.data != null) {
             reviews = rRes.data
+            viewModel.cachedShopReviews[shopId] = rRes.data
         }
     }
 
@@ -414,6 +432,7 @@ fun ShopStorefrontScreen(
         modifier = modifier
     ) { paddingValues ->
         LazyColumn(
+            state = storefrontListState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),

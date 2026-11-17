@@ -6,9 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,20 +40,29 @@ fun FollowingScreen(
     val colors = LocalSuqiColors.current
     val strings = com.example.ui.i18n.suqiStrings()
 
-    var followedShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var feedProducts by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var isLoading by remember { mutableStateOf(true) }
+    var followedShops by remember { mutableStateOf(viewModel.cachedFollowedShops) }
+    val initialFollowedIds = remember(followedShops) { followedShops.map { it.id }.toSet() }
+    var feedProducts by remember {
+        mutableStateOf(
+            if (initialFollowedIds.isNotEmpty()) viewModel.cachedAllProducts.filter { it.shopId in initialFollowedIds }
+            else emptyList()
+        )
+    }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var isLoading by remember { mutableStateOf(followedShops.isEmpty()) }
+    val listState = rememberLazyListState()
 
     fun loadData() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = followedShops.isEmpty()
             val shopsRes = viewModel.repository.getShops(filter = "FOLLOWING")
             if (shopsRes.success && shopsRes.data != null) {
                 followedShops = shopsRes.data
+                viewModel.cachedFollowedShops = shopsRes.data
             }
             val allProdsRes = viewModel.repository.getProducts()
             if (allProdsRes.success && allProdsRes.data != null) {
+                viewModel.cachedAllProducts = allProdsRes.data
                 val followedIds = followedShops.map { it.id }.toSet()
                 feedProducts = if (followedIds.isNotEmpty()) {
                     allProdsRes.data.filter { it.shopId in followedIds }
@@ -97,6 +108,7 @@ fun FollowingScreen(
         modifier = modifier
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),

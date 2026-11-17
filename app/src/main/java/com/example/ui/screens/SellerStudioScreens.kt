@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,31 +73,38 @@ fun SellerStudioScreen(
     val isOffline by viewModel.isOffline.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    var isLoading by remember { mutableStateOf(true) }
-    var dashboardData by remember { mutableStateOf<Map<String, Any>>(emptyMap()) }
-    var pendingQueue by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
-    var sellerOrders by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
-    var sellerProducts by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var selectedPeriod by remember { mutableStateOf("7D") }
+    var dashboardData by remember { mutableStateOf(viewModel.cachedSellerDashboard) }
+    var pendingQueue by remember { mutableStateOf(viewModel.cachedSellerQueue) }
+    var sellerOrders by remember { mutableStateOf(viewModel.cachedSellerOrders) }
+    var sellerProducts by remember { mutableStateOf(viewModel.cachedSellerProducts) }
+    var isLoading by remember {
+        mutableStateOf(dashboardData.isEmpty() && sellerOrders.isEmpty() && sellerProducts.isEmpty())
+    }
+    var selectedPeriod by rememberSaveable { mutableStateOf("7D") }
+    val listState = rememberLazyListState()
 
     fun loadDashboard() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = dashboardData.isEmpty() && sellerOrders.isEmpty() && sellerProducts.isEmpty()
             val dashRes = viewModel.repository.getSellerDashboard()
             if (dashRes.success && dashRes.data != null) {
                 dashboardData = dashRes.data
+                viewModel.cachedSellerDashboard = dashRes.data
             }
             val qRes = viewModel.repository.getSellerVerificationQueue()
             if (qRes.success && qRes.data != null) {
                 pendingQueue = qRes.data
+                viewModel.cachedSellerQueue = qRes.data
             }
             val ordersRes = viewModel.repository.getSellerOrders()
             if (ordersRes.success && ordersRes.data != null) {
                 sellerOrders = ordersRes.data
+                viewModel.cachedSellerOrders = ordersRes.data
             }
             val prodRes = viewModel.repository.getSellerProducts()
             if (prodRes.success && prodRes.data != null) {
                 sellerProducts = prodRes.data
+                viewModel.cachedSellerProducts = prodRes.data
             }
             isLoading = false
         }
@@ -200,6 +209,7 @@ fun SellerStudioScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
@@ -609,15 +619,19 @@ fun VerificationQueueScreen(
     val isOffline by viewModel.isOffline.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    var isLoading by remember { mutableStateOf(true) }
-    var allOrders by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Pending, 1: Verified, 2: Rejected
+    var allOrders by remember { mutableStateOf(viewModel.cachedSellerOrders) }
+    var isLoading by remember { mutableStateOf(allOrders.isEmpty()) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0: Pending, 1: Verified, 2: Rejected
     var selectedOrderForReject by remember { mutableStateOf<OrderDto?>(null) }
     var rejectReason by remember { mutableStateOf(strings.extras.rejectReasonRefNotFound) }
     var zoomReceiptOrder by remember { mutableStateOf<OrderDto?>(null) }
+    val listState = rememberLazyListState()
 
-    BackHandler(enabled = selectedOrderForReject != null) {
-        selectedOrderForReject = null
+    BackHandler(enabled = zoomReceiptOrder != null || selectedOrderForReject != null) {
+        when {
+            zoomReceiptOrder != null -> zoomReceiptOrder = null
+            selectedOrderForReject != null -> selectedOrderForReject = null
+        }
     }
 
     val quickRejectReasons = remember(strings) {
@@ -631,10 +645,11 @@ fun VerificationQueueScreen(
 
     fun loadQueue() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = allOrders.isEmpty()
             val ordersRes = viewModel.repository.getSellerOrders()
             if (ordersRes.success && ordersRes.data != null) {
                 allOrders = ordersRes.data
+                viewModel.cachedSellerOrders = ordersRes.data
             } else {
                 val qRes = viewModel.repository.getSellerVerificationQueue()
                 if (qRes.success && qRes.data != null) {
@@ -712,6 +727,7 @@ fun VerificationQueueScreen(
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1819,17 +1835,19 @@ fun SellerOrdersScreen(
     val isOffline by viewModel.isOffline.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    var orders by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
-    var selectedTab by remember { mutableStateOf("All") }
-    var searchQuery by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
+    var orders by remember { mutableStateOf(viewModel.cachedSellerOrders) }
+    var selectedTab by rememberSaveable { mutableStateOf("All") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(orders.isEmpty()) }
+    val listState = rememberLazyListState()
 
     fun loadOrders() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = orders.isEmpty()
             val res = viewModel.repository.getSellerOrders()
             if (res.success && res.data != null) {
                 orders = res.data
+                viewModel.cachedSellerOrders = res.data
             }
             isLoading = false
         }
@@ -1916,6 +1934,7 @@ fun SellerOrdersScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = 16.dp,
@@ -2480,21 +2499,28 @@ fun SellerInboxScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var activeShopId by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
-    var conversations by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
-    var selectedFilter by remember { mutableStateOf("ALL") }
+    var conversations by remember { mutableStateOf(viewModel.cachedSellerConversations) }
+    var isLoading by remember { mutableStateOf(conversations.isEmpty()) }
+    var selectedFilter by rememberSaveable { mutableStateOf("ALL") }
     var showNotifSheet by remember { mutableStateOf(false) }
     var notifPrefs by remember { mutableStateOf(prefsStore.loadNotificationPrefs()) }
+    val listState = rememberLazyListState()
+
+    BackHandler(enabled = showNotifSheet) {
+        showNotifSheet = false
+    }
 
     fun loadInbox() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = conversations.isEmpty()
             val sid = resolveActiveSellerShopId(viewModel)
             activeShopId = sid
             val res = viewModel.repository.getChatConversations()
             if (res.success && res.data != null) {
-                conversations = if (sid.isBlank()) res.data
+                val filteredList = if (sid.isBlank()) res.data
                 else res.data.filter { it.shopId == sid }.ifEmpty { res.data }
+                conversations = filteredList
+                viewModel.cachedSellerConversations = filteredList
             }
             isLoading = false
         }
@@ -2582,6 +2608,7 @@ fun SellerInboxScreen(
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = 16.dp,
@@ -2836,6 +2863,8 @@ fun SellerMoreScreen(
         }
     }
 
+    val listState = rememberLazyListState()
+
     SuqiScreen(
         title = strings.sellerOps.sellerToolsShopTitle,
         onBackClick = { viewModel.goBack() },
@@ -2843,6 +2872,7 @@ fun SellerMoreScreen(
         modifier = modifier
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize().padding(paddingValues),
             contentPadding = PaddingValues(
                 start = 16.dp,

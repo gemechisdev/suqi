@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,11 +9,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,17 +45,26 @@ fun CategoryListingScreen(
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var selectedSubCategory by remember { mutableStateOf("All") }
-    var sortBy by remember { mutableStateOf("POPULAR") }
-    var inStockOnly by remember { mutableStateOf(false) }
-    var verifiedOnly by remember { mutableStateOf(false) }
-    var priceRange by remember { mutableStateOf(0f..50000f) }
-    var minRating by remember { mutableDoubleStateOf(0.0) }
-    var isGridView by remember { mutableStateOf(true) }
+    val initialCached = viewModel.cachedCategoryProducts[categoryId].orEmpty()
+    var rawProducts by remember { mutableStateOf(initialCached) }
+    var isLoading by remember { mutableStateOf(initialCached.isEmpty()) }
+    var selectedSubCategory by rememberSaveable { mutableStateOf("All") }
+    var sortBy by rememberSaveable { mutableStateOf("POPULAR") }
+    var inStockOnly by rememberSaveable { mutableStateOf(false) }
+    var verifiedOnly by rememberSaveable { mutableStateOf(false) }
+    var priceRangeStart by rememberSaveable { mutableFloatStateOf(0f) }
+    var priceRangeEnd by rememberSaveable { mutableFloatStateOf(50000f) }
+    val priceRange = priceRangeStart..priceRangeEnd
+    var minRating by rememberSaveable { mutableDoubleStateOf(0.0) }
+    var isGridView by rememberSaveable { mutableStateOf(true) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    BackHandler(enabled = showFilterSheet || showSortSheet) {
+        showFilterSheet = false
+        showSortSheet = false
+    }
 
     val subCategories = remember(categoryId) {
         listOf("All") + MarketplaceCategories.subCategoriesForId(categoryId)
@@ -78,9 +90,13 @@ fun CategoryListingScreen(
         }
     }
 
+    val products = remember(rawProducts, priceRangeStart, priceRangeEnd, minRating, inStockOnly, verifiedOnly, sortBy) {
+        applyClientFilters(rawProducts)
+    }
+
     fun loadProducts() {
         coroutineScope.launch {
-            isLoading = products.isEmpty()
+            isLoading = rawProducts.isEmpty()
             val res = viewModel.repository.getProducts(
                 categoryId = if (categoryId == "all") null else categoryId,
                 subCategory = if (selectedSubCategory == "All") null else selectedSubCategory,
@@ -105,12 +121,15 @@ fun CategoryListingScreen(
             } else {
                 res.data.orEmpty()
             }
-            products = applyClientFilters(baseList)
+            rawProducts = baseList
+            if (selectedSubCategory == "All" && !inStockOnly && sortBy == "POPULAR") {
+                viewModel.cachedCategoryProducts[categoryId] = baseList
+            }
             isLoading = false
         }
     }
 
-    LaunchedEffect(categoryId, selectedSubCategory, sortBy, inStockOnly, verifiedOnly, priceRange, minRating) {
+    LaunchedEffect(categoryId, selectedSubCategory, sortBy, inStockOnly, verifiedOnly, priceRangeStart, priceRangeEnd, minRating) {
         loadProducts()
     }
 
@@ -162,6 +181,7 @@ fun CategoryListingScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
@@ -253,7 +273,8 @@ fun CategoryListingScreen(
                             ctaText = strings.buyer.resetFiltersTitle,
                             onCtaClick = {
                                 selectedSubCategory = "All"
-                                priceRange = 0f..50000f
+                                priceRangeStart = 0f
+                                priceRangeEnd = 50000f
                                 minRating = 0.0
                                 inStockOnly = false
                                 verifiedOnly = false
@@ -312,7 +333,10 @@ fun CategoryListingScreen(
                 Text(strings.buyer.priceRangeEtb, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                 SuqiRangeSlider(
                     values = priceRange,
-                    onValuesChange = { priceRange = it },
+                    onValuesChange = {
+                        priceRangeStart = it.start
+                        priceRangeEnd = it.endInclusive
+                    },
                     valueRange = 0f..50000f,
                     formatLabel = { v -> if (v >= 50000f) "${formatEtb(50000.0)}+" else formatEtb(v.toDouble()) },
                     modifier = Modifier.testTag("category_price_slider")
@@ -348,7 +372,8 @@ fun CategoryListingScreen(
                         isPrimary = false,
                         isPill = true,
                         onClick = {
-                            priceRange = 0f..50000f
+                            priceRangeStart = 0f
+                            priceRangeEnd = 50000f
                             minRating = 0.0
                             inStockOnly = false
                             verifiedOnly = false

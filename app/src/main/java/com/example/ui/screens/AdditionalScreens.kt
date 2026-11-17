@@ -10,11 +10,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,16 +50,18 @@ fun NotificationsScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var notifications by remember { mutableStateOf<List<NotificationDto>>(emptyList()) }
-    var selectedFilter by remember { mutableStateOf("ALL") }
-    var isLoading by remember { mutableStateOf(true) }
+    var notifications by remember { mutableStateOf(viewModel.cachedNotifications) }
+    var selectedFilter by rememberSaveable { mutableStateOf("ALL") }
+    var isLoading by remember { mutableStateOf(notifications.isEmpty()) }
+    val listState = rememberLazyListState()
 
     fun loadNotifications() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = notifications.isEmpty()
             val res = viewModel.repository.getNotifications()
             if (res.success && res.data != null) {
                 notifications = res.data
+                viewModel.cachedNotifications = res.data
             }
             viewModel.refreshUnreadNotifications()
             isLoading = false
@@ -134,6 +138,7 @@ fun NotificationsScreen(
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -236,17 +241,23 @@ fun SavedAddressesScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var addresses by remember { mutableStateOf<List<SavedAddressDto>>(emptyList()) }
+    var addresses by remember { mutableStateOf(viewModel.cachedSavedAddresses) }
     var editingAddress by remember { mutableStateOf<SavedAddressDto?>(null) }
     var showSheet by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(addresses.isEmpty()) }
+    val listState = rememberLazyListState()
+
+    BackHandler(enabled = showSheet) {
+        showSheet = false
+    }
 
     fun loadAddresses() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = addresses.isEmpty()
             val res = viewModel.repository.getSavedAddresses()
             if (res.success && res.data != null) {
                 addresses = res.data
+                viewModel.cachedSavedAddresses = res.data
             }
             viewModel.refreshSession()
             isLoading = false
@@ -295,6 +306,7 @@ fun SavedAddressesScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
@@ -463,14 +475,19 @@ fun WishlistScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val cachedWishlisted = remember {
+        viewModel.cachedAllProducts.filter { it.isWishlisted }.ifEmpty { viewModel.cachedHomeProducts.filter { it.isWishlisted } }
+    }
+    var products by remember { mutableStateOf(cachedWishlisted) }
+    var isLoading by remember { mutableStateOf(cachedWishlisted.isEmpty()) }
+    val listState = rememberLazyListState()
 
     fun loadWishlist() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = products.isEmpty()
             val res = viewModel.repository.getProducts()
             if (res.success && res.data != null) {
+                viewModel.cachedAllProducts = res.data
                 products = res.data.filter { it.isWishlisted }
             }
             isLoading = false
@@ -503,6 +520,7 @@ fun WishlistScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
@@ -1551,7 +1569,7 @@ fun AdminSignInScreen(
                                     }
                                     viewModel.refreshSession()
                                     viewModel.showToast(selectedTier)
-                                    viewModel.popToRoot(ScreenDestination.AdminConsole)
+                                    viewModel.completeAdminSignIn()
                                 } else {
                                     errorMsg = viewModel.localizeMessage(res.message ?: strings.common.accessRestrictedTitle)
                                 }
@@ -1629,15 +1647,18 @@ fun AdminModerationScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var flaggedReviews by remember { mutableStateOf<List<FlaggedReviewDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var flaggedReviews by remember { mutableStateOf(viewModel.cachedAdminFlaggedReviews) }
+    var isLoading by remember { mutableStateOf(flaggedReviews.isEmpty()) }
+    val listState = rememberLazyListState()
 
     fun loadFlagged() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = flaggedReviews.isEmpty()
             val res = viewModel.repository.getFlaggedReviews()
             if (res.success && res.data != null) {
-                flaggedReviews = res.data.filter { it.status == "REPORTED" }
+                val reported = res.data.filter { it.status == "REPORTED" }
+                flaggedReviews = reported
+                viewModel.cachedAdminFlaggedReviews = reported
             }
             isLoading = false
         }
@@ -1654,7 +1675,7 @@ fun AdminModerationScreen(
         isOffline = isOffline,
         modifier = modifier
     ) { paddingValues ->
-        if (isLoading) {
+        if (isLoading && flaggedReviews.isEmpty()) {
             SuqiSkeletonList(count = 3, modifier = Modifier.padding(paddingValues).padding(top = 12.dp))
         } else if (flaggedReviews.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
@@ -1666,6 +1687,7 @@ fun AdminModerationScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
@@ -1749,9 +1771,10 @@ fun AdminSubscriptionPlansScreen(
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var plans by remember { mutableStateOf<List<SubscriptionPlanDto>>(emptyList()) }
+    var plans by remember { mutableStateOf(viewModel.cachedAdminPlans) }
     var editingPlan by remember { mutableStateOf<SubscriptionPlanDto?>(null) }
     var showPlanSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     BackHandler(enabled = showPlanSheet) {
         showPlanSheet = false
@@ -1762,6 +1785,7 @@ fun AdminSubscriptionPlansScreen(
             val res = viewModel.repository.getSubscriptionPlans()
             if (res.success && res.data != null) {
                 plans = res.data
+                viewModel.cachedAdminPlans = res.data
             }
         }
     }
@@ -1792,6 +1816,7 @@ fun AdminSubscriptionPlansScreen(
         modifier = modifier
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),

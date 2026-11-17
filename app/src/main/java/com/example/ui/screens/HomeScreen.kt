@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import com.example.ui.i18n.placeLabel
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -73,13 +75,49 @@ fun HomeScreen(
     val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var shops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var categories by remember { mutableStateOf(MarketplaceCategories.all.map { it.toDto() }) }
-    var liveBanners by remember { mutableStateOf<List<PromoBanner>>(emptyList()) }
-    var adminSettings by remember { mutableStateOf(AdminSettingsDto()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var products by remember { mutableStateOf(viewModel.cachedHomeProducts) }
+    var shops by remember { mutableStateOf(viewModel.cachedHomeShops) }
+    var categories by remember {
+        mutableStateOf(
+            viewModel.cachedHomeCategories.ifEmpty { MarketplaceCategories.all.map { it.toDto() } }
+        )
+    }
+    var liveBanners by remember {
+        mutableStateOf(
+            viewModel.cachedHomeBanners.map { b ->
+                PromoBanner(
+                    id = b.id,
+                    badge = b.badge,
+                    badgeIcon = promoBadgeIconVector(
+                        b.badgeIcon.ifBlank {
+                            when {
+                                b.badge.contains("Hot", ignoreCase = true) -> "flame"
+                                b.badge.contains("Home", ignoreCase = true) -> "house"
+                                else -> "sparkles"
+                            }
+                        }
+                    ),
+                    title = b.title,
+                    highlight = b.highlight,
+                    subtitle = b.subtitle,
+                    buttonText = b.buttonText,
+                    imageUrl = b.imageUrl,
+                    targetCategory = b.targetCategory,
+                    targetName = b.targetName,
+                    destinationType = b.destinationType,
+                    targetId = b.targetId
+                )
+            }
+        )
+    }
+    var adminSettings by remember { mutableStateOf(viewModel.cachedAdminSettings ?: AdminSettingsDto()) }
+    var isLoading by remember { mutableStateOf(products.isEmpty()) }
     var showLocationSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    BackHandler(enabled = showLocationSheet) {
+        showLocationSheet = false
+    }
 
     val fallbackBanners = remember(strings) {
         listOf(
@@ -105,7 +143,10 @@ fun HomeScreen(
         coroutineScope.launch {
             isLoading = products.isEmpty()
             val todayIso = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            viewModel.repository.getAdminSettings().data?.let { adminSettings = it }
+            viewModel.repository.getAdminSettings().data?.let {
+                adminSettings = it
+                viewModel.cachedAdminSettings = it
+            }
             val bannerRes = viewModel.repository.getPromoBanners(activeOnly = true)
             if (bannerRes.success && bannerRes.data != null) {
                 val userOrdersCount = if (currentUser != null && !currentUser!!.role.equals("GUEST", ignoreCase = true)) {
@@ -113,7 +154,7 @@ fun HomeScreen(
                 } else {
                     0
                 }
-                liveBanners = bannerRes.data
+                val filteredBannerDtos = bannerRes.data
                     .filter { b ->
                         val afterStart = b.startDate.isBlank() || todayIso >= b.startDate
                         val beforeEnd = b.endDate.isBlank() || todayIso <= b.endDate
@@ -125,6 +166,8 @@ fun HomeScreen(
                         )
                         afterStart && beforeEnd && audienceOk
                     }
+                viewModel.cachedHomeBanners = filteredBannerDtos
+                liveBanners = filteredBannerDtos
                     .map { b ->
                         PromoBanner(
                             id = b.id,
@@ -153,16 +196,20 @@ fun HomeScreen(
             val prodRes = viewModel.repository.getProducts()
             if (prodRes.success && prodRes.data != null) {
                 products = prodRes.data
+                viewModel.cachedHomeProducts = prodRes.data
             }
             val shopRes = viewModel.repository.getShops()
             if (shopRes.success && shopRes.data != null) {
                 shops = shopRes.data
+                viewModel.cachedHomeShops = shopRes.data
             }
             val catRes = viewModel.repository.getCategories()
             if (catRes.success && !catRes.data.isNullOrEmpty()) {
-                categories = catRes.data
+                val sortedCats = catRes.data
                     .filter { it.isActive }
                     .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                categories = sortedCats
+                viewModel.cachedHomeCategories = sortedCats
             }
             isLoading = false
         }
@@ -213,6 +260,7 @@ fun HomeScreen(
                 .filter { it !in adminSettings.hiddenHomeSections }
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),

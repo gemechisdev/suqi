@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +44,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,10 +97,15 @@ fun OwnerDashboardScreen(
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var selectedRangeDays by remember { mutableIntStateOf(30) }
-    var metrics by remember { mutableStateOf<OwnerDashboardMetricsDto?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
+    var selectedRangeDays by rememberSaveable { mutableIntStateOf(30) }
+    var metrics by remember(selectedRangeDays) { mutableStateOf(viewModel.cachedOwnerMetrics[selectedRangeDays]) }
+    var isLoading by remember(selectedRangeDays) { mutableStateOf(metrics == null) }
     var showExportSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    BackHandler(enabled = showExportSheet) {
+        showExportSheet = false
+    }
 
     val rangeOptions = listOf(
         7 to strings.adminGov.range7d,
@@ -108,10 +116,11 @@ fun OwnerDashboardScreen(
 
     fun loadMetrics(days: Int) {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = viewModel.cachedOwnerMetrics[days] == null
             val res = viewModel.repository.getOwnerDashboardMetrics(days)
             if (res.success && res.data != null) {
                 metrics = res.data
+                viewModel.cachedOwnerMetrics[days] = res.data
             }
             isLoading = false
         }
@@ -153,6 +162,7 @@ fun OwnerDashboardScreen(
         } else {
             val data = metrics ?: OwnerDashboardMetricsDto(rangeDays = selectedRangeDays)
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),

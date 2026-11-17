@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,10 +15,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,20 +61,56 @@ fun ProductDetailsScreen(
     val currentUser by viewModel.currentUser.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var product by remember { mutableStateOf<ProductDto?>(null) }
-    var shopDetails by remember { mutableStateOf<ShopDto?>(null) }
-    var deliveryOptions by remember { mutableStateOf<List<ShopDeliveryOptionDto>>(emptyList()) }
-    var reviews by remember { mutableStateOf<List<ReviewDto>>(emptyList()) }
-    var questions by remember { mutableStateOf<List<ProductQuestionDto>>(emptyList()) }
-    var moreFromShop by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
+    val cachedProd = viewModel.cachedProductDetails[productId]
+        ?: viewModel.cachedHomeProducts.firstOrNull { it.id == productId }
+        ?: viewModel.cachedAllProducts.firstOrNull { it.id == productId }
+    var product by remember { mutableStateOf(cachedProd) }
+    var shopDetails by remember { mutableStateOf(cachedProd?.let { viewModel.cachedShopDetails[it.shopId] }) }
+    var deliveryOptions by remember {
+        mutableStateOf(cachedProd?.let { viewModel.cachedShopDeliveryOptions[it.shopId] }.orEmpty())
+    }
+    var reviews by remember { mutableStateOf(viewModel.cachedProductReviews[productId].orEmpty()) }
+    var questions by remember { mutableStateOf(viewModel.cachedProductQuestions[productId].orEmpty()) }
+    var moreFromShop by remember {
+        mutableStateOf(
+            cachedProd?.let { p -> viewModel.cachedShopProducts[p.shopId]?.filter { it.id != p.id }?.take(6) }.orEmpty()
+        )
+    }
     var similarProducts by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
 
     var showShareSheet by remember { mutableStateOf(false) }
     var showSizeGuideSheet by remember { mutableStateOf(false) }
     var showAskQuestionSheet by remember { mutableStateOf(false) }
     var showReportSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
-    val chosen = remember { mutableStateMapOf<String, String>() }
+    BackHandler(enabled = showShareSheet || showSizeGuideSheet || showAskQuestionSheet || showReportSheet) {
+        showShareSheet = false
+        showSizeGuideSheet = false
+        showAskQuestionSheet = false
+        showReportSheet = false
+    }
+
+    var chosenJson by rememberSaveable(productId) { mutableStateOf("") }
+    val chosen = remember(productId) {
+        mutableStateMapOf<String, String>().apply {
+            if (chosenJson.isNotBlank()) {
+                runCatching {
+                    val obj = org.json.JSONObject(chosenJson)
+                    obj.keys().forEach { k -> put(k, obj.optString(k)) }
+                }
+            } else {
+                cachedProd?.details?.buyerOptions?.forEach { opt ->
+                    cachedProd.details.valuesOf(opt.key).firstOrNull()?.let { put(opt.key, it) }
+                }
+            }
+        }
+    }
+    LaunchedEffect(chosen.toMap()) {
+        val obj = org.json.JSONObject()
+        chosen.forEach { (k, v) -> obj.put(k, v) }
+        chosenJson = obj.toString()
+    }
 
     fun loadAll() {
         coroutineScope.launch {
@@ -79,22 +118,39 @@ fun ProductDetailsScreen(
             if (res.success && res.data != null) {
                 val p = res.data
                 product = p
+                viewModel.cachedProductDetails[productId] = p
                 viewModel.recordProductView(p)
-                chosen.clear()
                 p.details.buyerOptions.forEach { opt ->
-                    p.details.valuesOf(opt.key).firstOrNull()?.let { chosen[opt.key] = it }
+                    val existing = chosen[opt.key]
+                    val validValues = p.details.valuesOf(opt.key)
+                    if (existing == null || (validValues.isNotEmpty() && existing !in validValues)) {
+                        validValues.firstOrNull()?.let { chosen[opt.key] = it }
+                    }
                 }
-                viewModel.repository.getShopDetails(p.shopId).data?.let { shopDetails = it }
-                viewModel.repository.getShopDeliveryOptions(p.shopId).data?.let { deliveryOptions = it }
+                viewModel.repository.getShopDetails(p.shopId).data?.let {
+                    shopDetails = it
+                    viewModel.cachedShopDetails[p.shopId] = it
+                }
+                viewModel.repository.getShopDeliveryOptions(p.shopId).data?.let {
+                    deliveryOptions = it
+                    viewModel.cachedShopDeliveryOptions[p.shopId] = it
+                }
                 viewModel.repository.getProducts(shopId = p.shopId).data?.let { list ->
+                    viewModel.cachedShopProducts[p.shopId] = list
                     moreFromShop = list.filter { it.id != p.id }.take(6)
                 }
                 viewModel.repository.getProducts(categoryId = p.categoryId).data?.let { list ->
                     similarProducts = list.filter { it.id != p.id }.take(6)
                 }
             }
-            viewModel.repository.getReviews(productId).data?.let { reviews = it }
-            viewModel.repository.getProductQuestions(productId).data?.let { questions = it }
+            viewModel.repository.getReviews(productId).data?.let {
+                reviews = it
+                viewModel.cachedProductReviews[productId] = it
+            }
+            viewModel.repository.getProductQuestions(productId).data?.let {
+                questions = it
+                viewModel.cachedProductQuestions[productId] = it
+            }
         }
     }
 
@@ -197,6 +253,7 @@ fun ProductDetailsScreen(
         modifier = modifier
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),

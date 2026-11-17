@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -36,17 +37,19 @@ fun CartScreen(
     val colors = LocalSuqiColors.current
     val strings = com.example.ui.i18n.suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var cartItems by remember { mutableStateOf<List<CartItemDto>>(emptyList()) }
+    var cartItems by remember { mutableStateOf(viewModel.cachedCartItems) }
     var shopPromos by remember { mutableStateOf<Map<String, List<PromoCodeDto>>>(emptyMap()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(cartItems.isEmpty()) }
     var showClearDialog by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     fun refreshCart() {
         coroutineScope.launch {
-            isLoading = true
+            isLoading = cartItems.isEmpty()
             val res = viewModel.repository.getCartItems()
             if (res.success && res.data != null) {
                 cartItems = res.data
+                viewModel.cachedCartItems = res.data
                 val shopIds = res.data.map { it.shopId }.distinct()
                 val promoMap = mutableMapOf<String, List<PromoCodeDto>>()
                 shopIds.forEach { sId ->
@@ -119,6 +122,7 @@ fun CartScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,11 +9,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,25 +51,34 @@ fun SearchScreen(
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Products, 1: Shops
-    var allProducts by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var allShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0: Products, 1: Shops
+    var allProducts by remember { mutableStateOf(viewModel.cachedAllProducts) }
+    var allShops by remember { mutableStateOf(viewModel.cachedAllShops) }
+    var categories by remember { mutableStateOf(viewModel.cachedAllCategories) }
 
     var productResults by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
     var shopResults by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var isGridView by remember { mutableStateOf(false) }
+    var isGridView by rememberSaveable { mutableStateOf(false) }
 
     // B-03 Filter & Sort State
-    var sortBy by remember { mutableStateOf("POPULAR") }
-    var selectedCategoryFilter by remember { mutableStateOf("") }
-    var priceRange by remember { mutableStateOf(0f..50000f) }
-    var minRating by remember { mutableDoubleStateOf(0.0) }
-    var inStockOnly by remember { mutableStateOf(false) }
-    var verifiedOnly by remember { mutableStateOf(false) }
+    var sortBy by rememberSaveable { mutableStateOf("POPULAR") }
+    var selectedCategoryFilter by rememberSaveable { mutableStateOf("") }
+    var priceRangeStart by rememberSaveable { mutableFloatStateOf(0f) }
+    var priceRangeEnd by rememberSaveable { mutableFloatStateOf(50000f) }
+    val priceRange = priceRangeStart..priceRangeEnd
+    var minRating by rememberSaveable { mutableDoubleStateOf(0.0) }
+    var inStockOnly by rememberSaveable { mutableStateOf(false) }
+    var verifiedOnly by rememberSaveable { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
+    val idleListState = rememberLazyListState()
+    val resultsListState = rememberLazyListState()
+
+    BackHandler(enabled = showFilterSheet || showSortSheet) {
+        showFilterSheet = false
+        showSortSheet = false
+    }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val searchPrefs = remember { context.getSharedPreferences("suqi_search_prefs", android.content.Context.MODE_PRIVATE) }
@@ -101,9 +113,18 @@ fun SearchScreen(
     val popularSearches = listOf("HP Core i5", "Samsung Galaxy", "Wireless Earbuds", "Sneakers", "Coffee Set")
 
     LaunchedEffect(Unit) {
-        viewModel.repository.getProducts().data?.let { allProducts = it }
-        viewModel.repository.getShops().data?.let { allShops = it }
-        viewModel.repository.getCategories().data?.let { categories = it }
+        viewModel.repository.getProducts().data?.let {
+            allProducts = it
+            viewModel.cachedAllProducts = it
+        }
+        viewModel.repository.getShops().data?.let {
+            allShops = it
+            viewModel.cachedAllShops = it
+        }
+        viewModel.repository.getCategories().data?.let {
+            categories = it
+            viewModel.cachedAllCategories = it
+        }
     }
 
     fun applyLocalFilters(baseProducts: List<ProductDto>): List<ProductDto> {
@@ -158,7 +179,30 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(searchQuery, sortBy, selectedCategoryFilter, priceRange, minRating, inStockOnly, verifiedOnly) {
+    // Immediately hydrate filtered results synchronously from cached lists on Back navigation so LazyColumn renders at restored scroll offset on frame 1
+    fun applyLocalFiltersSync(q: String, prodList: List<ProductDto>, shopList: List<ShopDto>): Pair<List<ProductDto>, List<ShopDto>> {
+        val matchedP = prodList.filter { p ->
+            q.isBlank() ||
+                p.name.contains(q, ignoreCase = true) ||
+                p.nameAmharic.contains(q, ignoreCase = true) ||
+                p.nameAfaanOromo.contains(q, ignoreCase = true) ||
+                p.description.contains(q, ignoreCase = true) ||
+                p.subCategory.contains(q, ignoreCase = true) ||
+                p.shopName.contains(q, ignoreCase = true)
+        }
+        val matchedS = shopList.filter { s ->
+            (q.isBlank() || s.name.contains(q, ignoreCase = true) || s.category.contains(q, ignoreCase = true)) &&
+                (!verifiedOnly || s.isVerified)
+        }
+        return applyLocalFilters(matchedP) to matchedS
+    }
+
+    LaunchedEffect(searchQuery, sortBy, selectedCategoryFilter, priceRangeStart, priceRangeEnd, minRating, inStockOnly, verifiedOnly) {
+        if (searchQuery.isNotBlank() && allProducts.isNotEmpty() && productResults.isEmpty()) {
+            val (pSync, sSync) = applyLocalFiltersSync(searchQuery, allProducts, allShops)
+            productResults = pSync
+            shopResults = sSync
+        }
         performSearch(searchQuery, recordRecent = false)
     }
 
@@ -261,6 +305,7 @@ fun SearchScreen(
             if (!hasActiveQueryOrFilters) {
                 // Idle State
                 LazyColumn(
+                    state = idleListState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -341,6 +386,7 @@ fun SearchScreen(
                 }
             } else {
                 LazyColumn(
+                    state = resultsListState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding + 16.dp)
                 ) {
@@ -479,7 +525,8 @@ fun SearchScreen(
                                     TextButton(
                                         onClick = {
                                             selectedCategoryFilter = ""
-                                            priceRange = 0f..50000f
+                                            priceRangeStart = 0f
+                                            priceRangeEnd = 50000f
                                             minRating = 0.0
                                             inStockOnly = false
                                             verifiedOnly = false
@@ -502,7 +549,8 @@ fun SearchScreen(
                                     ctaText = strings.buyer.resetFiltersTitle,
                                     onCtaClick = {
                                         selectedCategoryFilter = ""
-                                        priceRange = 0f..50000f
+                                        priceRangeStart = 0f
+                                        priceRangeEnd = 50000f
                                         minRating = 0.0
                                         inStockOnly = false
                                         verifiedOnly = false
@@ -586,7 +634,10 @@ fun SearchScreen(
                 Text(strings.buyer.priceRangeEtb, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
                 SuqiRangeSlider(
                     values = priceRange,
-                    onValuesChange = { priceRange = it },
+                    onValuesChange = {
+                        priceRangeStart = it.start
+                        priceRangeEnd = it.endInclusive
+                    },
                     valueRange = 0f..50000f,
                     formatLabel = { v -> if (v >= 50000f) "${formatEtb(50000.0)}+" else formatEtb(v.toDouble()) },
                     modifier = Modifier.testTag("search_price_slider")
@@ -645,7 +696,8 @@ fun SearchScreen(
                         isPill = true,
                         onClick = {
                             selectedCategoryFilter = ""
-                            priceRange = 0f..50000f
+                            priceRangeStart = 0f
+                            priceRangeEnd = 50000f
                             minRating = 0.0
                             inStockOnly = false
                             verifiedOnly = false

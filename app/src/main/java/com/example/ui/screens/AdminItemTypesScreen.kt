@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,10 +101,11 @@ fun AdminItemTypesScreen(
     val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var itemTypes by remember { mutableStateOf<List<ItemTypeDto>>(emptyList()) }
-    var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var itemTypes by remember { mutableStateOf(viewModel.cachedAdminItemTypes) }
+    var categories by remember { mutableStateOf(viewModel.cachedAllCategories) }
+    var products by remember { mutableStateOf(viewModel.cachedAllProducts) }
+    var isLoading by remember { mutableStateOf(itemTypes.isEmpty()) }
+    val listState = rememberLazyListState()
 
     var editingType by remember { mutableStateOf<ItemTypeDto?>(null) }
     var isCreatingNew by remember { mutableStateOf(false) }
@@ -115,10 +117,19 @@ fun AdminItemTypesScreen(
 
     fun loadData() {
         coroutineScope.launch {
-            isLoading = true
-            viewModel.repository.getItemTypes().data?.let { itemTypes = it }
-            viewModel.repository.getCategories().data?.let { categories = it }
-            viewModel.repository.getProducts().data?.let { products = it }
+            isLoading = itemTypes.isEmpty()
+            viewModel.repository.getItemTypes().data?.let {
+                itemTypes = it
+                viewModel.cachedAdminItemTypes = it
+            }
+            viewModel.repository.getCategories().data?.let {
+                categories = it
+                viewModel.cachedAllCategories = it
+            }
+            viewModel.repository.getProducts().data?.let {
+                products = it
+                viewModel.cachedAllProducts = it
+            }
             isLoading = false
         }
     }
@@ -182,6 +193,7 @@ fun AdminItemTypesScreen(
             SuqiSkeletonList(count = 5, modifier = Modifier.padding(paddingValues).padding(top = 12.dp))
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),

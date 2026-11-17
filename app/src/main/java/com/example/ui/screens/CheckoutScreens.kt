@@ -659,7 +659,7 @@ fun CheckoutPaymentScreen(
                                 isSubmitting = false
                                 if (res.success && res.data != null) {
                                     viewModel.activeCheckoutReceiptUri.value = ""
-                                    viewModel.navigate(
+                                    viewModel.navigateAfterOrderSubmitted(
                                         ScreenDestination.OrderSubmitted(
                                             orderReference = res.data.orderReference,
                                             orderId = res.data.id

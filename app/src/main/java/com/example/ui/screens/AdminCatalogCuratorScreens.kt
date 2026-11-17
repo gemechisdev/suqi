@@ -2,6 +2,7 @@
 
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +47,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,13 +110,20 @@ fun AdminCategoriesScreen(
     val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Categories, 1 = Shop Types
-    var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
-    var itemTypes by remember { mutableStateOf<List<ItemTypeDto>>(emptyList()) }
-    var shops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0 = Categories, 1 = Shop Types
+    var categories by remember {
+        mutableStateOf(viewModel.cachedAllCategories.sortedWith(compareBy({ it.sortOrder }, { it.name })))
+    }
+    var itemTypes by remember { mutableStateOf(viewModel.cachedAdminItemTypes) }
+    var shops by remember { mutableStateOf(viewModel.cachedAllShops) }
     var expandedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var editingCategory by remember { mutableStateOf<CategoryDto?>(null) }
     var showCategorySheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    BackHandler(enabled = showCategorySheet) {
+        showCategorySheet = false
+    }
 
     val shopTypeEntries = remember(strings) {
         listOf(
@@ -128,15 +138,19 @@ fun AdminCategoriesScreen(
         coroutineScope.launch {
             val catRes = viewModel.repository.getCategories()
             if (catRes.success && catRes.data != null) {
-                categories = catRes.data.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                val sorted = catRes.data.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                categories = sorted
+                viewModel.cachedAllCategories = sorted
             }
             val typeRes = viewModel.repository.getItemTypes()
             if (typeRes.success && typeRes.data != null) {
                 itemTypes = typeRes.data
+                viewModel.cachedAdminItemTypes = typeRes.data
             }
             val shopRes = viewModel.repository.getShops()
             if (shopRes.success && shopRes.data != null) {
                 shops = shopRes.data
+                viewModel.cachedAllShops = shopRes.data
             }
         }
     }
@@ -190,6 +204,7 @@ fun AdminCategoriesScreen(
             )
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -664,15 +679,20 @@ fun AdminBannersScreen(
     val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
 
-    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Banners, 1 = Home Sections
-    var banners by remember { mutableStateOf<List<PromoBannerDto>>(emptyList()) }
-    var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
-    var shops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var adminSettings by remember { mutableStateOf(AdminSettingsDto()) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0 = Banners, 1 = Home Sections
+    var banners by remember { mutableStateOf(viewModel.cachedHomeBanners.sortedBy { it.sortOrder }) }
+    var categories by remember { mutableStateOf(viewModel.cachedAllCategories) }
+    var shops by remember { mutableStateOf(viewModel.cachedAllShops) }
+    var products by remember { mutableStateOf(viewModel.cachedAllProducts) }
+    var adminSettings by remember { mutableStateOf(viewModel.cachedAdminSettings ?: AdminSettingsDto()) }
+    val listState = rememberLazyListState()
 
     var editingBanner by remember { mutableStateOf<PromoBannerDto?>(null) }
     var showBannerSheet by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showBannerSheet) {
+        showBannerSheet = false
+    }
 
     fun loadCuratorData() {
         coroutineScope.launch {
@@ -681,10 +701,20 @@ fun AdminBannersScreen(
             }
             viewModel.repository.getAdminSettings().data?.let { s ->
                 adminSettings = s
+                viewModel.cachedAdminSettings = s
             }
-            viewModel.repository.getCategories().data?.let { categories = it }
-            viewModel.repository.getShops().data?.let { shops = it }
-            viewModel.repository.getProducts().data?.let { products = it }
+            viewModel.repository.getCategories().data?.let {
+                categories = it
+                viewModel.cachedAllCategories = it
+            }
+            viewModel.repository.getShops().data?.let {
+                shops = it
+                viewModel.cachedAllShops = it
+            }
+            viewModel.repository.getProducts().data?.let {
+                products = it
+                viewModel.cachedAllProducts = it
+            }
         }
     }
 
@@ -732,6 +762,7 @@ fun AdminBannersScreen(
             )
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -52,14 +53,16 @@ fun ChatListScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var conversations by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var conversations by remember { mutableStateOf(viewModel.cachedBuyerConversations) }
+    var isLoading by remember { mutableStateOf(conversations.isEmpty()) }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) {
-        isLoading = true
+        isLoading = conversations.isEmpty()
         val res = viewModel.repository.getChatConversations()
         if (res.success && res.data != null) {
             conversations = res.data
+            viewModel.cachedBuyerConversations = res.data
         }
         isLoading = false
     }
@@ -96,6 +99,7 @@ fun ChatListScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
