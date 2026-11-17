@@ -39,7 +39,7 @@ import kotlinx.coroutines.sync.withLock
         SupportTicketEntity::class,
         ItemTypeEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -287,6 +287,24 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v8: shop gallery, social links, policies, delivery cutoffs, and chat order-context/category fields. */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE shops ADD COLUMN galleryJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE shops ADD COLUMN instagramLink TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN tiktokLink TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN websiteUrl TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN returnPolicy TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN deliveryNotesPolicy TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN standardCutoffTime TEXT NOT NULL DEFAULT '16:00'")
+                db.execSQL("ALTER TABLE shops ADD COLUMN expressCutoffTime TEXT NOT NULL DEFAULT '14:00'")
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN orderContextRef TEXT")
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN orderContextStatus TEXT")
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN orderContextTotal TEXT")
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN threadCategory TEXT NOT NULL DEFAULT 'QUESTION'")
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -296,7 +314,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     context.applicationContext,
                     SuqiDatabase::class.java,
                     "suqi_marketplace.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).addCallback(object : Callback() {
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).addCallback(object : Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         super.onOpen(db)
                         CoroutineScope(Dispatchers.IO).launch {

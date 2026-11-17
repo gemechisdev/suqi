@@ -32,6 +32,7 @@ sealed class ScreenDestination {
     data object SellerStudio : ScreenDestination()
     data class AddEditProduct(val productId: String? = null) : ScreenDestination()
     data object ProductManagement : ScreenDestination()
+    data object SellerInventory : ScreenDestination()
     data object PaymentMethodsSetup : ScreenDestination()
     data object DeliverySetup : ScreenDestination()
     data object VerificationQueue : ScreenDestination()

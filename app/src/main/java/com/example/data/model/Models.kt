@@ -59,7 +59,15 @@ data class ShopDto(
     val coverageSubCitiesCsv: String = "",
     val verificationDocsJson: String = "",
     val verificationRejectionReason: String? = null,
-    val createdAt: String = ""
+    val createdAt: String = "",
+    val galleryJson: String = "[]",
+    val instagramLink: String = "",
+    val tiktokLink: String = "",
+    val websiteUrl: String = "",
+    val returnPolicy: String = "",
+    val deliveryNotesPolicy: String = "",
+    val standardCutoffTime: String = "16:00",
+    val expressCutoffTime: String = "14:00"
 )
 
 @JsonClass(generateAdapter = true)
@@ -223,7 +231,11 @@ data class ChatMessageDto(
     val productContextPrice: String? = null,
     val productContextImage: String? = null,
     val isRead: Boolean = true,
-    val imageUrl: String = ""
+    val imageUrl: String = "",
+    val orderContextRef: String? = null,
+    val orderContextStatus: String? = null,
+    val orderContextTotal: String? = null,
+    val threadCategory: String = "QUESTION"
 )
 
 @JsonClass(generateAdapter = true)

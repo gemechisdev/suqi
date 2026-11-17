@@ -834,6 +834,31 @@ object SeedData {
                     productContextPrice = "ETB 2,800",
                     productContextImage = "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600",
                     isRead = true
+                ),
+                ChatMessageEntity(
+                    id = "msg_4",
+                    conversationId = "conv_techhub",
+                    shopId = "shop_techhub",
+                    shopName = "Tech Hub",
+                    senderType = "CUSTOMER",
+                    message = "Hi! I just submitted my Telebirr transfer for order SUQ-2025-001234. Can you dispatch today?",
+                    timestamp = "10:15 AM",
+                    isRead = false,
+                    orderContextRef = "SUQ-2025-001234",
+                    orderContextStatus = "Awaiting Payment Confirmation",
+                    orderContextTotal = "ETB 25,049",
+                    threadCategory = "ORDER"
+                ),
+                ChatMessageEntity(
+                    id = "msg_fw_1",
+                    conversationId = "conv_fashionworld",
+                    shopId = "shop_fashionworld",
+                    shopName = "Fashion World",
+                    senderType = "CUSTOMER",
+                    message = "Do you have Nike Air Force 1 in EU 43 ready in Bole?",
+                    timestamp = "Yesterday",
+                    isRead = true,
+                    threadCategory = "QUESTION"
                 )
             )
         )

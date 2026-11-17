@@ -244,6 +244,9 @@ interface ChatDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(messages: List<ChatMessageEntity>)
+
+    @Query("UPDATE chat_messages SET isRead = :isRead WHERE conversationId = :convId")
+    suspend fun setConversationRead(convId: String, isRead: Boolean)
 }
 
 @Dao

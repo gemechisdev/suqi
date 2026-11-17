@@ -737,6 +737,161 @@ class ExampleRobolectricTest {
         assertTrue(EthiopianMarketplaceUtils.matchesBannerAudience("ADDIS_ONLY", olderUser, 3, "Addis Ababa", now))
         assertFalse(EthiopianMarketplaceUtils.matchesBannerAudience("ADDIS_ONLY", olderUser, 3, "Adama", now))
     }
+
+    @Test
+    fun testShopExtendedCodecsAndSellerPreferencesStore() {
+        val defaultWeek = com.example.data.model.ShopBusinessHoursCodec.defaultWeek()
+        assertEquals(7, defaultWeek.size)
+        assertFalse(defaultWeek.first { it.dayKey == "SUN" }.isOpen)
+
+        val editedWeek = defaultWeek.map {
+            if (it.dayKey == "MON") it.copy(openTime = "09:00", closeTime = "20:00") else it
+        }
+        val hoursJson = com.example.data.model.ShopBusinessHoursCodec.toJson(editedWeek)
+        val parsedWeek = com.example.data.model.ShopBusinessHoursCodec.parse(hoursJson)
+        assertEquals("09:00", parsedWeek.first { it.dayKey == "MON" }.openTime)
+        assertEquals("20:00", parsedWeek.first { it.dayKey == "MON" }.closeTime)
+
+        val galleryInput = listOf("a.jpg", "b.jpg", "c.jpg", "d.jpg", "e.jpg", "f.jpg", "extra.jpg")
+        val galleryJson = com.example.data.model.ShopGalleryCodec.toJson(galleryInput)
+        val parsedGallery = com.example.data.model.ShopGalleryCodec.parse(galleryJson)
+        assertEquals(6, parsedGallery.size)
+
+        val store = com.example.data.local.SellerPreferencesStore(context)
+        val draft = com.example.data.local.ProductDraftData(
+            name = "Ethiopian Coffee Grinder",
+            priceStr = "3200",
+            savedAtLabel = "14:20"
+        )
+        store.saveProductDraft(draft)
+        val loadedDraft = store.loadProductDraft()
+        assertNotNull(loadedDraft)
+        assertEquals("Ethiopian Coffee Grinder", loadedDraft!!.name)
+        store.clearProductDraft()
+        assertNull(store.loadProductDraft())
+
+        val notifPrefs = com.example.data.local.SellerNotificationPrefs(
+            newOrder = true,
+            paymentSubmitted = false,
+            lowStock = true,
+            newReview = false,
+            buyerQuestion = true
+        )
+        store.saveNotificationPrefs(notifPrefs)
+        assertEquals(notifPrefs, store.loadNotificationPrefs())
+
+        val customReplies = listOf("Payment received ✓", "Ready for pickup at Bole")
+        store.saveQuickReplies(customReplies)
+        assertEquals(customReplies, store.loadQuickReplies(listOf("Default")))
+    }
+
+    @Test
+    fun testPhase3InventoryBulkDuplicateProfileAndInboxBackend() = runBlocking {
+        val loginRes = backend.loginWithPhoneOtp(
+            mapOf("phone" to "+251 912 345 678", "otp" to "123456")
+        )
+        assertTrue(loginRes.success)
+
+        val initialSellerProds = backend.getSellerProducts().data.orEmpty()
+        assertTrue("Seller should have seeded products", initialSellerProds.isNotEmpty())
+        val baseProd = initialSellerProds.first()
+
+        // 1. Duplicate listing creates DRAFT copy
+        val dupRes = backend.duplicateProduct(baseProd.id)
+        assertTrue(dupRes.success)
+        val duplicated = dupRes.data!!
+        assertEquals("DRAFT", duplicated.status)
+        assertTrue(duplicated.name.contains("Copy"))
+
+        // 2. Stock update + bulk operations
+        val stockRes = backend.updateProductStock(duplicated.id, mapOf("stockQuantity" to 19))
+        assertTrue(stockRes.success)
+        assertEquals(19, stockRes.data!!.stockQuantity)
+
+        val bulkStockRes = backend.bulkUpdateProducts(
+            mapOf("ids" to listOf(duplicated.id), "action" to "SET_STOCK", "value" to "4")
+        )
+        assertTrue(bulkStockRes.success)
+        assertEquals(1, bulkStockRes.data)
+        val afterBulkStock = backend.getProductDetails(duplicated.id).data!!
+        val expectedBulkStock = if (duplicated.details.variants.isNotEmpty()) {
+            4 * duplicated.details.variants.size
+        } else {
+            4
+        }
+        assertEquals(expectedBulkStock, afterBulkStock.stockQuantity)
+
+        val bulkDiscountRes = backend.bulkUpdateProducts(
+            mapOf("ids" to listOf(duplicated.id), "action" to "APPLY_DISCOUNT", "value" to "20")
+        )
+        assertTrue(bulkDiscountRes.success)
+        assertEquals(20, backend.getProductDetails(duplicated.id).data!!.discountPercent)
+
+        val bulkDeleteRes = backend.bulkUpdateProducts(
+            mapOf("ids" to listOf(duplicated.id), "action" to "DELETE")
+        )
+        assertTrue(bulkDeleteRes.success)
+        assertFalse(backend.getSellerProducts().data.orEmpty().any { it.id == duplicated.id })
+
+        // 3. Shop profile & delivery extended fields
+        val weekJson = com.example.data.model.ShopBusinessHoursCodec.toJson(
+            com.example.data.model.ShopBusinessHoursCodec.defaultWeek()
+        )
+        val galleryJson = com.example.data.model.ShopGalleryCodec.toJson(listOf("https://example.com/1.jpg"))
+        val updateShopRes = backend.updateShopSettings(
+            mapOf(
+                "shopId" to baseProd.shopId,
+                "businessHoursJson" to weekJson,
+                "galleryJson" to galleryJson,
+                "instagramLink" to "@suqi_shop",
+                "tiktokLink" to "@suqi_tiktok",
+                "websiteUrl" to "https://suqi.et",
+                "returnPolicy" to "7 days exchange",
+                "deliveryNotesPolicy" to "Dispatched same day",
+                "standardCutoffTime" to "15:30",
+                "expressCutoffTime" to "13:00"
+            )
+        )
+        assertTrue(updateShopRes.success)
+        val updatedShop = backend.getShopDetails(baseProd.shopId).data!!
+        assertEquals("@suqi_shop", updatedShop.instagramLink)
+        assertEquals("@suqi_tiktok", updatedShop.tiktokLink)
+        assertEquals("https://suqi.et", updatedShop.websiteUrl)
+        assertEquals("7 days exchange", updatedShop.returnPolicy)
+        assertEquals("Dispatched same day", updatedShop.deliveryNotesPolicy)
+        assertEquals("15:30", updatedShop.standardCutoffTime)
+        assertEquals("13:00", updatedShop.expressCutoffTime)
+        assertEquals(1, com.example.data.model.ShopGalleryCodec.parse(updatedShop.galleryJson).size)
+
+        // 4. Seller inbox read/unread & order-context chat message
+        val markUnreadRes = backend.markChatConversationRead(baseProd.shopId, false)
+        assertTrue(markUnreadRes.success)
+        val convAfterUnread = backend.getChatConversations().data.orEmpty().first { it.shopId == baseProd.shopId }
+        assertFalse(convAfterUnread.isRead)
+
+        val markReadRes = backend.markChatConversationRead(baseProd.shopId, true)
+        assertTrue(markReadRes.success)
+        val convAfterRead = backend.getChatConversations().data.orEmpty().first { it.shopId == baseProd.shopId }
+        assertTrue(convAfterRead.isRead)
+
+        val msgRes = backend.sendChatMessage(
+            baseProd.shopId,
+            mapOf(
+                "senderType" to "SHOP",
+                "message" to "Your parcel is packed",
+                "orderContextRef" to "SUQ-2025-001234",
+                "orderContextStatus" to "Dispatched",
+                "orderContextTotal" to "ETB 25,049",
+                "threadCategory" to "ORDER"
+            )
+        )
+        assertTrue(msgRes.success)
+        val sentMsg = msgRes.data!!
+        assertEquals("SHOP", sentMsg.senderType)
+        assertEquals("SUQ-2025-001234", sentMsg.orderContextRef)
+        assertEquals("ORDER", sentMsg.threadCategory)
+    }
 }
+
 
 

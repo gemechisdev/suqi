@@ -142,6 +142,22 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun createProduct(data: Map<String, Any>) = api.createProduct(data)
     suspend fun updateProduct(id: String, data: Map<String, Any>) = api.updateProduct(id, data)
     suspend fun updateProductStatus(id: String, status: String) = api.updateProductStatus(id, status)
+    suspend fun updateProductStock(id: String, stockQuantity: Int, detailsJson: String? = null): ApiResponse<ProductDto> {
+        val payload = buildMap<String, Any> {
+            put("stockQuantity", stockQuantity)
+            if (detailsJson != null) put("detailsJson", detailsJson)
+        }
+        return api.updateProductStock(id, payload)
+    }
+    suspend fun bulkUpdateProducts(ids: List<String>, action: String, value: String? = null): ApiResponse<Int> {
+        val payload = buildMap<String, Any> {
+            put("ids", ids)
+            put("action", action)
+            if (value != null) put("value", value)
+        }
+        return api.bulkUpdateProducts(payload)
+    }
+    suspend fun duplicateProduct(id: String) = api.duplicateProduct(id)
     suspend fun deleteProduct(id: String) = api.deleteProduct(id)
     suspend fun getSellerOrders() = api.getSellerOrders()
     suspend fun updateSellerOrderStatus(orderId: String, status: String) = api.updateSellerOrderStatus(orderId, status)
@@ -164,6 +180,7 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun getChatConversations() = api.getChatConversations()
     suspend fun getChatMessages(shopId: String) = api.getChatMessages(shopId)
     suspend fun sendChatMessage(shopId: String, messageData: Map<String, Any>) = api.sendChatMessage(shopId, messageData)
+    suspend fun markChatConversationRead(shopId: String, isRead: Boolean) = api.markChatConversationRead(shopId, isRead)
     suspend fun getReviews(targetId: String) = api.getReviews(targetId)
     suspend fun submitReview(data: Map<String, Any>) = api.submitReview(data)
     suspend fun getNotifications() = api.getNotifications()

@@ -45,6 +45,9 @@ object SuqiApiMessages {
         r("^Discount must be between 0 and 90%\\.?", "ቅናሽ ከ0 እስከ 90% መሆን አለበት።", "Hir'inni 0 hanga 90% gidduu ta'uu qaba."),
         r("^Stock cannot be negative\\.?", "ክምችት አሉታዊ መሆን አይችልም።", "Kuusaan negatiivii ta'uu hin danda'u."),
         r("^You can add up to 12 media files\\.?", "እስከ 12 የሚዲያ ፋይሎችን ማከል ይችላሉ።", "Faayila miidiyaa hanga 12 dabaluu dandeessu."),
+        r("^Bulk update applied\\.?", "የጅምላ ማሻሻያ ተተግብሯል።", "Haaromsi jumlaa hojiirra ooleera."),
+        r("^Product duplicated\\.?", "ምርቱ ተቀድቷል።", "Oomishni garagalfameera."),
+        r("^Select at least one product\\.?", "ቢያንስ አንድ ምርት ይምረጡ።", "Yoo xiqqaate oomisha tokko filadhaa."),
         r("^(.+) is required\\.?", "$1 ያስፈልጋል።", "$1 barbaachisaa dha.")
     )
 

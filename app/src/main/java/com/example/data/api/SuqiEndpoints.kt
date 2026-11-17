@@ -35,6 +35,9 @@ object SuqiEndpoints {
     const val SELLER_DASHBOARD = "seller/dashboard"
     const val SELLER_PRODUCTS = "seller/products"
     const val SELLER_PRODUCT_UPDATE = "seller/products/update"
+    const val SELLER_PRODUCT_STOCK = "seller/products/{id}/stock"
+    const val SELLER_PRODUCTS_BULK = "seller/products/bulk"
+    const val SELLER_PRODUCT_DUPLICATE = "seller/products/{id}/duplicate"
     const val SELLER_ORDERS = "seller/orders"
     const val SELLER_ORDER_STATUS = "seller/orders/{orderId}/status"
     const val SELLER_VERIFICATION_QUEUE = "seller/verification-queue"
@@ -49,6 +52,7 @@ object SuqiEndpoints {
     // Chat, Reviews, Notifications, Addresses
     const val CHAT_CONVERSATIONS = "chat/conversations"
     const val CHAT_MESSAGES = "chat/{shopId}/messages"
+    const val CHAT_MARK_READ = "chat/{shopId}/read"
     const val REVIEWS = "reviews"
     const val NOTIFICATIONS = "notifications"
     const val ADDRESSES = "addresses"

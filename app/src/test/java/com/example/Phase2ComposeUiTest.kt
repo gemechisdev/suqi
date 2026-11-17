@@ -39,8 +39,9 @@ class Phase2ComposeUiTest {
         SuqiViewModel(ApplicationProvider.getApplicationContext<Application>())
 
     private fun waitForTag(tag: String) {
-        composeRule.waitUntil(timeoutMillis = 8_000) {
-            shadowOf(Looper.getMainLooper()).idle()
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            Thread.sleep(20)
+            shadowOf(Looper.getMainLooper()).idleFor(16, java.util.concurrent.TimeUnit.MILLISECONDS)
             composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
         }
     }

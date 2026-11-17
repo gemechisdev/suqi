@@ -238,6 +238,7 @@ fun SuqiAppRoot(
                             viewModel = viewModel
                         )
                         is ScreenDestination.ProductManagement -> ProductManagementScreen(viewModel = viewModel)
+                        is ScreenDestination.SellerInventory -> SellerInventoryScreen(viewModel = viewModel)
                         is ScreenDestination.PaymentMethodsSetup -> PaymentMethodsSetupScreen(viewModel = viewModel)
                         is ScreenDestination.DeliverySetup -> DeliverySetupScreen(viewModel = viewModel)
                         is ScreenDestination.VerificationQueue -> VerificationQueueScreen(viewModel = viewModel)

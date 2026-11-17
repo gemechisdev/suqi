@@ -33,6 +33,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun loginWithTelegram(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val name = payload["name"]?.trim()?.takeIf { it.isNotBlank() } ?: "Telegram Shopper"
         val phone = payload["phone"]?.trim()?.takeIf { it.isNotBlank() } ?: "+251 911 234 567"
         val existing = db.userDao().getAllUsers().firstOrNull {
@@ -64,6 +65,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun loginWithGoogle(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val name = payload["name"]?.trim()?.takeIf { it.isNotBlank() } ?: "Suqi Shopper"
         val email = payload["email"]?.trim()?.takeIf { it.isNotBlank() } ?: "shopper@suqi.et"
         val existing = db.userDao().getAllUsers().firstOrNull {
@@ -95,6 +97,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun loginWithPhoneOtp(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val rawPhone = payload["phone"]?.trim().orEmpty()
         val otp = payload["otp"]?.trim().orEmpty()
         val name = payload["name"]?.trim().orEmpty()
@@ -921,8 +924,131 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             db.productDao().updateProduct(prod.copy(status = status))
             ApiResponse(success = true, data = true)
         } else {
-            ApiResponse(success = false, data = false)
+            ApiResponse(success = false, data = false, message = "Product not found")
         }
+    }
+
+    override suspend fun updateProductStock(id: String, payload: Map<String, Any>): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
+        val existing = db.productDao().getProductById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Product not found")
+        val targetStock = (payload["stockQuantity"] as? Number)?.toInt()?.coerceAtLeast(0)
+            ?: existing.stockQuantity
+        val detailsJson = (payload["detailsJson"] as? String)?.takeIf { it.isNotBlank() } ?: existing.detailsJson
+        val parsedDetails = parseProductDetails(detailsJson)
+        val finalStock = if (parsedDetails != null && parsedDetails.variants.isNotEmpty() && parsedDetails.variants.all { it.stock != null }) {
+            parsedDetails.variants.sumOf { (it.stock ?: 0).coerceAtLeast(0) }
+        } else {
+            targetStock
+        }
+        val updated = existing.copy(
+            stockQuantity = finalStock,
+            detailsJson = detailsJson
+        )
+        db.productDao().updateProduct(updated)
+        ApiResponse(success = true, data = updated.toDto())
+    }
+
+    override suspend fun bulkUpdateProducts(payload: Map<String, Any>): ApiResponse<Int> = withContext(Dispatchers.IO) {
+        @Suppress("UNCHECKED_CAST")
+        val ids = (payload["ids"] as? List<*>)?.mapNotNull { it as? String }?.distinct().orEmpty()
+        val action = (payload["action"] as? String)?.uppercase().orEmpty()
+        val value = payload["value"] as? String
+        if (ids.isEmpty()) {
+            return@withContext ApiResponse(success = false, data = 0, message = "Select at least one product")
+        }
+        var affected = 0
+        val touchedShopIds = mutableSetOf<String>()
+        for (id in ids) {
+            val prod = db.productDao().getProductById(id) ?: continue
+            touchedShopIds.add(prod.shopId)
+            when (action) {
+                "PAUSE" -> {
+                    db.productDao().updateProduct(prod.copy(status = "PAUSED"))
+                    affected++
+                }
+                "ACTIVATE" -> {
+                    db.productDao().updateProduct(prod.copy(status = "ACTIVE"))
+                    affected++
+                }
+                "ARCHIVE" -> {
+                    db.productDao().updateProduct(prod.copy(status = "ARCHIVED"))
+                    affected++
+                }
+                "DELETE" -> {
+                    db.productDao().deleteById(id)
+                    affected++
+                }
+                "OUT_OF_STOCK" -> {
+                    val details = parseProductDetails(prod.detailsJson)
+                    val updatedDetailsJson = if (details != null && details.variants.isNotEmpty()) {
+                        details.copy(variants = details.variants.map { it.copy(stock = 0) }).toJson()
+                    } else prod.detailsJson
+                    db.productDao().updateProduct(prod.copy(stockQuantity = 0, detailsJson = updatedDetailsJson))
+                    affected++
+                }
+                "SET_STOCK" -> {
+                    val targetStock = (value?.toIntOrNull() ?: 0).coerceAtLeast(0)
+                    val details = parseProductDetails(prod.detailsJson)
+                    val updatedDetailsJson = if (details != null && details.variants.isNotEmpty()) {
+                        val perVariant = if (targetStock == 0) 0 else targetStock
+                        details.copy(variants = details.variants.map { it.copy(stock = perVariant) }).toJson()
+                    } else prod.detailsJson
+                    val total = if (details != null && details.variants.isNotEmpty()) {
+                        targetStock * details.variants.size
+                    } else targetStock
+                    db.productDao().updateProduct(prod.copy(stockQuantity = total, detailsJson = updatedDetailsJson))
+                    affected++
+                }
+                "CHANGE_CATEGORY" -> {
+                    val catId = value?.trim().orEmpty()
+                    if (catId.isNotBlank()) {
+                        db.productDao().updateProduct(prod.copy(categoryId = catId))
+                        affected++
+                    }
+                }
+                "APPLY_DISCOUNT" -> {
+                    val pct = (value?.toIntOrNull() ?: 0).coerceIn(0, 90)
+                    val basePrice = maxOf(prod.originalPrice, prod.price).coerceAtLeast(1.0)
+                    val newPrice = if (pct > 0) {
+                        kotlin.math.round(basePrice * (1.0 - pct / 100.0)).coerceAtLeast(1.0)
+                    } else basePrice
+                    db.productDao().updateProduct(
+                        prod.copy(
+                            price = newPrice,
+                            originalPrice = basePrice,
+                            discountPercent = pct
+                        )
+                    )
+                    affected++
+                }
+            }
+        }
+        touchedShopIds.forEach { shopId ->
+            db.shopDao().getShopById(shopId)?.let { shop ->
+                db.shopDao().updateShop(shop.copy(productCount = db.productDao().getProductsByShop(shopId).size))
+            }
+        }
+        ApiResponse(success = true, data = affected, message = "Bulk update applied")
+    }
+
+    override suspend fun duplicateProduct(id: String): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
+        val existing = db.productDao().getProductById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Product not found")
+        val copy = existing.copy(
+            id = "prod_dup_${System.currentTimeMillis()}",
+            name = "${existing.name} (Copy)",
+            nameAmharic = if (existing.nameAmharic.isNotBlank()) "${existing.nameAmharic} (ቅጂ)" else "",
+            nameAfaanOromo = if (existing.nameAfaanOromo.isNotBlank()) "${existing.nameAfaanOromo} (Garagalcha)" else "",
+            status = "DRAFT",
+            reviewCount = 0,
+            soldCount = "New",
+            isWishlisted = false
+        )
+        db.productDao().insertProduct(copy)
+        db.shopDao().getShopById(existing.shopId)?.let { shop ->
+            db.shopDao().updateShop(shop.copy(productCount = db.productDao().getProductsByShop(existing.shopId).size))
+        }
+        ApiResponse(success = true, data = copy.toDto(), message = "Product duplicated")
     }
 
     override suspend fun getSellerOrders(): ApiResponse<List<OrderDto>> = withContext(Dispatchers.IO) {
@@ -1159,7 +1285,15 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 vacationNote = settings["vacationNote"] as? String ?: shop.vacationNote,
                 freeDeliveryThreshold = (settings["freeDeliveryThreshold"] as? Number)?.toDouble() ?: shop.freeDeliveryThreshold,
                 coverageSubCitiesCsv = settings["coverageSubCitiesCsv"] as? String ?: shop.coverageSubCitiesCsv,
-                businessHoursJson = settings["businessHoursJson"] as? String ?: shop.businessHoursJson
+                businessHoursJson = settings["businessHoursJson"] as? String ?: shop.businessHoursJson,
+                galleryJson = settings["galleryJson"] as? String ?: shop.galleryJson,
+                instagramLink = settings["instagramLink"] as? String ?: shop.instagramLink,
+                tiktokLink = settings["tiktokLink"] as? String ?: shop.tiktokLink,
+                websiteUrl = settings["websiteUrl"] as? String ?: shop.websiteUrl,
+                returnPolicy = settings["returnPolicy"] as? String ?: shop.returnPolicy,
+                deliveryNotesPolicy = settings["deliveryNotesPolicy"] as? String ?: shop.deliveryNotesPolicy,
+                standardCutoffTime = settings["standardCutoffTime"] as? String ?: shop.standardCutoffTime,
+                expressCutoffTime = settings["expressCutoffTime"] as? String ?: shop.expressCutoffTime
             )
             db.shopDao().updateShop(updated)
             ApiResponse(success = true, data = true)
@@ -1184,7 +1318,12 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val text = (messageData["message"] as? String)?.trim().orEmpty()
         val imageUrl = (messageData["imageUrl"] as? String)?.trim().orEmpty()
         val senderType = (messageData["senderType"] as? String)?.takeIf { it.isNotBlank() } ?: "CUSTOMER"
-        if (text.isBlank() && imageUrl.isBlank()) {
+        val orderRef = (messageData["orderContextRef"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+        val orderStatus = (messageData["orderContextStatus"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+        val orderTotal = (messageData["orderContextTotal"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+        val threadCategory = (messageData["threadCategory"] as? String)?.takeIf { it.isNotBlank() }
+            ?: if (orderRef != null) "ORDER" else "QUESTION"
+        if (text.isBlank() && imageUrl.isBlank() && orderRef == null) {
             return@withContext ApiResponse(success = false, message = "Message cannot be empty")
         }
         val shop = db.shopDao().getShopById(shopId)
@@ -1195,16 +1334,26 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             shopId = shopId,
             shopName = shop?.name ?: "Shop",
             senderType = senderType,
-            message = text.ifBlank { "Sent a photo" },
+            message = text.ifBlank { if (orderRef != null) "Order #$orderRef" else "Sent a photo" },
             timestamp = "Just now",
             productContextName = messageData["productContextName"] as? String,
             productContextPrice = messageData["productContextPrice"] as? String,
             productContextImage = messageData["productContextImage"] as? String,
             isRead = true,
-            imageUrl = imageUrl
+            imageUrl = imageUrl,
+            orderContextRef = orderRef,
+            orderContextStatus = orderStatus,
+            orderContextTotal = orderTotal,
+            threadCategory = threadCategory
         )
         db.chatDao().insert(msg)
         ApiResponse(success = true, data = msg.toDto())
+    }
+
+    override suspend fun markChatConversationRead(shopId: String, isRead: Boolean): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val convId = "conv_${shopId.replace("shop_", "")}"
+        db.chatDao().setConversationRead(convId, isRead)
+        ApiResponse(success = true, data = true)
     }
 
     override suspend fun getReviews(targetId: String): ApiResponse<List<ReviewDto>> = withContext(Dispatchers.IO) {
@@ -2002,7 +2151,10 @@ fun ShopEntity.toDto() = ShopDto(
     vacationReturnDate = vacationReturnDate, vacationNote = vacationNote,
     freeDeliveryThreshold = freeDeliveryThreshold, coverageSubCitiesCsv = coverageSubCitiesCsv,
     verificationDocsJson = verificationDocsJson, verificationRejectionReason = verificationRejectionReason,
-    createdAt = createdAt
+    createdAt = createdAt,
+    galleryJson = galleryJson, instagramLink = instagramLink, tiktokLink = tiktokLink, websiteUrl = websiteUrl,
+    returnPolicy = returnPolicy, deliveryNotesPolicy = deliveryNotesPolicy,
+    standardCutoffTime = standardCutoffTime, expressCutoffTime = expressCutoffTime
 )
 
 fun ProductEntity.toDto() = ProductDto(
@@ -2113,7 +2265,9 @@ fun ChatMessageEntity.toDto() = ChatMessageDto(
     shopName = shopName, senderType = senderType, message = message,
     timestamp = timestamp, productContextName = productContextName,
     productContextPrice = productContextPrice, productContextImage = productContextImage,
-    isRead = isRead, imageUrl = imageUrl
+    isRead = isRead, imageUrl = imageUrl,
+    orderContextRef = orderContextRef, orderContextStatus = orderContextStatus,
+    orderContextTotal = orderContextTotal, threadCategory = threadCategory
 )
 
 fun NotificationEntity.toDto() = NotificationDto(

@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +36,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.data.local.SellerNotificationPrefs
+import com.example.data.local.SellerPreferencesStore
 import com.example.data.model.*
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
@@ -469,6 +472,17 @@ fun SellerStudioScreen(
                                 onClick = { viewModel.switchSellerTab(ScreenDestination.ProductManagement) }
                             )
                             QuickActionTile(
+                                icon = LucideIcons.SlidersHorizontal,
+                                title = strings.sellerWork.inventoryTitle,
+                                modifier = Modifier.weight(1f).testTag("quick_action_inventory"),
+                                onClick = { viewModel.navigate(ScreenDestination.SellerInventory) }
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            QuickActionTile(
                                 icon = LucideIcons.ClipboardCheck,
                                 title = strings.seller.verificationQueueTitle,
                                 modifier = Modifier.weight(1f),
@@ -480,17 +494,17 @@ fun SellerStudioScreen(
                                 modifier = Modifier.weight(1f),
                                 onClick = { viewModel.navigate(ScreenDestination.PaymentMethodsSetup) }
                             )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
                             QuickActionTile(
                                 icon = LucideIcons.Truck,
                                 title = strings.checkout.stepDelivery,
                                 modifier = Modifier.weight(1f),
                                 onClick = { viewModel.navigate(ScreenDestination.DeliverySetup) }
                             )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
                             QuickActionTile(
                                 icon = LucideIcons.BadgePercent,
                                 title = strings.seller.promotionsTitle,
@@ -581,737 +595,6 @@ fun QuickActionTile(
                 overflow = TextOverflow.Ellipsis
             )
         }
-    }
-}
-
-@Composable
-fun AddEditProductScreen(
-    productId: String? = null,
-    viewModel: SuqiViewModel,
-    modifier: Modifier = Modifier
-) {
-    val colors = LocalSuqiColors.current
-    val strings = suqiStrings()
-    val lang = LocalSuqiLanguage.current
-    val isOffline by viewModel.isOffline.collectAsState()
-    val coroutineScope = rememberCoroutineScope()
-
-    var name by remember { mutableStateOf("") }
-    var categoryId by remember { mutableStateOf("cat_electronics") }
-    var categories by remember(lang) {
-        mutableStateOf(
-            com.example.data.model.MarketplaceCategories.all.map { it.id to it.toDto().localizedName(lang) }
-        )
-    }
-    var priceStr by remember { mutableStateOf("") }
-    var discountStr by remember { mutableStateOf("0") }
-    var stockStr by remember { mutableStateOf("10") }
-    var stockHold by remember { mutableStateOf(true) }
-    var description by remember { mutableStateOf("") }
-
-    var selectedTax by remember { mutableStateOf("15% Standard VAT Included") }
-    val taxOptions = remember { listOf("15% Standard VAT Included", "0% Exempt / Turn-Over Tax (TOT)", "Custom (5%)") }
-
-    val media = remember { mutableStateListOf<MediaItem>() }
-    val form = remember { ProductFormState() }
-    var showMissingPaymentDialog by remember { mutableStateOf(false) }
-
-    var showMultilingual by remember { mutableStateOf(false) }
-    var nameAmharic by remember { mutableStateOf("") }
-    var descAmharic by remember { mutableStateOf("") }
-    var nameOromo by remember { mutableStateOf("") }
-    var descOromo by remember { mutableStateOf("") }
-
-    LaunchedEffect(productId, lang) {
-        val catRes = viewModel.repository.getCategories()
-        if (catRes.success && !catRes.data.isNullOrEmpty()) {
-            categories = catRes.data.filter { it.isActive }.map { it.id to it.localizedName(lang) }
-        }
-        if (productId != null) {
-            val res = viewModel.repository.getProductDetails(productId)
-            val p = res.data
-            if (res.success && p != null) {
-                name = p.name
-                categoryId = p.categoryId
-                priceStr = if (p.price % 1.0 == 0.0) p.price.toLong().toString() else p.price.toString()
-                discountStr = p.discountPercent.toString()
-                stockStr = p.stockQuantity.toString()
-                stockHold = p.stockHoldEnabled
-                description = p.description
-                nameAmharic = p.nameAmharic
-                nameOromo = p.nameAfaanOromo
-                descAmharic = p.descriptionAmharic
-                descOromo = p.descriptionAfaanOromo
-                media.clear()
-                media.addAll(p.details.media)
-                form.load(p.details)
-            }
-        }
-    }
-
-    SuqiScreen(
-        title = if (productId == null) strings.seller.addProductTitle else strings.seller.editProductTitle,
-        onBackClick = { viewModel.goBack() },
-        isOffline = isOffline,
-        bottomBar = {
-            Surface(
-                color = colors.cardBackground,
-                shadowElevation = if (colors.isDark) 0.dp else 12.dp,
-                border = BorderStroke(1.dp, colors.border),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    SuqiButton(
-                        text = if (productId == null) strings.seller.publishProductBtn else strings.seller.saveChangesBtn,
-                        onClick = {
-                            coroutineScope.launch {
-                                if (productId == null) {
-                                    val activeShopId = resolveActiveSellerShopId(viewModel)
-                                    val payRes = viewModel.repository.getShopPaymentMethods(activeShopId)
-                                    if (activeShopId.isBlank() || (payRes.success && payRes.data.orEmpty().none { it.isEnabled })) {
-                                        showMissingPaymentDialog = true
-                                        return@launch
-                                    }
-                                }
-
-                                val p = priceStr.toDoubleOrNull() ?: 0.0
-                                val d = discountStr.toIntOrNull() ?: 0
-                                val s = stockStr.toIntOrNull() ?: 0
-                                when {
-                                    media.none { !it.isVideo } -> { viewModel.showToast(strings.extras.toastAddCoverPhoto); return@launch }
-                                    name.isBlank() -> { viewModel.showToast(strings.extras.toastEnterProductName); return@launch }
-                                    p <= 0.0 -> { viewModel.showToast(strings.extras.toastEnterValidPrice); return@launch }
-                                    d !in 0..90 -> { viewModel.showToast(strings.extras.toastDiscountRange); return@launch }
-                                    description.isBlank() -> { viewModel.showToast(strings.extras.toastEnterDescription); return@launch }
-                                }
-                                form.missingRequired()?.let {
-                                    viewModel.showToast(String.format(strings.extras.toastFieldRequiredTemplate, it.label))
-                                    return@launch
-                                }
-
-                                val payload = mapOf<String, Any>(
-                                    "name" to name.trim(),
-                                    "nameAmharic" to nameAmharic,
-                                    "nameAfaanOromo" to nameOromo,
-                                    "price" to p,
-                                    "discountPercent" to d,
-                                    "stockQuantity" to s,
-                                    "stockHoldEnabled" to stockHold,
-                                    "categoryId" to categoryId,
-                                    "tax" to selectedTax,
-                                    "description" to description,
-                                    "descriptionAmharic" to descAmharic,
-                                    "descriptionAfaanOromo" to descOromo,
-                                    "detailsJson" to form.toDetails(media.toList()).toJson()
-                                )
-                                val res = if (productId == null) {
-                                    viewModel.repository.createProduct(payload)
-                                } else {
-                                    viewModel.repository.updateProduct(productId, payload)
-                                }
-                                if (res.success) {
-                                    viewModel.showToast(if (productId == null) strings.extras.toastProductSaved else strings.extras.toastProductUpdated)
-                                    viewModel.goBack()
-                                } else {
-                                    viewModel.showToast(res.message ?: strings.extras.toastProductSaveFailed)
-                                }
-                            }
-                        },
-                        testTag = "save_product_button",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        },
-        modifier = modifier
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                SuqiMediaEditor(
-                    media = media,
-                    onMessage = { viewModel.showToast(it) }
-                )
-            }
-
-            item {
-                ItemTypeSelector(
-                    state = form,
-                    onTypeChosen = { type ->
-                        form.applyItemType(type)
-                        if (type.categoryId.isNotBlank()) categoryId = type.categoryId
-                    }
-                )
-            }
-
-            item {
-                Text(
-                    text = "${strings.buyer.categoryLabel} *",
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    color = colors.primaryText
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                SuqiFilterChips(
-                    items = categories,
-                    selectedKey = categoryId,
-                    onSelect = { categoryId = it },
-                    testTagPrefix = "product_cat_chip"
-                )
-            }
-
-            item {
-                SuqiSectionCard {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        SuqiTextField(value = name, onValueChange = { name = it }, label = "${strings.seller.paramNameRequiredLabel} (EN)")
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            SuqiTextField(
-                                value = priceStr,
-                                onValueChange = { priceStr = it },
-                                label = "${strings.seller.priceEtbLabel} *",
-                                modifier = Modifier.weight(1f)
-                            )
-                            SuqiTextField(
-                                value = discountStr,
-                                onValueChange = { discountStr = it },
-                                label = strings.discountLabel,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = strings.extras.vatLabel,
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 13.sp,
-                                color = colors.primaryText
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(taxOptions) { opt ->
-                                    val isSel = opt == selectedTax
-                                    Box(
-                                        modifier = Modifier
-                                            .heightIn(min = 48.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(if (isSel) colors.primaryTint else colors.secondaryBackground)
-                                            .border(1.dp, if (isSel) SuqiPrimary else colors.border, RoundedCornerShape(12.dp))
-                                            .clickable { selectedTax = opt }
-                                            .padding(horizontal = 12.dp, vertical = 7.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = opt,
-                                            fontFamily = SuqiFontFamily,
-                                            fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
-                                            fontSize = 12.sp,
-                                            color = if (isSel) SuqiPrimary else colors.primaryText
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SuqiTextField(
-                                value = stockStr,
-                                onValueChange = { stockStr = it },
-                                label = "${strings.seller.stockLabel} *",
-                                modifier = Modifier.weight(1f)
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = strings.seller.stockLabel,
-                                    fontFamily = SuqiFontFamily,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 14.sp,
-                                    color = colors.primaryText
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Switch(
-                                        checked = stockHold,
-                                        onCheckedChange = { stockHold = it },
-                                        colors = SwitchDefaults.colors(checkedTrackColor = SuqiPrimary)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (stockHold) strings.common.yesLabel else strings.common.noLabel,
-                                        fontFamily = SuqiFontFamily,
-                                        fontSize = 12.sp,
-                                        color = colors.secondaryText
-                                    )
-                                }
-                            }
-                        }
-
-                        SuqiTextField(
-                            value = description,
-                            onValueChange = { description = it },
-                            label = "${strings.description} (EN) *",
-                            singleLine = false
-                        )
-                    }
-                }
-            }
-
-            item { ParametersEditor(state = form) }
-            item {
-                VariantsEditor(
-                    state = form,
-                    media = media,
-                    onMessage = { viewModel.showToast(it) }
-                )
-            }
-
-            item {
-                SuqiSectionCard(containerColor = colors.secondaryBackground) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clickable { showMultilingual = !showMultilingual },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Icon(LucideIcons.Sparkles, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = strings.sellerOps.bilingualInfoTitle,
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                color = colors.primaryText
-                            )
-                        }
-                        Icon(
-                            imageVector = LucideIcons.ChevronDown,
-                            contentDescription = strings.sellerOps.bilingualInfoTitle,
-                            tint = colors.secondaryText,
-                            modifier = Modifier.graphicsLayer { rotationZ = if (showMultilingual) 180f else 0f }
-                        )
-                    }
-
-                    if (showMultilingual) {
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(strings.sellerOps.amharicSectionLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiPrimary)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        SuqiTextField(value = nameAmharic, onValueChange = { nameAmharic = it }, label = strings.seller.paramNameRequiredLabel)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SuqiTextField(value = descAmharic, onValueChange = { descAmharic = it }, label = strings.description, singleLine = false)
-
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(strings.sellerOps.afaanOromoSectionLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SuqiPrimary)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        SuqiTextField(value = nameOromo, onValueChange = { nameOromo = it }, label = strings.seller.paramNameRequiredLabel)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SuqiTextField(value = descOromo, onValueChange = { descOromo = it }, label = strings.description, singleLine = false)
-                    }
-                }
-            }
-        }
-    }
-
-    if (showMissingPaymentDialog) {
-        AlertDialog(
-            onDismissRequest = { showMissingPaymentDialog = false },
-            icon = { Icon(LucideIcons.ShieldCheck, contentDescription = null, tint = SuqiPrimary) },
-            title = { Text(strings.sellerOps.paymentMethodRequiredTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText) },
-            text = {
-                Text(
-                    strings.sellerOps.paymentMethodRequiredBody,
-                    fontFamily = SuqiFontFamily,
-                    fontSize = 14.sp,
-                    color = colors.secondaryText
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showMissingPaymentDialog = false
-                        viewModel.navigate(ScreenDestination.PaymentMethodsSetup)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) {
-                    Text(strings.sellerOps.setupPaymentMethodsBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showMissingPaymentDialog = false },
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) {
-                    Text(strings.cancelLabel, fontFamily = SuqiFontFamily)
-                }
-            },
-            containerColor = colors.cardBackground,
-            shape = RoundedCornerShape(24.dp)
-        )
-    }
-}
-
-@Composable
-fun ProductManagementScreen(
-    viewModel: SuqiViewModel,
-    modifier: Modifier = Modifier
-) {
-    val colors = LocalSuqiColors.current
-    val strings = suqiStrings()
-    val lang = LocalSuqiLanguage.current
-    val isOffline by viewModel.isOffline.collectAsState()
-    val coroutineScope = rememberCoroutineScope()
-
-    var isLoading by remember { mutableStateOf(true) }
-    var products by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
-    var selectedTab by remember { mutableStateOf("ALL") }
-    var searchQuery by remember { mutableStateOf("") }
-    var actionProduct by remember { mutableStateOf<ProductDto?>(null) }
-    var confirmDeleteProduct by remember { mutableStateOf<ProductDto?>(null) }
-
-    BackHandler(enabled = actionProduct != null) {
-        actionProduct = null
-    }
-
-    fun loadProducts() {
-        coroutineScope.launch {
-            isLoading = true
-            val res = viewModel.repository.getSellerProducts()
-            if (res.success && res.data != null) {
-                products = res.data
-            }
-            isLoading = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        loadProducts()
-    }
-
-    val tabs = remember(products, strings) {
-        listOf(
-            "ALL" to String.format(strings.sellerOps.allCountTemplate, products.size),
-            "ACTIVE" to String.format(strings.sellerOps.activeCountTemplate, products.count { it.status == "ACTIVE" }),
-            "PAUSED" to String.format(strings.sellerOps.pausedCountTemplate, products.count { it.status == "PAUSED" }),
-            "ARCHIVED" to String.format(strings.sellerOps.archivedCountTemplate, products.count { it.status == "ARCHIVED" }),
-            "LOW_STOCK" to String.format(strings.sellerOps.lowStockCountTemplate, products.count { it.stockQuantity in 0..5 })
-        )
-    }
-
-    val filtered = remember(products, selectedTab, searchQuery, lang) {
-        products.filter { prod ->
-            val matchesStatus = when (selectedTab) {
-                "ALL" -> true
-                "ACTIVE" -> prod.status == "ACTIVE"
-                "PAUSED" -> prod.status == "PAUSED"
-                "ARCHIVED" -> prod.status == "ARCHIVED"
-                "LOW_STOCK" -> prod.stockQuantity in 0..5
-                else -> true
-            }
-            val matchesQuery = searchQuery.isBlank() ||
-                prod.name.contains(searchQuery, ignoreCase = true) ||
-                prod.localizedName(lang).contains(searchQuery, ignoreCase = true) ||
-                prod.subCategory.contains(searchQuery, ignoreCase = true)
-            matchesStatus && matchesQuery
-        }
-    }
-
-    SuqiScreen(
-        title = strings.seller.productsTabTitle,
-        subtitle = String.format(strings.sellerOps.catalogItemsSubTemplate, products.size),
-        onBackClick = { viewModel.goBack() },
-        isOffline = isOffline,
-        onRetryOffline = {
-            viewModel.setOfflineMode(false)
-            loadProducts()
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.navigate(ScreenDestination.AddEditProduct()) },
-                containerColor = SuqiPrimary,
-                contentColor = Color.White,
-                modifier = Modifier
-                    .padding(bottom = SuqiBottomNavContentPadding - 16.dp)
-                    .testTag("seller_add_product_fab")
-            ) {
-                Icon(LucideIcons.Plus, contentDescription = strings.seller.addProductTitle)
-            }
-        },
-        modifier = modifier
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            SuqiSearchField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = strings.sellerOps.catalogSearchHint,
-                testTag = "seller_products_search",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-            )
-
-            SuqiFilterChips(
-                items = tabs,
-                selectedKey = selectedTab,
-                onSelect = { selectedTab = it },
-                testTagPrefix = "seller_product_tab"
-            )
-
-            if (isLoading) {
-                Box(modifier = Modifier.padding(top = 12.dp)) {
-                    SuqiSkeletonList(count = 4)
-                }
-            } else if (filtered.isEmpty()) {
-                SuqiEmptyState(
-                    icon = LucideIcons.PackageOpen,
-                    title = if (products.isEmpty()) strings.sellerOps.noProductsYetTitle else strings.buyer.noMatchingProducts,
-                    subtitle = if (products.isEmpty()) strings.sellerOps.noProductsYetSub else strings.buyer.noMatchingProductsSub,
-                    ctaText = if (products.isEmpty()) strings.sellerOps.addFirstProductBtn else strings.sellerOps.showAllProductsBtn,
-                    onCtaClick = {
-                        if (products.isEmpty()) viewModel.navigate(ScreenDestination.AddEditProduct())
-                        else {
-                            selectedTab = "ALL"
-                            searchQuery = ""
-                        }
-                    },
-                    testTag = "seller_products_empty"
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 10.dp,
-                        bottom = SuqiBottomNavContentPadding + 88.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(filtered, key = { it.id }) { prod ->
-                        val prodTitle = prod.localizedName(lang)
-                        SuqiSectionCard(
-                            padding = 12.dp,
-                            onClick = { viewModel.navigate(ScreenDestination.AddEditProduct(prod.id)) },
-                            modifier = Modifier.testTag("seller_product_card_${prod.id}")
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(64.dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(colors.imageBackdrop)
-                                ) {
-                                    AsyncImage(
-                                        model = prod.primaryImageUrl,
-                                        contentDescription = prodTitle,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = prodTitle,
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 14.sp,
-                                        color = colors.primaryText,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = formatEtb(prod.price),
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = SuqiPrimary
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        val statusLabel = when (prod.status) {
-                                            "ACTIVE" -> strings.seller.statusActive
-                                            "PAUSED" -> strings.seller.statusPaused
-                                            "ARCHIVED" -> strings.seller.statusArchived
-                                            "DRAFT" -> strings.seller.statusDraft
-                                            else -> prod.status
-                                        }
-                                        SuqiStatusBadge(
-                                            statusText = statusLabel,
-                                            type = when (prod.status) {
-                                                "ACTIVE" -> StatusType.SUCCESS
-                                                "PAUSED" -> StatusType.WARNING
-                                                else -> StatusType.NEUTRAL
-                                            }
-                                        )
-                                        Text(
-                                            text = String.format(strings.sellerOps.stockPrefixTemplate, prod.stockQuantity),
-                                            fontFamily = SuqiFontFamily,
-                                            fontSize = 12.sp,
-                                            color = if (prod.stockQuantity <= 5) SuqiWarning else colors.secondaryText
-                                        )
-                                    }
-                                }
-
-                                IconButton(
-                                    onClick = { actionProduct = prod },
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .testTag("product_actions_${prod.id}")
-                                ) {
-                                    Icon(
-                                        imageVector = LucideIcons.MoreVertical,
-                                        contentDescription = prodTitle,
-                                        tint = colors.primaryText
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    actionProduct?.let { target ->
-        val targetTitle = target.localizedName(lang)
-        SuqiBottomSheet(
-            onDismissRequest = { actionProduct = null },
-            title = targetTitle
-        ) {
-            SuqiListRow(
-                icon = LucideIcons.Pencil,
-                title = strings.sellerOps.editProductAction,
-                subtitle = strings.sellerOps.editProductActionSub,
-                onClick = {
-                    actionProduct = null
-                    viewModel.navigate(ScreenDestination.AddEditProduct(target.id))
-                },
-                testTag = "product_sheet_edit"
-            )
-            SuqiListRow(
-                icon = if (target.status == "ACTIVE") LucideIcons.Pause else LucideIcons.CheckCircle,
-                title = if (target.status == "ACTIVE") strings.sellerOps.pauseListingAction else strings.sellerOps.activateListingAction,
-                subtitle = if (target.status == "ACTIVE") strings.sellerOps.pauseListingActionSub else strings.sellerOps.activateListingActionSub,
-                onClick = {
-                    val nextStatus = if (target.status == "ACTIVE") "PAUSED" else "ACTIVE"
-                    actionProduct = null
-                    coroutineScope.launch {
-                        val res = viewModel.repository.updateProductStatus(target.id, nextStatus)
-                        viewModel.showToast(if (res.success) targetTitle else strings.common.failedToAddToast)
-                        loadProducts()
-                    }
-                },
-                testTag = "product_sheet_toggle"
-            )
-            if (target.status != "ARCHIVED") {
-                SuqiListRow(
-                    icon = LucideIcons.Package,
-                    title = strings.sellerOps.archiveListingAction,
-                    subtitle = strings.sellerOps.archiveListingActionSub,
-                    onClick = {
-                        actionProduct = null
-                        coroutineScope.launch {
-                            viewModel.repository.updateProductStatus(target.id, "ARCHIVED")
-                            viewModel.showToast(targetTitle)
-                            loadProducts()
-                        }
-                    },
-                    testTag = "product_sheet_archive"
-                )
-            }
-            SuqiListRow(
-                icon = LucideIcons.Eye,
-                title = strings.sellerOps.previewAsBuyerAction,
-                subtitle = strings.sellerOps.previewAsBuyerActionSub,
-                onClick = {
-                    actionProduct = null
-                    viewModel.navigate(ScreenDestination.ProductDetails(target.id))
-                },
-                testTag = "product_sheet_preview"
-            )
-            SuqiListRow(
-                icon = LucideIcons.Trash2,
-                title = strings.sellerOps.deleteProductAction,
-                subtitle = strings.sellerOps.deleteProductActionSub,
-                iconTint = SuqiError,
-                iconBackground = colors.errorBg,
-                onClick = {
-                    actionProduct = null
-                    confirmDeleteProduct = target
-                },
-                testTag = "product_sheet_delete"
-            )
-        }
-    }
-
-    confirmDeleteProduct?.let { target ->
-        val targetTitle = target.localizedName(lang)
-        AlertDialog(
-            onDismissRequest = { confirmDeleteProduct = null },
-            title = { Text(strings.sellerOps.deleteProductDialogTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText) },
-            text = {
-                Text(
-                    String.format(strings.sellerOps.deleteProductDialogBodyTemplate, targetTitle),
-                    fontFamily = SuqiFontFamily,
-                    color = colors.secondaryText
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        confirmDeleteProduct = null
-                        coroutineScope.launch {
-                            val res = viewModel.repository.deleteProduct(target.id)
-                            viewModel.showToast(if (res.success) strings.deleteLabel else (res.message ?: strings.deleteLabel))
-                            loadProducts()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SuqiError),
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) {
-                    Text(strings.deleteLabel, color = Color.White)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { confirmDeleteProduct = null },
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) {
-                    Text(strings.cancelLabel)
-                }
-            },
-            containerColor = colors.cardBackground,
-            shape = RoundedCornerShape(24.dp)
-        )
     }
 }
 
@@ -2139,237 +1422,6 @@ fun PaymentMethodsSetupScreen(
 }
 
 @Composable
-fun DeliverySetupScreen(
-    viewModel: SuqiViewModel,
-    modifier: Modifier = Modifier
-) {
-    val colors = LocalSuqiColors.current
-    val strings = suqiStrings()
-    val isOffline by viewModel.isOffline.collectAsState()
-    val coroutineScope = rememberCoroutineScope()
-
-    var activeShopId by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
-
-    var stdId by remember { mutableStateOf("") }
-    var expId by remember { mutableStateOf("") }
-    var pickId by remember { mutableStateOf("") }
-
-    var standardEnabled by remember { mutableStateOf(true) }
-    var standardFee by remember { mutableStateOf("50") }
-    var standardEta by remember { mutableStateOf("1-3 business days") }
-
-    var expressEnabled by remember { mutableStateOf(false) }
-    var expressFee by remember { mutableStateOf("120") }
-    var expressCutoff by remember { mutableStateOf("Same-day before 2:00 PM") }
-
-    var pickupEnabled by remember { mutableStateOf(true) }
-    var pickupAddress by remember { mutableStateOf("") }
-
-    var freeThreshold by remember { mutableStateOf("0") }
-    var coverageAreas by remember { mutableStateOf("") }
-    var requireReceiptScreenshot by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        isLoading = true
-        val sid = resolveActiveSellerShopId(viewModel)
-        activeShopId = sid
-        if (sid.isNotBlank()) {
-            val shopRes = viewModel.repository.getShopDetails(sid)
-            shopRes.data?.let { s ->
-                pickupAddress = s.address
-                coverageAreas = s.coverageSubCitiesCsv.ifBlank { "${s.city} (${s.subCity})" }
-                freeThreshold = if (s.freeDeliveryThreshold > 0.0) s.freeDeliveryThreshold.toLong().toString() else "0"
-                requireReceiptScreenshot = s.requireReceiptScreenshot
-            }
-            val delRes = viewModel.repository.getShopDeliveryOptions(sid)
-            val options = delRes.data.orEmpty()
-            options.firstOrNull { it.optionType == "STANDARD" }?.let {
-                stdId = it.id
-                standardEnabled = it.isEnabled
-                standardFee = it.fee.toLong().toString()
-                standardEta = it.estimatedTime
-            }
-            options.firstOrNull { it.optionType == "EXPRESS" }?.let {
-                expId = it.id
-                expressEnabled = it.isEnabled
-                expressFee = it.fee.toLong().toString()
-                expressCutoff = it.estimatedTime
-            }
-            options.firstOrNull { it.optionType == "PICKUP" }?.let {
-                pickId = it.id
-                pickupEnabled = it.isEnabled
-                if (it.estimatedTime.isNotBlank()) pickupAddress = it.estimatedTime
-            }
-        }
-        isLoading = false
-    }
-
-    SuqiScreen(
-        title = strings.sellerOps.deliveryRulesTitle,
-        onBackClick = { viewModel.goBack() },
-        isOffline = isOffline,
-        bottomBar = {
-            Surface(
-                color = colors.cardBackground,
-                shadowElevation = if (colors.isDark) 0.dp else 12.dp,
-                border = BorderStroke(1.dp, colors.border),
-                modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    SuqiButton(
-                        text = strings.saveLabel,
-                        onClick = {
-                            coroutineScope.launch {
-                                if (activeShopId.isBlank()) {
-                                    viewModel.showToast(strings.seller.sellerRestrictedTitle)
-                                    return@launch
-                                }
-                                viewModel.repository.saveShopDeliveryOption(
-                                    ShopDeliveryOptionDto(
-                                        id = stdId.ifBlank { "del_${activeShopId}_std" },
-                                        shopId = activeShopId,
-                                        optionType = "STANDARD",
-                                        title = "Standard Courier Delivery",
-                                        fee = standardFee.toDoubleOrNull() ?: 50.0,
-                                        estimatedTime = standardEta.trim().ifBlank { "1-3 business days" },
-                                        isEnabled = standardEnabled
-                                    )
-                                )
-                                viewModel.repository.saveShopDeliveryOption(
-                                    ShopDeliveryOptionDto(
-                                        id = expId.ifBlank { "del_${activeShopId}_exp" },
-                                        shopId = activeShopId,
-                                        optionType = "EXPRESS",
-                                        title = "Express Same-Day Delivery",
-                                        fee = expressFee.toDoubleOrNull() ?: 120.0,
-                                        estimatedTime = expressCutoff.trim().ifBlank { "Same-day" },
-                                        isEnabled = expressEnabled
-                                    )
-                                )
-                                viewModel.repository.saveShopDeliveryOption(
-                                    ShopDeliveryOptionDto(
-                                        id = pickId.ifBlank { "del_${activeShopId}_pickup" },
-                                        shopId = activeShopId,
-                                        optionType = "PICKUP",
-                                        title = "In-Store Customer Pickup",
-                                        fee = 0.0,
-                                        estimatedTime = pickupAddress.trim().ifBlank { "Ready in 2 hours" },
-                                        isEnabled = pickupEnabled
-                                    )
-                                )
-                                viewModel.repository.updateShopSettings(
-                                    mapOf(
-                                        "shopId" to activeShopId,
-                                        "freeDeliveryThreshold" to (freeThreshold.toDoubleOrNull() ?: 0.0),
-                                        "coverageSubCitiesCsv" to coverageAreas.trim(),
-                                        "requireReceiptScreenshot" to requireReceiptScreenshot
-                                    )
-                                )
-                                viewModel.showToast(strings.saveLabel)
-                                viewModel.goBack()
-                            }
-                        },
-                        testTag = "save_delivery_settings_button",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        },
-        modifier = modifier
-    ) { paddingValues ->
-        if (isLoading) {
-            Box(modifier = Modifier.padding(paddingValues).padding(top = 12.dp)) {
-                SuqiSkeletonList(count = 3)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                item {
-                    SuqiSectionCard {
-                        SuqiSwitchRow(
-                            title = strings.checkout.receiptScreenshotRequired,
-                            subtitle = strings.checkout.receiptRequiredHint,
-                            icon = LucideIcons.Receipt,
-                            checked = requireReceiptScreenshot,
-                            onCheckedChange = { requireReceiptScreenshot = it },
-                            testTag = "toggle_require_receipt"
-                        )
-                    }
-                }
-
-                item {
-                    SuqiSectionCard {
-                        SuqiSwitchRow(
-                            title = strings.sellerOps.standardDeliveryTitle,
-                            subtitle = strings.sellerOps.standardDeliveryDesc,
-                            icon = LucideIcons.Truck,
-                            checked = standardEnabled,
-                            onCheckedChange = { standardEnabled = it }
-                        )
-                        if (standardEnabled) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                SuqiTextField(value = standardFee, onValueChange = { standardFee = it }, label = strings.sellerOps.feeEtbLabel, modifier = Modifier.weight(1f))
-                                SuqiTextField(value = standardEta, onValueChange = { standardEta = it }, label = strings.sellerOps.etaWindowLabel, modifier = Modifier.weight(1.4f))
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    SuqiSectionCard {
-                        SuqiSwitchRow(
-                            title = strings.sellerOps.expressDeliveryTitle,
-                            subtitle = strings.sellerOps.expressDeliveryDesc,
-                            icon = LucideIcons.Zap,
-                            checked = expressEnabled,
-                            onCheckedChange = { expressEnabled = it }
-                        )
-                        if (expressEnabled) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                SuqiTextField(value = expressFee, onValueChange = { expressFee = it }, label = strings.sellerOps.feeEtbLabel, modifier = Modifier.weight(1f))
-                                SuqiTextField(value = expressCutoff, onValueChange = { expressCutoff = it }, label = strings.sellerOps.cutoffWindowLabel, modifier = Modifier.weight(1.4f))
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    SuqiSectionCard {
-                        SuqiSwitchRow(
-                            title = strings.sellerOps.pickupTitle,
-                            subtitle = strings.sellerOps.pickupDesc,
-                            icon = LucideIcons.Store,
-                            checked = pickupEnabled,
-                            onCheckedChange = { pickupEnabled = it }
-                        )
-                        if (pickupEnabled) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            SuqiTextField(value = pickupAddress, onValueChange = { pickupAddress = it }, label = strings.sellerOps.pickupLandmarkLabel, singleLine = false)
-                        }
-                    }
-                }
-
-                item {
-                    SuqiSectionCard {
-                        Text(strings.sellerOps.coverageSectionTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
-                        Spacer(modifier = Modifier.height(10.dp))
-                        SuqiTextField(value = freeThreshold, onValueChange = { freeThreshold = it }, label = strings.sellerOps.freeDeliveryMinLabel)
-                        Spacer(modifier = Modifier.height(10.dp))
-                        SuqiTextField(value = coverageAreas, onValueChange = { coverageAreas = it }, label = strings.sellerOps.coverageSubCitiesLabel, singleLine = false)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun PromotionsScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
@@ -2620,242 +1672,6 @@ fun PromotionsScreen(
                                 testTag = "create_promo_button",
                                 modifier = Modifier.fillMaxWidth()
                             )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ShopSettingsScreen(
-    viewModel: SuqiViewModel,
-    modifier: Modifier = Modifier
-) {
-    val colors = LocalSuqiColors.current
-    val strings = suqiStrings()
-    val isOffline by viewModel.isOffline.collectAsState()
-    val coroutineScope = rememberCoroutineScope()
-
-    var activeShopId by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
-
-    var shopName by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var telegram by remember { mutableStateOf("") }
-    var whatsapp by remember { mutableStateOf("") }
-    var logoUrl by remember { mutableStateOf("") }
-    var coverUrl by remember { mutableStateOf("") }
-    var vacationMode by remember { mutableStateOf(false) }
-    var vacationReturnDate by remember { mutableStateOf("") }
-    var vacationNote by remember { mutableStateOf("") }
-
-    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) logoUrl = uri.toString()
-    }
-    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) coverUrl = uri.toString()
-    }
-
-    LaunchedEffect(Unit) {
-        isLoading = true
-        val sid = resolveActiveSellerShopId(viewModel)
-        activeShopId = sid
-        if (sid.isNotBlank()) {
-            val res = viewModel.repository.getShopDetails(sid)
-            res.data?.let { s ->
-                shopName = s.name
-                category = s.category
-                description = s.description
-                phone = s.phone
-                telegram = s.telegramLink
-                whatsapp = s.whatsappLink
-                logoUrl = s.logoUrl
-                coverUrl = s.coverUrl
-                vacationMode = s.isVacationMode
-                vacationReturnDate = s.vacationReturnDate
-                vacationNote = s.vacationNote
-            }
-        }
-        isLoading = false
-    }
-
-    SuqiScreen(
-        title = strings.seller.shopBrandingTitle,
-        onBackClick = { viewModel.goBack() },
-        isOffline = isOffline,
-        bottomBar = {
-            Surface(
-                color = colors.cardBackground,
-                shadowElevation = if (colors.isDark) 0.dp else 12.dp,
-                border = BorderStroke(1.dp, colors.border),
-                modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    SuqiButton(
-                        text = strings.seller.saveChangesBtn,
-                        onClick = {
-                            if (shopName.isBlank()) {
-                                viewModel.showToast(strings.seller.enterNameError)
-                                return@SuqiButton
-                            }
-                            coroutineScope.launch {
-                                val res = viewModel.repository.updateShopSettings(
-                                    mapOf(
-                                        "shopId" to activeShopId,
-                                        "name" to shopName.trim(),
-                                        "category" to category.trim(),
-                                        "description" to description.trim(),
-                                        "phone" to phone.trim(),
-                                        "telegramLink" to telegram.trim(),
-                                        "whatsappLink" to whatsapp.trim(),
-                                        "logoUrl" to logoUrl,
-                                        "coverUrl" to coverUrl,
-                                        "isVacationMode" to vacationMode,
-                                        "vacationReturnDate" to vacationReturnDate.trim(),
-                                        "vacationNote" to vacationNote.trim()
-                                    )
-                                )
-                                if (res.success) {
-                                    viewModel.showToast(strings.buyer.profileUpdatedToast)
-                                    viewModel.goBack()
-                                } else {
-                                    viewModel.showToast(res.message ?: strings.common.failedToAddToast)
-                                }
-                            }
-                        },
-                        testTag = "save_shop_settings_button",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        },
-        modifier = modifier
-    ) { paddingValues ->
-        if (isLoading) {
-            Box(modifier = Modifier.padding(paddingValues).padding(top = 12.dp)) {
-                SuqiSkeletonList(count = 3)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // Branding Cover & Logo Pickers
-                item {
-                    SuqiSectionCard(padding = 14.dp) {
-                        Text(strings.sellerOps.shopLogoCoverTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(colors.imageBackdrop)
-                                .clickable {
-                                    coverPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }
-                                .testTag("pick_shop_cover"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (coverUrl.isNotBlank()) {
-                                AsyncImage(
-                                    model = coverUrl,
-                                    contentDescription = strings.seller.coverImageTitle,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(8.dp)
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(Color.Black.copy(alpha = 0.65f))
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(LucideIcons.Camera, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(strings.common.changeLabel, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Medium)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.primaryTint)
-                                    .clickable {
-                                        logoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                    }
-                                    .testTag("pick_shop_logo"),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (logoUrl.isNotBlank()) {
-                                    AsyncImage(
-                                        model = logoUrl,
-                                        contentDescription = strings.sellerOps.shopLogoCoverTitle,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else {
-                                    Icon(LucideIcons.Store, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(28.dp))
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(strings.sellerOps.shopLogoCoverTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = colors.primaryText)
-                                Text(strings.common.tapToPickPhoto, fontSize = 12.sp, color = colors.secondaryText)
-                            }
-                            TextButton(
-                                onClick = {
-                                    logoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                },
-                                modifier = Modifier.heightIn(min = 48.dp)
-                            ) {
-                                Text(strings.common.uploadPhotoLabel, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    SuqiSectionCard {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            SuqiTextField(value = shopName, onValueChange = { shopName = it }, label = strings.checkout.shopNameRequiredLabel)
-                            SuqiTextField(value = category, onValueChange = { category = it }, label = strings.buyer.categoryLabel)
-                            SuqiTextField(value = description, onValueChange = { description = it }, label = strings.checkout.shopDescriptionLabel, singleLine = false)
-                            SuqiTextField(value = phone, onValueChange = { phone = it }, label = strings.buyer.phoneNumberLabel)
-                            SuqiTextField(value = telegram, onValueChange = { telegram = it }, label = strings.checkout.telegramLabel)
-                            SuqiTextField(value = whatsapp, onValueChange = { whatsapp = it }, label = "WhatsApp")
-                        }
-                    }
-                }
-
-                item {
-                    SuqiSectionCard {
-                        SuqiSwitchRow(
-                            title = strings.sellerOps.vacationModeTitle,
-                            subtitle = strings.sellerOps.vacationModeSub,
-                            icon = LucideIcons.Pause,
-                            checked = vacationMode,
-                            onCheckedChange = { vacationMode = it },
-                            testTag = "toggle_vacation_mode"
-                        )
-                        if (vacationMode) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            SuqiTextField(value = vacationReturnDate, onValueChange = { vacationReturnDate = it }, label = strings.common.selectDate)
-                            Spacer(modifier = Modifier.height(10.dp))
-                            SuqiTextField(value = vacationNote, onValueChange = { vacationNote = it }, label = strings.checkout.vacationNoticeTitle, singleLine = false)
                         }
                     }
                 }
@@ -3649,19 +2465,26 @@ fun SellerOrderDetailScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SellerInboxScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val prefsStore = remember(context) { SellerPreferencesStore(context) }
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
+    val work = strings.sellerWork
     val isOffline by viewModel.isOffline.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     var activeShopId by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
     var conversations by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
+    var selectedFilter by remember { mutableStateOf("ALL") }
+    var showNotifSheet by remember { mutableStateOf(false) }
+    var notifPrefs by remember { mutableStateOf(prefsStore.loadNotificationPrefs()) }
 
     fun loadInbox() {
         coroutineScope.launch {
@@ -3679,6 +2502,19 @@ fun SellerInboxScreen(
 
     LaunchedEffect(Unit) { loadInbox() }
 
+    val unreadCount = conversations.count { !it.isRead }
+    val ordersCount = conversations.count { it.threadCategory == "ORDER" || !it.orderContextRef.isNullOrBlank() }
+    val questionsCount = conversations.count { it.threadCategory != "ORDER" && it.orderContextRef.isNullOrBlank() }
+
+    val filteredConversations = remember(conversations, selectedFilter) {
+        when (selectedFilter) {
+            "UNREAD" -> conversations.filter { !it.isRead }
+            "ORDERS" -> conversations.filter { it.threadCategory == "ORDER" || !it.orderContextRef.isNullOrBlank() }
+            "QUESTIONS" -> conversations.filter { it.threadCategory != "ORDER" && it.orderContextRef.isNullOrBlank() }
+            else -> conversations
+        }
+    }
+
     SuqiScreen(
         title = strings.seller.navInbox,
         subtitle = strings.sellerOps.sellerInboxSub,
@@ -3688,78 +2524,295 @@ fun SellerInboxScreen(
             viewModel.setOfflineMode(false)
             loadInbox()
         },
+        headerActions = {
+            IconButton(
+                onClick = { showNotifSheet = true },
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(colors.secondaryBackground)
+                    .testTag("inbox_notif_settings_btn")
+            ) {
+                Icon(LucideIcons.Settings, contentDescription = work.inboxNotifSettingsTitle, tint = colors.primaryText)
+            }
+        },
         modifier = modifier
     ) { paddingValues ->
-        if (isLoading) {
-            Box(modifier = Modifier.padding(paddingValues).padding(top = 12.dp)) {
-                SuqiSkeletonList(count = 4)
-            }
-        } else if (conversations.isEmpty()) {
-            Box(modifier = Modifier.padding(paddingValues).padding(bottom = SuqiBottomNavContentPadding)) {
-                SuqiEmptyState(
-                    icon = LucideIcons.MessageCircle,
-                    title = strings.sellerOps.noBuyerMsgsTitle,
-                    subtitle = strings.sellerOps.noBuyerMsgsSub,
-                    ctaText = strings.sellerOps.viewOrdersBtn,
-                    onCtaClick = { viewModel.switchSellerTab(ScreenDestination.SellerOrders) },
-                    testTag = "seller_inbox_empty"
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 8.dp,
-                    bottom = SuqiBottomNavContentPadding + 24.dp
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            SuqiTabs(
+                tabs = listOf(
+                    SuqiTabItem("ALL", work.inboxFilterAll, conversations.size),
+                    SuqiTabItem("UNREAD", work.inboxFilterUnread, unreadCount, showDot = unreadCount > 0),
+                    SuqiTabItem("ORDERS", work.inboxFilterOrders, ordersCount),
+                    SuqiTabItem("QUESTIONS", work.inboxFilterQuestions, questionsCount)
                 ),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(conversations, key = { it.conversationId }) { conv ->
-                    SuqiSectionCard(
-                        onClick = { viewModel.navigate(ScreenDestination.ChatThread(conv.shopId)) },
-                        modifier = Modifier.testTag("seller_inbox_item_${conv.shopId}")
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.primaryTint),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(LucideIcons.MessageCircle, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(22.dp))
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = if (conv.shopId == activeShopId) strings.sellerOps.customerThreadLabel else conv.shopName,
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = colors.primaryText
-                                    )
-                                    Text(conv.timestamp, fontSize = 11.sp, color = colors.mutedText)
+                selectedIndex = when (selectedFilter) {
+                    "ALL" -> 0
+                    "UNREAD" -> 1
+                    "ORDERS" -> 2
+                    else -> 3
+                },
+                onSelectTab = { idx ->
+                    selectedFilter = when (idx) {
+                        0 -> "ALL"
+                        1 -> "UNREAD"
+                        2 -> "ORDERS"
+                        else -> "QUESTIONS"
+                    }
+                },
+                style = SuqiTabStyle.Pill,
+                scrollable = true,
+                testTagPrefix = "seller_inbox_filter"
+            )
+
+            if (isLoading) {
+                Box(modifier = Modifier.padding(top = 12.dp)) {
+                    SuqiSkeletonList(count = 4)
+                }
+            } else if (filteredConversations.isEmpty()) {
+                Box(modifier = Modifier.padding(bottom = SuqiBottomNavContentPadding)) {
+                    SuqiEmptyState(
+                        icon = LucideIcons.MessageCircle,
+                        title = strings.sellerOps.noBuyerMsgsTitle,
+                        subtitle = strings.sellerOps.noBuyerMsgsSub,
+                        ctaText = strings.sellerOps.viewOrdersBtn,
+                        onCtaClick = { viewModel.switchSellerTab(ScreenDestination.SellerOrders) },
+                        testTag = "seller_inbox_empty"
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = SuqiBottomNavContentPadding + 24.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(filteredConversations, key = { it.conversationId }) { conv ->
+                        val nextRead = !conv.isRead
+                        SuqiSwipeRow(
+                            onSwipeRightAction = {
+                                coroutineScope.launch {
+                                    val res = viewModel.repository.markChatConversationRead(conv.shopId, nextRead)
+                                    if (res.success) {
+                                        conversations = conversations.map {
+                                            if (it.conversationId == conv.conversationId) it.copy(isRead = nextRead) else it
+                                        }
+                                    }
                                 }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = conv.message,
-                                    fontSize = 13.sp,
-                                    color = colors.secondaryText,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            },
+                            rightActionLabel = if (conv.isRead) work.markUnreadLabel else work.markReadLabel
+                        ) {
+                            SuqiSectionCard(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        if (!conv.isRead) {
+                                            viewModel.repository.markChatConversationRead(conv.shopId, true)
+                                            conversations = conversations.map {
+                                                if (it.conversationId == conv.conversationId) it.copy(isRead = true) else it
+                                            }
+                                        }
+                                        viewModel.navigate(ScreenDestination.ChatThread(conv.shopId))
+                                    }
+                                },
+                                modifier = Modifier.testTag("seller_inbox_item_${conv.shopId}")
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .background(colors.primaryTint),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(LucideIcons.MessageCircle, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(22.dp))
+                                        if (!conv.isRead) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .size(11.dp)
+                                                    .clip(CircleShape)
+                                                    .background(SuqiPrimary)
+                                                    .border(1.5.dp, colors.cardBackground, CircleShape)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(
+                                                    text = if (conv.shopId == activeShopId) strings.sellerOps.customerThreadLabel else conv.shopName,
+                                                    fontFamily = SuqiFontFamily,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = colors.primaryText,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                if (!conv.isRead) {
+                                                    SuqiStatusBadge(work.unreadBadge, StatusType.PRIMARY)
+                                                }
+                                            }
+                                            Text(conv.timestamp, fontSize = 11.sp, color = colors.mutedText)
+                                        }
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        Text(
+                                            text = conv.message,
+                                            fontFamily = SuqiFontFamily,
+                                            fontWeight = if (!conv.isRead) FontWeight.SemiBold else FontWeight.Normal,
+                                            fontSize = 13.sp,
+                                            color = if (!conv.isRead) colors.primaryText else colors.secondaryText,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (!conv.orderContextRef.isNullOrBlank()) {
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(999.dp))
+                                                    .background(colors.primaryTint)
+                                                    .padding(horizontal = 9.dp, vertical = 3.dp)
+                                                    .testTag("inbox_order_chip_${conv.orderContextRef}")
+                                            ) {
+                                                Icon(LucideIcons.Receipt, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
+                                                Text(
+                                                    text = buildString {
+                                                        append("${work.orderContextPrefix} #${conv.orderContextRef}")
+                                                        if (!conv.orderContextStatus.isNullOrBlank()) {
+                                                            append(" · ${conv.orderContextStatus}")
+                                                        }
+                                                    },
+                                                    fontFamily = SuqiFontFamily,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 11.sp,
+                                                    color = SuqiPrimary,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    IconButton(
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                val res = viewModel.repository.markChatConversationRead(conv.shopId, nextRead)
+                                                if (res.success) {
+                                                    conversations = conversations.map {
+                                                        if (it.conversationId == conv.conversationId) it.copy(isRead = nextRead) else it
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.size(48.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (conv.isRead) LucideIcons.ChevronRight else LucideIcons.CheckCheck,
+                                            contentDescription = if (conv.isRead) strings.buyer.messagesTitle else work.markReadLabel,
+                                            tint = if (conv.isRead) colors.mutedText else SuqiPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(LucideIcons.ChevronRight, contentDescription = null, tint = colors.mutedText, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (showNotifSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showNotifSheet = false },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = work.inboxNotifSettingsTitle,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = colors.primaryText
+                )
+                HorizontalDivider(color = colors.border)
+                SuqiSwitchRow(
+                    title = work.notifNewOrderTitle,
+                    subtitle = work.notifNewOrderSub,
+                    icon = LucideIcons.ShoppingBag,
+                    checked = notifPrefs.newOrder,
+                    onCheckedChange = { checked ->
+                        notifPrefs = notifPrefs.copy(newOrder = checked)
+                        prefsStore.saveNotificationPrefs(notifPrefs)
+                    },
+                    testTag = "notif_switch_new_order"
+                )
+                SuqiSwitchRow(
+                    title = work.notifPaymentSubmittedTitle,
+                    subtitle = work.notifPaymentSubmittedSub,
+                    icon = LucideIcons.Receipt,
+                    checked = notifPrefs.paymentSubmitted,
+                    onCheckedChange = { checked ->
+                        notifPrefs = notifPrefs.copy(paymentSubmitted = checked)
+                        prefsStore.saveNotificationPrefs(notifPrefs)
+                    },
+                    testTag = "notif_switch_payment"
+                )
+                SuqiSwitchRow(
+                    title = work.notifLowStockTitle,
+                    subtitle = work.notifLowStockSub,
+                    icon = LucideIcons.Package,
+                    checked = notifPrefs.lowStock,
+                    onCheckedChange = { checked ->
+                        notifPrefs = notifPrefs.copy(lowStock = checked)
+                        prefsStore.saveNotificationPrefs(notifPrefs)
+                    },
+                    testTag = "notif_switch_low_stock"
+                )
+                SuqiSwitchRow(
+                    title = work.notifNewReviewTitle,
+                    subtitle = work.notifNewReviewSub,
+                    icon = LucideIcons.Star,
+                    checked = notifPrefs.newReview,
+                    onCheckedChange = { checked ->
+                        notifPrefs = notifPrefs.copy(newReview = checked)
+                        prefsStore.saveNotificationPrefs(notifPrefs)
+                    },
+                    testTag = "notif_switch_review"
+                )
+                SuqiSwitchRow(
+                    title = work.notifBuyerQuestionTitle,
+                    subtitle = work.notifBuyerQuestionSub,
+                    icon = LucideIcons.MessageCircle,
+                    checked = notifPrefs.buyerQuestion,
+                    onCheckedChange = { checked ->
+                        notifPrefs = notifPrefs.copy(buyerQuestion = checked)
+                        prefsStore.saveNotificationPrefs(notifPrefs)
+                    },
+                    testTag = "notif_switch_question"
+                )
+                Spacer(Modifier.height(14.dp))
             }
         }
     }
@@ -3849,6 +2902,13 @@ fun SellerMoreScreen(
 
             item {
                 SuqiSectionCard(padding = 12.dp) {
+                    SuqiListRow(
+                        icon = LucideIcons.SlidersHorizontal,
+                        title = strings.sellerWork.inventoryTitle,
+                        subtitle = strings.sellerWork.tapVariantsToExpandHint,
+                        onClick = { viewModel.navigate(ScreenDestination.SellerInventory) },
+                        testTag = "seller_more_inventory"
+                    )
                     SuqiListRow(
                         icon = LucideIcons.ClipboardCheck,
                         title = strings.sellerOps.verifyQueueTitle,

@@ -122,6 +122,15 @@ interface SuqiApiService {
     @PUT(SuqiEndpoints.SELLER_PRODUCTS)
     suspend fun updateProductStatus(@Query("id") id: String, @Query("status") status: String): ApiResponse<Boolean>
 
+    @PUT(SuqiEndpoints.SELLER_PRODUCT_STOCK)
+    suspend fun updateProductStock(@Path("id") id: String, @Body payload: Map<String, Any>): ApiResponse<ProductDto>
+
+    @POST(SuqiEndpoints.SELLER_PRODUCTS_BULK)
+    suspend fun bulkUpdateProducts(@Body payload: Map<String, Any>): ApiResponse<Int>
+
+    @POST(SuqiEndpoints.SELLER_PRODUCT_DUPLICATE)
+    suspend fun duplicateProduct(@Path("id") id: String): ApiResponse<ProductDto>
+
     @DELETE(SuqiEndpoints.SELLER_PRODUCTS)
     suspend fun deleteProduct(@Query("id") id: String): ApiResponse<Boolean>
 
@@ -188,6 +197,9 @@ interface SuqiApiService {
 
     @POST(SuqiEndpoints.CHAT_MESSAGES)
     suspend fun sendChatMessage(@Path("shopId") shopId: String, @Body messageData: Map<String, Any>): ApiResponse<ChatMessageDto>
+
+    @PUT(SuqiEndpoints.CHAT_MARK_READ)
+    suspend fun markChatConversationRead(@Path("shopId") shopId: String, @Query("isRead") isRead: Boolean): ApiResponse<Boolean>
 
     @GET(SuqiEndpoints.REVIEWS)
     suspend fun getReviews(@Query("targetId") targetId: String): ApiResponse<List<ReviewDto>>

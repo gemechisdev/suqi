@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,7 +30,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import com.example.data.local.SellerPreferencesStore
 import com.example.data.model.ChatMessageDto
+import com.example.data.model.OrderDto
 import com.example.data.model.ProductDto
 import com.example.data.model.ShopDto
 import com.example.ui.ScreenDestination
@@ -180,11 +184,18 @@ fun ChatThreadScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val prefsStore = remember(context) { SellerPreferencesStore(context) }
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
+    val work = strings.sellerWork
     val lang = LocalSuqiLanguage.current
     val isOffline by viewModel.isOffline.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val activeRole by viewModel.activeRole.collectAsState()
+    val isSellerThread = activeRole == "SELLER" || (!currentUser?.shopId.isNullOrBlank() && currentUser?.shopId == shopId)
+
     var messages by remember { mutableStateOf<List<ChatMessageDto>>(emptyList()) }
     var inputMessage by remember { mutableStateOf("") }
     var shopTitle by remember { mutableStateOf(strings.checkout.shopStorefrontTitle) }
@@ -192,13 +203,23 @@ fun ChatThreadScreen(
 
     var allProducts by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
     var allShops by remember { mutableStateOf<List<ShopDto>>(emptyList()) }
+    var attachableOrders by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
     var showProductPicker by remember { mutableStateOf(false) }
     var showShopPicker by remember { mutableStateOf(false) }
+    var showOrderPicker by remember { mutableStateOf(false) }
 
-    // Pending product attachment to embed in the next sent message
+    val defaultQuickReplies = listOf(work.quickReplyDefault1, work.quickReplyDefault2, work.quickReplyDefault3)
+    var quickReplies by remember(lang) { mutableStateOf(prefsStore.loadQuickReplies(defaultQuickReplies)) }
+    var showQuickReplyEditor by remember { mutableStateOf(false) }
+    var newQuickReplyInput by remember { mutableStateOf("") }
+
+    // Pending attachments to embed in the next sent message
     var pendingProductName by remember { mutableStateOf(productContextName) }
     var pendingProductPrice by remember { mutableStateOf(productContextPrice) }
     var pendingProductImage by remember { mutableStateOf(productContextImage) }
+    var pendingOrderRef by remember { mutableStateOf<String?>(null) }
+    var pendingOrderStatus by remember { mutableStateOf<String?>(null) }
+    var pendingOrderTotal by remember { mutableStateOf<String?>(null) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var pendingPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var productSearchQuery by remember { mutableStateOf("") }
@@ -233,7 +254,8 @@ fun ChatThreadScreen(
         }
     }
 
-    LaunchedEffect(shopId) {
+    LaunchedEffect(shopId, isSellerThread) {
+        viewModel.repository.markChatConversationRead(shopId, true)
         val shopDetail = viewModel.repository.getShopDetails(shopId)
         if (shopDetail.success && shopDetail.data != null) {
             shopTitle = shopDetail.data.name
@@ -243,6 +265,8 @@ fun ChatThreadScreen(
         if (prodRes.success && prodRes.data != null) allProducts = prodRes.data
         val shopRes = viewModel.repository.getShops()
         if (shopRes.success && shopRes.data != null) allShops = shopRes.data
+        val ordersRes = if (isSellerThread) viewModel.repository.getSellerOrders() else viewModel.repository.getOrders()
+        if (ordersRes.success && ordersRes.data != null) attachableOrders = ordersRes.data
     }
 
     SuqiScreen(
@@ -279,6 +303,61 @@ fun ChatThreadScreen(
                         .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
+                    // Seller quick reply templates bar
+                    if (isSellerThread) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                                .testTag("quick_replies_bar")
+                        ) {
+                            items(quickReplies) { reply ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(colors.secondaryBackground)
+                                        .border(1.dp, colors.border, RoundedCornerShape(999.dp))
+                                        .clickable {
+                                            inputMessage = if (inputMessage.isBlank()) reply else "$inputMessage $reply"
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = reply,
+                                        fontFamily = SuqiFontFamily,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 12.sp,
+                                        color = colors.primaryText,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(colors.primaryTint)
+                                        .clickable { showQuickReplyEditor = true }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        .testTag("edit_quick_replies_btn")
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Icon(LucideIcons.Pencil, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
+                                        Text(
+                                            text = work.editQuickRepliesBtn,
+                                            fontFamily = SuqiFontFamily,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 12.sp,
+                                            color = SuqiPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Quick mention toolbar
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
@@ -318,10 +397,24 @@ fun ChatThreadScreen(
                                 Text(text = strings.checkout.attachShopTag, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = colors.primaryText)
                             }
                         }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(colors.secondaryBackground)
+                                .clickable { showOrderPicker = true }
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                                .testTag("chat_attach_order_btn")
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = LucideIcons.Receipt, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = work.attachOrderTag, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = colors.primaryText)
+                            }
+                        }
                     }
 
                     // Pending attachments preview
-                    if (pendingProductName != null || pendingPhotoUri != null) {
+                    if (pendingProductName != null || pendingPhotoUri != null || pendingOrderRef != null) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -344,7 +437,7 @@ fun ChatThreadScreen(
                                         fontSize = 12.sp,
                                         color = SuqiPrimary,
                                         maxLines = 1,
-                                        modifier = Modifier.widthIn(max = 140.dp)
+                                        modifier = Modifier.widthIn(max = 120.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
@@ -355,6 +448,37 @@ fun ChatThreadScreen(
                                             pendingProductName = null
                                             pendingProductPrice = null
                                             pendingProductImage = null
+                                        }
+                                    )
+                                }
+                            }
+                            if (pendingOrderRef != null) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colors.primaryTint)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(imageVector = LucideIcons.Receipt, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "#${pendingOrderRef.orEmpty()}",
+                                        fontFamily = SuqiFontFamily,
+                                        fontSize = 12.sp,
+                                        color = SuqiPrimary,
+                                        maxLines = 1,
+                                        modifier = Modifier.widthIn(max = 120.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        LucideIcons.X,
+                                        contentDescription = strings.common.removeLabel,
+                                        tint = SuqiPrimary,
+                                        modifier = Modifier.size(14.dp).clickable {
+                                            pendingOrderRef = null
+                                            pendingOrderStatus = null
+                                            pendingOrderTotal = null
                                         }
                                     )
                                 }
@@ -451,30 +575,46 @@ fun ChatThreadScreen(
                         IconButton(
                             onClick = {
                                 viewModel.requireSignedInOrPrompt(strings.buyer.sendDesc.lowercase()) {
-                                    if (inputMessage.isNotBlank() || pendingProductName != null || pendingPhotoUri != null) {
+                                    if (inputMessage.isNotBlank() || pendingProductName != null || pendingPhotoUri != null || pendingOrderRef != null) {
                                         val text = inputMessage.trim().ifBlank {
-                                            if (pendingPhotoUri != null) strings.checkout.sentPhotoMsg else ""
+                                            when {
+                                                pendingPhotoUri != null -> strings.checkout.sentPhotoMsg
+                                                !pendingOrderRef.isNullOrBlank() -> "${work.orderContextPrefix} #$pendingOrderRef"
+                                                else -> ""
+                                            }
                                         }
                                         val photoString = pendingPhotoUri?.toString() ?: ""
                                         val prodName = pendingProductName ?: ""
                                         val prodPrice = pendingProductPrice ?: ""
                                         val prodImg = pendingProductImage ?: ""
+                                        val ordRef = pendingOrderRef ?: ""
+                                        val ordStatus = pendingOrderStatus ?: ""
+                                        val ordTotal = pendingOrderTotal ?: ""
+                                        val threadCat = if (ordRef.isNotBlank()) "ORDER" else "QUESTION"
                                         inputMessage = ""
                                         coroutineScope.launch {
                                             viewModel.repository.sendChatMessage(
                                                 shopId = shopId,
                                                 messageData = mapOf(
+                                                    "senderType" to (if (isSellerThread) "SHOP" else "CUSTOMER"),
                                                     "message" to text,
                                                     "productContextName" to prodName,
                                                     "productContextPrice" to prodPrice,
                                                     "productContextImage" to prodImg,
-                                                    "imageUrl" to photoString
+                                                    "imageUrl" to photoString,
+                                                    "orderContextRef" to ordRef,
+                                                    "orderContextStatus" to ordStatus,
+                                                    "orderContextTotal" to ordTotal,
+                                                    "threadCategory" to threadCat
                                                 )
                                             )
                                             pendingProductName = null
                                             pendingProductPrice = null
                                             pendingProductImage = null
                                             pendingPhotoUri = null
+                                            pendingOrderRef = null
+                                            pendingOrderStatus = null
+                                            pendingOrderTotal = null
                                             loadMessages()
                                         }
                                     }
@@ -527,10 +667,10 @@ fun ChatThreadScreen(
             }
 
             items(messages) { msg ->
-                val isCustomer = msg.senderType == "CUSTOMER"
+                val isOutgoing = if (isSellerThread) msg.senderType == "SHOP" else msg.senderType == "CUSTOMER"
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = if (isCustomer) Arrangement.End else Arrangement.Start
+                    horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start
                 ) {
                     Box(
                         modifier = Modifier
@@ -539,13 +679,13 @@ fun ChatThreadScreen(
                                 RoundedCornerShape(
                                     topStart = 18.dp,
                                     topEnd = 18.dp,
-                                    bottomStart = if (isCustomer) 18.dp else 4.dp,
-                                    bottomEnd = if (isCustomer) 4.dp else 18.dp
+                                    bottomStart = if (isOutgoing) 18.dp else 4.dp,
+                                    bottomEnd = if (isOutgoing) 4.dp else 18.dp
                                 )
                             )
-                            .background(if (isCustomer) SuqiPrimary else colors.cardBackground)
+                            .background(if (isOutgoing) SuqiPrimary else colors.cardBackground)
                             .then(
-                                if (!isCustomer) Modifier.border(1.dp, colors.border, RoundedCornerShape(
+                                if (!isOutgoing) Modifier.border(1.dp, colors.border, RoundedCornerShape(
                                     topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp
                                 )) else Modifier
                             )
@@ -588,7 +728,7 @@ fun ChatThreadScreen(
 
                             ChatBubbleMessageContent(
                                 text = displayText,
-                                isCustomer = isCustomer,
+                                isCustomer = isOutgoing,
                                 allProducts = allProducts,
                                 allShops = allShops,
                                 onNavigateToProduct = { pId ->
@@ -611,7 +751,7 @@ fun ChatThreadScreen(
                                     name = matched?.localizedName(lang) ?: ctxName,
                                     price = ctxPrice ?: matched?.let { formatEtb(it.price) },
                                     imageUrl = ctxImage ?: matched?.primaryImageUrl,
-                                    isOnPrimary = isCustomer,
+                                    isOnPrimary = isOutgoing,
                                     onClick = {
                                         val id = matched?.id
                                         if (id != null) {
@@ -620,12 +760,34 @@ fun ChatThreadScreen(
                                     }
                                 )
                             }
+
+                            val ordRef = msg.orderContextRef?.takeIf { it.isNotBlank() }
+                            if (ordRef != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                val matchedOrder = attachableOrders.firstOrNull { it.orderReference.equals(ordRef, ignoreCase = true) }
+                                ChatEmbeddedOrderCard(
+                                    orderRef = ordRef,
+                                    status = msg.orderContextStatus.orEmpty().ifBlank { matchedOrder?.orderStatus.orEmpty() },
+                                    total = msg.orderContextTotal.orEmpty().ifBlank { matchedOrder?.let { formatEtb(it.totalAmount) }.orEmpty() },
+                                    isOnPrimary = isOutgoing,
+                                    onClick = {
+                                        if (matchedOrder != null) {
+                                            if (isSellerThread) {
+                                                viewModel.navigate(ScreenDestination.SellerOrderDetail(matchedOrder.id))
+                                            } else {
+                                                viewModel.navigate(ScreenDestination.OrderDetails(matchedOrder.id))
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = msg.timestamp,
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 10.sp,
-                                color = if (isCustomer) Color.White.copy(alpha = 0.7f) else colors.mutedText,
+                                color = if (isOutgoing) Color.White.copy(alpha = 0.7f) else colors.mutedText,
                                 modifier = Modifier.align(Alignment.End)
                             )
                         }
@@ -994,6 +1156,168 @@ fun ChatThreadScreen(
         }
     }
 
+    // Order picker sheet
+    if (showOrderPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showOrderPicker = false },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = work.selectOrderTitle,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    color = colors.primaryText
+                )
+                Spacer(Modifier.height(10.dp))
+                if (attachableOrders.isEmpty()) {
+                    Text(
+                        text = work.noOrdersToAttach,
+                        fontFamily = SuqiFontFamily,
+                        fontSize = 13.sp,
+                        color = colors.secondaryText,
+                        modifier = Modifier.padding(vertical = 20.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 380.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(attachableOrders, key = { it.id }) { order ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(colors.secondaryBackground)
+                                    .clickable {
+                                        pendingOrderRef = order.orderReference
+                                        pendingOrderStatus = order.orderStatus
+                                        pendingOrderTotal = formatEtb(order.totalAmount)
+                                        showOrderPicker = false
+                                    }
+                                    .padding(12.dp)
+                            ) {
+                                Icon(LucideIcons.Receipt, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${work.orderContextPrefix} #${order.orderReference}",
+                                        fontFamily = SuqiFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = colors.primaryText
+                                    )
+                                    Text(
+                                        text = "${order.customerName} · ${order.orderStatus}",
+                                        fontFamily = SuqiFontFamily,
+                                        fontSize = 12.sp,
+                                        color = colors.secondaryText
+                                    )
+                                }
+                                Text(
+                                    text = formatEtb(order.totalAmount),
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = SuqiPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
+
+    // Quick reply template customizer sheet
+    if (showQuickReplyEditor) {
+        ModalBottomSheet(
+            onDismissRequest = { showQuickReplyEditor = false },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = work.quickRepliesTitle,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = colors.primaryText
+                )
+                quickReplies.forEachIndexed { idx, tpl ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colors.secondaryBackground)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = tpl,
+                            fontFamily = SuqiFontFamily,
+                            fontSize = 13.sp,
+                            color = colors.primaryText,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                val next = quickReplies.toMutableList().apply { removeAt(idx) }
+                                quickReplies = next
+                                prefsStore.saveQuickReplies(next)
+                            },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(LucideIcons.Trash2, contentDescription = strings.deleteLabel, tint = SuqiError, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SuqiTextField(
+                        value = newQuickReplyInput,
+                        onValueChange = { newQuickReplyInput = it },
+                        label = "",
+                        placeholder = work.addQuickReplyHint,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = {
+                            val trimmed = newQuickReplyInput.trim()
+                            if (trimmed.isNotBlank()) {
+                                val next = (quickReplies + trimmed).distinct()
+                                quickReplies = next
+                                prefsStore.saveQuickReplies(next)
+                                newQuickReplyInput = ""
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(strings.common.addLabel, color = Color.White)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+        }
+    }
+
 }
 
 /**
@@ -1201,5 +1525,64 @@ private fun ChatEmbeddedProductCard(
             tint = chevronColor,
             modifier = Modifier.size(18.dp)
         )
+    }
+}
+
+@Composable
+private fun ChatEmbeddedOrderCard(
+    orderRef: String,
+    status: String,
+    total: String,
+    isOnPrimary: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val work = strings.sellerWork
+    val cardBg = if (isOnPrimary) Color.White.copy(alpha = 0.18f) else colors.secondaryBackground
+    val titleColor = if (isOnPrimary) Color.White else colors.primaryText
+    val accentColor = if (isOnPrimary) Color.White.copy(alpha = 0.9f) else SuqiPrimary
+    val chevronColor = if (isOnPrimary) Color.White.copy(alpha = 0.85f) else colors.mutedText
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(cardBg)
+            .clickable(onClick = onClick)
+            .padding(10.dp)
+            .testTag("chat_order_card_$orderRef")
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (isOnPrimary) Color.White.copy(alpha = 0.2f) else colors.primaryTint),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(LucideIcons.Receipt, contentDescription = null, tint = accentColor, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "${work.orderContextPrefix} #$orderRef",
+                fontFamily = SuqiFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = titleColor
+            )
+            val detailLine = listOf(status, total).filter { it.isNotBlank() }.joinToString(" · ")
+            if (detailLine.isNotBlank()) {
+                Text(
+                    text = detailLine,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    color = accentColor
+                )
+            }
+        }
+        Icon(LucideIcons.ChevronRight, contentDescription = null, tint = chevronColor, modifier = Modifier.size(18.dp))
     }
 }
