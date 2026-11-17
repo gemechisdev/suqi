@@ -49,7 +49,9 @@ import com.example.ui.i18n.localizedName
 import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import com.example.util.EthiopianMarketplaceUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 internal suspend fun resolveActiveSellerShopId(viewModel: SuqiViewModel): String {
@@ -87,26 +89,28 @@ fun SellerStudioScreen(
         coroutineScope.launch {
             isLoading = dashboardData.isEmpty() && sellerOrders.isEmpty() && sellerProducts.isEmpty()
             val dashRes = viewModel.repository.getSellerDashboard()
-            if (dashRes.success && dashRes.data != null) {
-                dashboardData = dashRes.data
-                viewModel.cachedSellerDashboard = dashRes.data
-            }
             val qRes = viewModel.repository.getSellerVerificationQueue()
-            if (qRes.success && qRes.data != null) {
-                pendingQueue = qRes.data
-                viewModel.cachedSellerQueue = qRes.data
-            }
             val ordersRes = viewModel.repository.getSellerOrders()
-            if (ordersRes.success && ordersRes.data != null) {
-                sellerOrders = ordersRes.data
-                viewModel.cachedSellerOrders = ordersRes.data
-            }
             val prodRes = viewModel.repository.getSellerProducts()
-            if (prodRes.success && prodRes.data != null) {
-                sellerProducts = prodRes.data
-                viewModel.cachedSellerProducts = prodRes.data
+            withContext(Dispatchers.Main) {
+                if (dashRes.success && dashRes.data != null) {
+                    dashboardData = dashRes.data
+                    viewModel.cachedSellerDashboard = dashRes.data
+                }
+                if (qRes.success && qRes.data != null) {
+                    pendingQueue = qRes.data
+                    viewModel.cachedSellerQueue = qRes.data
+                }
+                if (ordersRes.success && ordersRes.data != null) {
+                    sellerOrders = ordersRes.data
+                    viewModel.cachedSellerOrders = ordersRes.data
+                }
+                if (prodRes.success && prodRes.data != null) {
+                    sellerProducts = prodRes.data
+                    viewModel.cachedSellerProducts = prodRes.data
+                }
+                isLoading = false
             }
-            isLoading = false
         }
     }
 
@@ -1845,11 +1849,13 @@ fun SellerOrdersScreen(
         coroutineScope.launch {
             isLoading = orders.isEmpty()
             val res = viewModel.repository.getSellerOrders()
-            if (res.success && res.data != null) {
-                orders = res.data
-                viewModel.cachedSellerOrders = res.data
+            withContext(Dispatchers.Main) {
+                if (res.success && res.data != null) {
+                    orders = res.data
+                    viewModel.cachedSellerOrders = res.data
+                }
+                isLoading = false
             }
-            isLoading = false
         }
     }
 
@@ -2153,8 +2159,10 @@ fun SellerOrderDetailScreen(
         coroutineScope.launch {
             isLoading = true
             val res = viewModel.repository.getOrderDetails(orderId)
-            if (res.success) order = res.data
-            isLoading = false
+            withContext(Dispatchers.Main) {
+                if (res.success) order = res.data
+                isLoading = false
+            }
         }
     }
 

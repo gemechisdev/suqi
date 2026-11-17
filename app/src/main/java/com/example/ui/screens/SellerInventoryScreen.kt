@@ -582,6 +582,7 @@ fun SellerInventoryScreen(
     }
 
     if (showBulkStockDialog) {
+        val hasVariantSelection = products.any { it.id in selectedIds && it.details.variants.isNotEmpty() }
         AlertDialog(
             onDismissRequest = { showBulkStockDialog = false },
             title = { Text(work.enterNewStockTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText) },
@@ -589,7 +590,7 @@ fun SellerInventoryScreen(
                 SuqiTextField(
                     value = bulkStockInput,
                     onValueChange = { bulkStockInput = it.filter(Char::isDigit) },
-                    label = work.stockUnitsLabel
+                    label = if (hasVariantSelection) work.stockUnitsPerVariantLabel else work.stockUnitsLabel
                 )
             },
             confirmButton = {

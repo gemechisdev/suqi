@@ -58,7 +58,11 @@ class NavigationBackstackTest {
     private fun waitForTag(tag: String) {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             Thread.sleep(20)
-            shadowOf(Looper.getMainLooper()).idleFor(16, java.util.concurrent.TimeUnit.MILLISECONDS)
+            val mainLooper = shadowOf(Looper.getMainLooper())
+            mainLooper.idle()
+            mainLooper.idleFor(16, java.util.concurrent.TimeUnit.MILLISECONDS)
+            composeRule.mainClock.advanceTimeByFrame()
+            mainLooper.idle()
             composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
         }
     }
@@ -66,7 +70,11 @@ class NavigationBackstackTest {
     private fun waitForCondition(predicate: () -> Boolean) {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             Thread.sleep(20)
-            shadowOf(Looper.getMainLooper()).idleFor(16, java.util.concurrent.TimeUnit.MILLISECONDS)
+            val mainLooper = shadowOf(Looper.getMainLooper())
+            mainLooper.idle()
+            mainLooper.idleFor(16, java.util.concurrent.TimeUnit.MILLISECONDS)
+            composeRule.mainClock.advanceTimeByFrame()
+            mainLooper.idle()
             predicate()
         }
     }
@@ -224,17 +232,28 @@ class NavigationBackstackTest {
         }
 
         waitForTag("home_location")
-        waitForTag("product_card_prod_laptop_hp")
+        waitForCondition { vm.cachedHomeProducts.isNotEmpty() }
 
         // Scroll Home LazyColumn down so the top location header scrolls off-screen
-        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(6)
+        composeRule.onNode(
+            hasScrollToIndexAction() and androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(
+                androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange
+            )
+        ).performScrollToIndex(6)
         composeRule.waitForIdle()
         waitForCondition {
             composeRule.onAllNodesWithTag("home_location").fetchSemanticsNodes().isEmpty()
         }
 
         // Open a product details page from the scrolled viewport
-        composeRule.onAllNodes(hasTestTag("product_card_prod_laptop_hp").or(hasTestTag("product_card_prod_tshirt_mens")).or(hasTestTag("product_card_prod_smart_watch")))
+        val homeProductMatcher = hasTestTag("product_card_prod_laptop_hp")
+            .or(hasTestTag("product_card_prod_living_sofa"))
+            .or(hasTestTag("product_card_prod_backpack"))
+            .or(hasTestTag("product_card_prod_tshirt_mens"))
+        waitForCondition {
+            composeRule.onAllNodes(homeProductMatcher).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodes(homeProductMatcher)
             .onFirst()
             .performClick()
 
@@ -295,9 +314,11 @@ class NavigationBackstackTest {
             vm.repository.loginWithPhoneOtp("+251 912 345 678", "123456")
         }
         vm.refreshSession()
+        shadowOf(Looper.getMainLooper()).idle()
         vm.switchBuyerTab(ScreenDestination.Account)
         vm.setActiveRole("SELLER")
         vm.switchSellerTab(ScreenDestination.SellerStudio)
+        shadowOf(Looper.getMainLooper()).idle()
 
         val backOwner = TestBackOwner()
         var finished = false

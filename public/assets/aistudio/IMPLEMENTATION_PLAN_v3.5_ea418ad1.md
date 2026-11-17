@@ -1,17 +1,37 @@
-# Suqi: UI/UX Implementation Plan (v3.5, frontend-first)
+# Suqi: UI/UX Implementation Plan (v3.6, frontend-first)
 
 > Scope: **UI/UX only** (screens, layout, components, states). No API or backend work is planned here.
 > Covers only **non-existent or incomplete** features. Everything the re-audit confirmed as done is listed once in §2 so it is not planned again.
 > Audience: **Buyers/Visitors**, **Sellers (Suqi shop owners)**, **Owner/Admin/Developer**.
 > **Mode: frontend-first.** Demo scaffolding (visible admin credentials, demo OTP, fake Telegram/Google sign-in, seeded data) is **intentionally kept** so every screen stays reachable. It is not planned for removal; see §3.
-> Latest audit: `suqi_1.zip` (44.3k lines, 56 Kotlin files, 31 tests, Room v7 with 20 entities), compared against `suqi.zip` and re-checked item by item against this plan. **Phases 0, 1 and 2 are closed.** Next: Phase 3.
+> Latest audit: Phase 3 (`S-03`, `S-04`, `S-07`, `S-14`, `S-08`, Room v8 with 20 entities, ZXing QR export + `filesDir` shop media import) verified and closed. **Phases 0, 1, 2, and 3 are closed.** Next: Phase 4.
 > Method: full read of the uploaded codebase (`suqi.zip`, 31.8k lines across 48 Kotlin files, 49 `ScreenDestination` routes, Room v4 with 18 entities), checked against v2 of this plan and your update notes.
 
 ---
 
 ## 0. What changed
 
-### 0.0 Phase 2 closed (v3.4 → v3.5)
+### 0.0 Phase 3 closed (v3.5 → v3.6)
+Phase 3 (Seller daily work: `S-03`, `S-04`, `S-07`, `S-14`, `S-08`) was audited and the two remaining findings were fixed before closing:
+| Item | Result |
+|---|---|
+| **S-03 Inventory manager** | Done (`SellerInventoryScreen`: 3 entry points, SKU search, counts on filter chips, 56dp thumbnail, low-stock pill, variant row expansion with SKU/stock/price editors, steppers disabled for variant products, long-press bulk bar with Set stock / Pause / Out of stock; bulk Set Stock clarifies "(per variant)" when variant products are selected). |
+| **S-04 Product management** | Done (Draft tab, sort sheet, duplicate, share, view-as-buyer, bulk pause/archive/category/discount/delete with confirmation; `originalPrice` preserved; drafts/paused excluded from buyer `getProducts`; Add/Edit unsaved-changes guard, completeness chips, buyer preview, autosaved draft cleared on publish). |
+| **S-07 Shop profile & branding** | Done (live header preview, 7-day opening hours + Copy to all days, up to 6 gallery photos via `SuqiImagePickerTile`, cover/logo/gallery all imported into `filesDir/suqi_uploads/` so picker access never lapses, social links & policies with counters, real scannable ZXing QR code in `SuqiQrCard` with PNG Save to Pictures/SAF and PNG Share via `FileProvider`). |
+| **S-14 Inbox & chat** | Done (filter tabs with counts & unread dot, persisted read/unread via `markChatConversationRead`, order-context chips, editable persisted quick replies, order attachment picker & cards, persisted notification settings sheet). |
+| **S-08 Delivery polish** | Done (cut-off pickers via `SuqiTimeField`, grouped coverage chips with Select all / Clear, buyer checkout preview card). |
+| **Data & tests** | Room v7→v8 migration registered, codecs and `ensureSeeded()` guards verified, Phase 3 backend/Compose tests plus ZXing QR decode round-trip, `FileProvider` URI, and `filesDir` image import tests passing (`gradle :app:testDebugUnitTest`). |
+
+**Known stand-ins & audit notes (Phase 3)**
+| Note / Stand-in | Details |
+|---|---|
+| **Drafts** | Autosaved product draft sits in one device-wide `SharedPreferences` slot (`SellerPreferencesStore`), not per account, and is written only for new products, not edits. |
+| **Set stock (variants)** | Bulk Set Stock on a product with variants sets every variant to N, so total stock becomes N × variants; the dialog label displays "Stock units (per variant)" when any selected item has variants. |
+| **Unused settings (stand-in)** | Seller inbox notification switches and delivery cut-off times (`standardCutoffTime`, `expressCutoffTime`) are persisted and shown in previews, but nothing reads them operationally yet (acceptable for frontend-first; wire when notification dispatcher / checkout cut-off enforcement lands). |
+| **`shop.productCount`** | Counts drafts, paused, and archived products in addition to active listings. |
+| **Compose UI tests** | Phase 3 Compose UI tests are mostly smoke checks (screen renders, sheet opens, selection toggles); stepper increments, bulk-apply mutations, and save paths are verified in backend/unit tests (`ExampleRobolectricTest`). |
+
+### 0.0a Phase 2 closed (v3.4 → v3.5)
 Phase 2 (Operate the platform) was audited twice. The first audit found five gaps; all five were fixed and re-verified in code.
 | Item | Result |
 |---|---|
@@ -85,7 +105,7 @@ Role shell, design-system rollout, demo-data cleanup, B-06 payment proof, A-01 s
 | Role | Screens now | Feature coverage (v2 → now) | Design alignment (v2 → now) | Biggest remaining gaps |
 |---|---|---|---|---|
 | **Buyer / Visitor** | 24 | ~70% → **~90%** | ~15% → **~100%** | Returns/refunds, invoice, notification preferences, deals, coupons, compare, shop About tab, review photos/helpful |
-| **Seller** | 15 | ~55% → **~75%** | ~10% → **~100%** | Analytics, inventory manager, earnings, returns, reviews/Q&A management, hours/branding depth, promo scope (verification queue is done) |
+| **Seller** | 15 | ~75% → **~86%** | ~10% → **~100%** | Analytics, earnings, returns, reviews/Q&A management, customers, collections, staff accounts, promo scope/flash-sale wizard |
 | **Owner / Admin / Developer** | 12 | ~46% → **~62%** | **~100%** | Users/shops/orders/disputes, finance and payouts, full support inbox, audit log, locations/content/broadcast as full screens (now sheets), richer dev tools |
 
 *(Estimates from screen-by-screen review, not measured. Trilingual coverage is now ~100% of UI text across all three roles (brand names, format placeholders and seed data excluded).)*
@@ -98,7 +118,7 @@ Role shell, design-system rollout, demo-data cleanup, B-06 payment proof, A-01 s
 
 **Buyer**: Home (live banners from admin), Categories (16 sections), Category listing filters and sort (B-04), Search with live suggestions, filters, sort and grid/list toggle (B-03), Product details with rating histogram, Q&A, size guide, similar and more-from-shop rows, share sheet, report sheet (B-05), Cart with live promo validation, Checkout delivery, **Checkout payment with receipt upload (B-06)**, Order tracking with resubmit, reorder, courier card and help ticket (most of B-07), Chat with image attachments and preview, Notifications with type filter, mark read, delete (part of B-09), Address add/edit/default/delete (part of B-10), Reviews with report (part of B-11), Shop storefront with Collections tab and share sheet (part of B-14), Profile edit with avatar picker (part of B-02), Help with FAQ dialog, ticket submission and history, Terms/Privacy documents (part of B-17), Wishlist, Following, Settings (language, theme).
 
-**Seller**: Dashboard 2.0 with real KPIs, 7D/30D/90D chart, pipeline chart, readiness checklist (S-01); Order detail (S-05); Payment verification with pinch-zoom receipt and quick reject reasons (S-06 core); Product status tabs with pause/archive/delete/preview (S-04 core); Payment methods CRUD (S-08 part); Delivery and receipt rules persisted (S-08 core); Promo code CRUD persisted (S-09 core); Shop logo/cover pickers and vacation mode (S-07 core); Inbox and More hub (S-14 core).
+**Seller**: Dashboard 2.0 with real KPIs, 7D/30D/90D chart, pipeline chart, readiness checklist (S-01); Inventory Manager with SKU search, filter counts, variant expansion, steppers and bulk actions (S-03); Product Management with Draft tab, sort, duplicate, bulk actions, autosave draft, completeness chips and buyer preview (S-04); Order detail (S-05); Payment verification with pinch-zoom receipt, tabs, waiting-time badge and amount-match chip (S-06); Shop branding with live preview, 7-day hours, `SuqiImagePickerTile` gallery, social/policies and scannable ZXing QR save/share image (S-07); Delivery with cut-off `SuqiTimeField`, grouped coverage chips and buyer preview (S-08); Payment methods CRUD (S-08 part); Promo code CRUD persisted (S-09 core); Inbox with filter tabs, read/unread state, quick replies, order attachment cards and notification settings (S-14).
 
 **Localization (v3.3)**: all three roles are translated into አማርኛ and Afaan Oromoo, including seller, admin and developer screens, with localized category/product names.
 
@@ -124,7 +144,7 @@ Role shell, design-system rollout, demo-data cleanup, B-06 payment proof, A-01 s
 | # | Where | Problem | Fix |
 |---|---|---|---|
 | H-2 | Admin banners/categories | ✅ Done: URL fields removed, image pickers only | none |
-| H-5 | Whole app | 6 shared components are still unused (`SuqiFunnelBars`, `SuqiTimeField`, `SuqiCountdownChips`, `SuqiCouponTicket`, `SuqiSwipeRow`, `SuqiQrCard`); 🟠 partial | Wire in as each screen below lands (see §4 table) |
+| H-5 | Whole app | 3 shared components are still unused (`SuqiFunnelBars`, `SuqiCountdownChips`, `SuqiCouponTicket`); 🟠 partial | Wire in as each screen below lands (see §4 table) |
 
 ---
 
@@ -140,19 +160,19 @@ Orange-on-cream, human and warm, typography-led. Tokens: page `#FFF8F0`, card `#
 | `SuqiTabs` | A-06, S-06, A-10, A-12, A-11 | B-09, B-14, S-10, A-09, A-16 |
 | `SuqiSwitchRow` | Admin sign-in, A-03, A-10, A-11, A-12, seller screens, Search, Category listing | B-09 preferences, B-18, S-14, A-23 |
 | `SuqiStepIndicator` | S-15 | B-08 returns, S-09 wizard, S-16 upgrade |
-| `SuqiImagePickerTile` | S-15, admin banner/category | B-08, B-11, S-07 gallery |
+| `SuqiImagePickerTile` | S-15, S-07 gallery, admin banner/category | B-08, B-11 |
 | `SuqiDocumentViewer` | S-15, A-06, S-06 | A-13 approvals, A-08 evidence |
 | `SuqiDonutChart` | A-02 | S-02 |
 | `SuqiFunnelBars` | none | S-02 |
 | `SuqiSparkline` | A-02 | S-02 |
 | `SuqiRangeSlider` | Search, Category listing | Done |
-| `SuqiTimeField` | none | S-07 hours, S-08 cut-off, B-09 quiet hours |
-| `SuqiDateField` | A-12 schedule | S-09 schedule |
+| `SuqiTimeField` | S-07 hours, S-08 cut-off | B-09 quiet hours |
+| `SuqiDateField` | A-12 schedule, S-07 vacation | S-09 schedule |
 | `SuqiCountdownChips` | none | B-12 |
 | `SuqiCouponTicket` | none | B-15, S-09 preview |
-| `SuqiSwipeRow` | none | B-09 |
+| `SuqiSwipeRow` | S-03 inventory | B-09 |
 | `SuqiDragHandleList` | A-10, A-11, A-12 | S-17 |
-| `SuqiQrCard` | none | S-07 share card, B-07 invoice |
+| `SuqiQrCard` | S-07 share card | B-07 invoice |
 | `SuqiListRow` | Account hub, Seller studio, A-02, A-03 | B-09, B-18 settings pattern |
 
 `SuqiListRow` now exists and is the standard settings-style row.
@@ -263,40 +283,34 @@ Fully trilingual across Buyer, Seller and Admin, including toasts, service messa
 | Item | Status | What is left |
 |---|---|---|
 | S-02 Analytics | ⛔ | Full screen |
-| S-03 Inventory manager | ⛔ | Full screen (Product list only shows counts and actions) |
-| S-04 Product management | 🟠 | Duplicate, bulk select, sort, **Draft** tab, autosave banner, unsaved-changes dialog, completeness chips |
+| S-03 Inventory manager | ✅ | Done (`SellerInventoryScreen`: SKU search, filter counts, variant expansion, steppers, bulk actions) |
+| S-04 Product management | ✅ | Done (`ProductManagementScreen` + `AddEditProductScreen`: Draft tab, sort, duplicate, bulk actions, autosave draft, completeness chips, buyer preview) |
 | S-06 Verification queue | ✅ | Done (tabs with counts, waiting-time badge, amount-match chip, `SuqiDocumentViewer` receipt) |
-| S-07 Shop profile | 🟠 | **Opening hours UI**, gallery, Instagram/TikTok/website, policies, live header preview, QR + storefront link |
-| S-08 Delivery | 🟠 | Cut-off time pickers, sub-city chips grouped by city with Select all, **Preview as buyer** |
+| S-07 Shop profile | ✅ | Done (`ShopSettingsScreen`: live header preview, 7-day hours, `SuqiImagePickerTile` gallery, `filesDir` image imports, socials/policies, scannable ZXing QR card with PNG Save/Share) |
+| S-08 Delivery | ✅ | Done (`DeliverySetupScreen`: cut-off `SuqiTimeField`, grouped coverage chips with Select all / Clear, buyer checkout preview) |
 | S-09 Promotions | 🟠 | Scope, schedule, usage cap, per-customer limit, performance, wizard, flash-sale builder |
 | S-10 Reviews & Q&A | ⛔ | Full screen |
 | S-11 Customers | ⛔ | Full screen |
 | S-12 Earnings & payouts | ⛔ | Full screen |
 | S-13 Returns handling | ⛔ | Full screen |
-| S-14 Inbox | 🟠 | Quick replies, order-context chips, product/order cards, notification settings |
+| S-14 Inbox | ✅ | Done (`SellerInboxScreen` + `ChatThreadScreen`: filter tabs, read/unread state, order chips, quick replies, order attachment cards, notification settings) |
 | S-16 Subscription | 🟠 | Plan card only; no compare, upgrade or billing |
 | S-17 Collections manager | ⛔ | Full screen |
 | S-18 Staff accounts | ⛔ | Full screen |
 
 ### 7.2 Plans
 
-#### S-03 · Inventory manager: **P1**
-- Reached from Quick Actions and the Products tab (a "Inventory" chip).
-- Search + chips (All, Low stock, Out of stock, Paused). Row: 56dp thumbnail, name, "6 variants", **inline stock stepper** (− 12 +), amber low-stock pill; tap name → edit product.
-- Tap a product with variants to expand rows per variant (label, SKU, stock field, price override).
-- **Long-press multi-select** → bottom bar: Set stock, Pause, Mark out of stock.
-- Empty: "Add your first product".
+#### S-03 · Inventory manager: ✅ done (closed in Phase 3)
+- Reached from Quick Actions, Seller Studio, and the Products tab ("Inventory" chip).
+- Search (incl. SKU) + filter chips with counts (All, Low stock, Out of stock, Paused). Variant expansion, inline steppers (disabled on variant products), long-press multi-select bulk bar (Set stock with per-variant label when applicable, Pause, Mark out of stock).
 
-#### S-04 · Product management completion: **P1**
-- Tabs add **Draft**. Row overflow adds **Duplicate**, **Share**. **Multi-select** bar: Pause, Archive, Delete, Change category, Apply discount. **Sort** sheet: Newest, Best selling, Low stock, Price.
-- **Add/Edit product**: draft autosave banner ("Draft saved 10:42 · Resume"), unsaved-changes dialog on back, per-section completeness chips (Media ✓ Details ✓ Price ✓ Variants), **Preview as buyer** from unsaved data.
+#### S-04 · Product management completion: ✅ done (closed in Phase 3)
+- Draft tab, sort sheet, duplicate, share, bulk actions (Pause, Archive, Delete with confirmation, Change category, Apply discount preserving `originalPrice`). Drafts/paused hidden from buyer `getProducts`.
+- Add/Edit product: autosaved device-wide new-product draft banner (cleared on publish), unsaved-changes guard, completeness chips, live Preview as buyer.
 
-#### S-07 · Shop profile & branding completion: **P1**
-- **Live header preview** at top updating as the owner edits cover/logo/name.
-- **Opening hours**: 7 rows, each with open switch and two time fields; "Copy to all days"; stored in the existing `businessHoursJson`.
-- **More media**: gallery (up to 6 tiles), Instagram, TikTok, website fields; **policies** (returns, delivery notes) text areas with counters.
-- **Share card**: storefront link with Copy and a **QR code** (Save / Share image).
-- Sticky Save and unsaved-changes dialog.
+#### S-07 · Shop profile & branding completion: ✅ done (closed in Phase 3)
+- Live header preview, 7-day opening hours (`SuqiTimeField`) + Copy to all days, 6-photo gallery (`SuqiImagePickerTile`), cover/logo/gallery persisted to `filesDir/suqi_uploads/`, social/website fields, policies with 400-char counters.
+- Share card: real ZXing QR code in `SuqiQrCard` with Copy Link, Save PNG image (Pictures/SAF), and Share PNG image (`FileProvider`).
 
 #### S-02 · Analytics & reports: **P2**
 - Header with date-range chip (range sheet) and export icon.
@@ -309,15 +323,13 @@ Fully trilingual across Buyer, Seller and Admin, including toasts, service messa
 - **Create wizard** (3 steps): Type (Percent / Fixed / Free delivery) → Scope (whole shop / categories / chosen products) + conditions (min order, per-customer limit, usage cap) → Schedule (start/end) with preview of the buyer coupon card.
 - **Flash-sale builder**: products, sale price, stock cap, time window; preview of the B-12 card.
 
-#### S-14 · Inbox completion: **P1**
-- Filters (All, Unread, Orders, Questions); order-context chip on a chat row.
-- In chat: **quick-reply row** above the keyboard (editable templates: "Payment received ✓", "Your order is on the way", "Item in stock"), send product/order card.
-- **Notification settings** sheet: new order, payment submitted, low stock, review, question switches.
+#### S-14 · Inbox completion: ✅ done (closed in Phase 3)
+- Filter tabs (All, Unread, Orders, Questions) with counts and unread dot; persisted read/unread state; order-context chips; editable persisted quick replies; order attachment picker with embedded order cards; notification settings sheet (stand-in persisted locally).
 
 #### S-06 · Verification queue polish: ✅ done (closed in Phase 1)
 
-#### S-08 · Delivery polish: **P2**
-- Cut-off time pickers. Coverage as **sub-city chips grouped by city** with "Select all" (replaces the free-text list). **Preview as buyer** card at the bottom showing exactly how options appear in checkout.
+#### S-08 · Delivery polish: ✅ done (closed in Phase 3)
+- Cut-off `SuqiTimeField` pickers (persisted stand-in), grouped sub-city/hub coverage chips with Select all / Clear, and Preview as buyer checkout summary card.
 
 #### S-10 · Reviews & Q&A management: **P2**
 - Tabs Reviews · Questions. Summary card (average, histogram, response rate).
@@ -463,8 +475,8 @@ Grouped switch cards: Commerce (chat, external contact, reviews, Q&A), Media (vi
 | **0 · Quick wins** ✅ | Finish what is built | H-2, `SuqiSwitchRow` / `SuqiListRow` settings pattern |
 | **1 · Verification follow-ups** ✅ | Complete the trust loop | A-06 age badges, S-06 tabs/amount chip reusing `SuqiDocumentViewer` |
 | **2 · Operate the platform** ✅ | Admin can run it | A-03, A-12, A-11, A-10, A-02 (stand-ins: `Reported listings` & `Payout requests` queues and owner alerts route via Console/Moderation until A-07, A-08, A-14 land) |
-| **3 · Seller daily work** ⏭ next | Run a shop without leaving the app | S-03, S-04, S-07, S-14, S-08 (S-06 closed in Phase 1) |
-| **4 · Buyer completion** | Close the purchase loop | B-07 invoice, B-09 preferences, B-10, B-14 About, B-02 delete, B-18, B-17 |
+| **3 · Seller daily work** ✅ | Run a shop without leaving the app | S-03, S-04, S-07, S-14, S-08 (S-06 closed in Phase 1; stand-ins: device-wide new-product draft slot, unused notification switches & cut-off times, `shop.productCount` includes non-active listings) |
+| **4 · Buyer completion** ⏭ next | Close the purchase loop | B-07 invoice, B-09 preferences, B-10, B-14 About, B-02 delete, B-18, B-17 |
 | **5 · Money & retention** | Revenue, returns, growth | B-08 + S-13, S-12 + A-14, S-16 + A-13, S-09 + B-12, S-02, B-11, A-09, A-16, A-15 |
 | **6 · Long tail** | Depth | A-04, A-05, A-07, A-08, A-20 … A-23, A-17 … A-19, B-13, B-15, B-19, S-10, S-11, S-17, S-18, F-06 |
 

@@ -38,19 +38,25 @@ class Phase3ComposeUiTest {
     private fun newSellerViewModel(): SuqiViewModel {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val vm = SuqiViewModel(app)
+        shadowOf(Looper.getMainLooper()).idle()
         runBlocking {
             vm.repository.loginWithPhoneOtp("+251 912 345 678", "123456")
             vm.repository.getSellerProducts()
         }
         vm.setActiveRole("SELLER")
         vm.refreshSession()
+        shadowOf(Looper.getMainLooper()).idle()
         return vm
     }
 
     private fun waitForTag(tag: String) {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             Thread.sleep(20)
-            shadowOf(Looper.getMainLooper()).idleFor(16, java.util.concurrent.TimeUnit.MILLISECONDS)
+            val mainLooper = shadowOf(Looper.getMainLooper())
+            mainLooper.idle()
+            mainLooper.idleFor(16, java.util.concurrent.TimeUnit.MILLISECONDS)
+            composeRule.mainClock.advanceTimeByFrame()
+            mainLooper.idle()
             composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
         }
     }
@@ -121,8 +127,15 @@ class Phase3ComposeUiTest {
         waitForTag("shop_live_header_preview")
         composeRule.onNodeWithTag("shop_live_header_preview").assertIsDisplayed()
 
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("shop_gallery_grid"))
+        composeRule.onNodeWithTag("add_shop_gallery_photo").assertIsDisplayed()
+
         composeRule.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("shop_share_qr_card"))
         composeRule.onNodeWithTag("shop_share_qr_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("qr_matrix_canvas").assertIsDisplayed()
+        composeRule.onNodeWithTag("qr_copy_link_btn").assertIsDisplayed()
+        composeRule.onNodeWithTag("qr_save_image_btn").assertIsDisplayed()
+        composeRule.onNodeWithTag("qr_share_image_btn").assertIsDisplayed()
     }
 
     @Test

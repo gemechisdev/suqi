@@ -3,11 +3,13 @@ package com.example.ui.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -64,7 +66,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
+import java.util.UUID
 
 // ==========================================
 // F-07 Extended Shared UI Components
@@ -1030,14 +1032,14 @@ fun <T> SuqiDragHandleList(
     }
 }
 
-private suspend fun importPickerImageOnly(context: Context, uri: Uri): String = withContext(Dispatchers.IO) {
+suspend fun importPickerImageOnly(context: Context, uri: Uri): String = withContext(Dispatchers.IO) {
     val resolver = context.contentResolver
     val mime = resolver.getType(uri)
     val size = try { resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L } catch (_: Exception) { -1L }
     if (size > 15L * 1024 * 1024) error("Image must be under 15 MB")
 
     val dir = File(context.filesDir, "suqi_uploads").apply { mkdirs() }
-    val stamp = System.currentTimeMillis()
+    val stamp = "${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}"
 
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -1457,13 +1459,43 @@ fun SuqiQrCard(
     subtitle: String,
     codeValue: String,
     onCopyCode: () -> Unit,
-    onShare: () -> Unit,
+    onShare: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    badgeText: String? = null
+    badgeText: String? = null,
+    shareText: String = codeValue,
+    onSaveSuccess: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
+    val scope = rememberCoroutineScope()
+    var isExporting by remember { mutableStateOf(false) }
+
+    val qrMatrix = remember(codeValue) {
+        runCatching { SuqiQrGenerator.encodeMatrix(codeValue) }.getOrNull()
+    }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/png")
+    ) { destUri ->
+        if (destUri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            isExporting = true
+            try {
+                val bitmap = withContext(Dispatchers.Default) {
+                    SuqiQrGenerator.renderQrCardBitmap(codeValue, title = title, badgeText = badgeText)
+                }
+                SuqiQrGenerator.writeQrBitmapToUri(context, bitmap, destUri)
+                bitmap.recycle()
+                Toast.makeText(context, strings.common.qrSavedToast, Toast.LENGTH_SHORT).show()
+                onSaveSuccess?.invoke()
+            } catch (_: Exception) {
+                Toast.makeText(context, strings.common.qrSaveFailedToast, Toast.LENGTH_SHORT).show()
+            }
+            isExporting = false
+        }
+    }
+
     SuqiSectionCard(modifier = modifier, padding = 18.dp) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
             if (!badgeText.isNullOrBlank()) {
@@ -1487,87 +1519,181 @@ fun SuqiQrCard(
             )
             Spacer(Modifier.height(14.dp))
 
-            // Deterministic 21x21 QR matrix visual
+            // Real scannable ZXing QR matrix on pure white quiet-zone card
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(164.dp)
+                    .size(180.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .background(Color.White)
                     .border(1.dp, colors.border, RoundedCornerShape(20.dp))
-                    .padding(14.dp)
+                    .padding(12.dp)
+                    .testTag("qr_matrix_canvas")
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val grid = 21
-                    val cell = size.width / grid
-                    val seed = codeValue.hashCode()
-                    fun isFinder(r: Int, c: Int): Boolean {
-                        return (r < 7 && c < 7) || (r < 7 && c >= grid - 7) || (r >= grid - 7 && c < 7)
-                    }
-                    fun finderFill(r: Int, c: Int): Boolean {
-                        val lr = if (r >= grid - 7) r - (grid - 7) else r
-                        val lc = if (c >= grid - 7) c - (grid - 7) else c
-                        return lr == 0 || lr == 6 || lc == 0 || lc == 6 || (lr in 2..4 && lc in 2..4)
-                    }
-                    for (r in 0 until grid) {
-                        for (c in 0 until grid) {
-                            val drawCell = if (isFinder(r, c)) {
-                                finderFill(r, c)
-                            } else {
-                                val h = abs(seed * 31 + r * 17 + c * 13 + (r xor c) * 7)
-                                h % 11 < 5
-                            }
-                            if (drawCell) {
-                                val isCenterFinder = (r in 2..4 && c in 2..4) ||
-                                    (r in 2..4 && c in (grid - 5)..(grid - 3)) ||
-                                    (r in (grid - 5)..(grid - 3) && c in 2..4)
-                                drawRect(
-                                    color = if (isCenterFinder) SuqiPrimary else Color(0xFF171717),
-                                    topLeft = Offset(c * cell, r * cell),
-                                    size = Size(cell * 0.92f, cell * 0.92f)
-                                )
+                if (qrMatrix != null) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val cols = qrMatrix.width
+                        val rows = qrMatrix.height
+                        val cell = minOf(size.width / cols, size.height / rows)
+                        val offsetX = (size.width - cell * cols) / 2f
+                        val offsetY = (size.height - cell * rows) / 2f
+                        val dark = Color(0xFF171717)
+                        for (r in 0 until rows) {
+                            for (c in 0 until cols) {
+                                if (qrMatrix.get(c, r)) {
+                                    drawRect(
+                                        color = dark,
+                                        topLeft = Offset(offsetX + c * cell, offsetY + r * cell),
+                                        size = Size(cell + 0.5f, cell + 0.5f)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = codeValue,
-                fontFamily = SuqiFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
-                color = colors.secondaryText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
+            Spacer(Modifier.height(12.dp))
+
+            // Storefront link bar with 48dp Copy button
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(colors.secondaryBackground)
+                    .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                    .padding(start = 12.dp, end = 4.dp)
+            ) {
+                Text(
+                    text = codeValue,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    color = colors.secondaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(
                     onClick = {
                         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                         cm?.setPrimaryClip(ClipData.newPlainText("Suqi", codeValue))
                         Toast.makeText(context, strings.common.copiedToast, Toast.LENGTH_SHORT).show()
                         onCopyCode()
                     },
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("qr_copy_link_btn")
+                ) {
+                    Icon(LucideIcons.Copy, contentDescription = strings.common.copyLabel, tint = SuqiPrimary, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = strings.common.copyLinkLabel,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        color = SuqiPrimary,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    enabled = !isExporting,
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            scope.launch {
+                                isExporting = true
+                                try {
+                                    val bitmap = withContext(Dispatchers.Default) {
+                                        SuqiQrGenerator.renderQrCardBitmap(codeValue, title = title, badgeText = badgeText)
+                                    }
+                                    val prefix = badgeText ?: "suqi_qr"
+                                    val savedUri = SuqiQrGenerator.saveQrBitmapToPictures(context, bitmap, prefix)
+                                    bitmap.recycle()
+                                    if (savedUri != null) {
+                                        Toast.makeText(context, strings.common.qrSavedToast, Toast.LENGTH_SHORT).show()
+                                        onSaveSuccess?.invoke()
+                                    } else {
+                                        Toast.makeText(context, strings.common.qrSaveFailedToast, Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (_: Exception) {
+                                    Toast.makeText(context, strings.common.qrSaveFailedToast, Toast.LENGTH_SHORT).show()
+                                }
+                                isExporting = false
+                            }
+                        } else {
+                            val safeName = (badgeText ?: "suqi_qr").replace(Regex("[^a-zA-Z0-9_-]"), "_")
+                            createDocumentLauncher.launch("${safeName}_qr.png")
+                        }
+                    },
                     shape = RoundedCornerShape(999.dp),
                     border = BorderStroke(1.dp, colors.border),
-                    modifier = Modifier.weight(1f).height(46.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("qr_save_image_btn")
                 ) {
-                    Icon(LucideIcons.Copy, contentDescription = strings.common.copyLabel, tint = colors.primaryText, modifier = Modifier.size(16.dp))
+                    Icon(LucideIcons.Download, contentDescription = strings.common.saveQrLabel, tint = colors.primaryText, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(strings.common.copyLinkLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.primaryText)
+                    Text(
+                        text = strings.common.saveQrLabel,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = colors.primaryText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 Button(
-                    onClick = onShare,
+                    enabled = !isExporting,
+                    onClick = {
+                        scope.launch {
+                            isExporting = true
+                            try {
+                                val bitmap = withContext(Dispatchers.Default) {
+                                    SuqiQrGenerator.renderQrCardBitmap(codeValue, title = title, badgeText = badgeText)
+                                }
+                                val prefix = badgeText ?: "suqi_qr"
+                                val imageUri = SuqiQrGenerator.createShareQrImageUri(context, bitmap, prefix)
+                                bitmap.recycle()
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "image/png"
+                                    putExtra(Intent.EXTRA_STREAM, imageUri)
+                                    putExtra(Intent.EXTRA_SUBJECT, badgeText ?: title)
+                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, title))
+                                onShare?.invoke()
+                            } catch (_: Exception) {
+                                Toast.makeText(context, strings.common.qrShareFailedToast, Toast.LENGTH_SHORT).show()
+                            }
+                            isExporting = false
+                        }
+                    },
                     shape = RoundedCornerShape(999.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
-                    modifier = Modifier.weight(1f).height(46.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("qr_share_image_btn")
                 ) {
                     Icon(LucideIcons.Share2, contentDescription = strings.shareProduct, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(strings.common.shareQrLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                    Text(
+                        text = strings.common.shareQrLabel,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

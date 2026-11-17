@@ -891,6 +891,48 @@ class ExampleRobolectricTest {
         assertEquals("SUQ-2025-001234", sentMsg.orderContextRef)
         assertEquals("ORDER", sentMsg.threadCategory)
     }
+
+    @Test
+    fun testQrCodeEncodesAndDecodesViaZxingAndCreatesShareUri() = runBlocking {
+        val url = "https://suqi.et/shop/techhub"
+        val bitmap = com.example.ui.components.SuqiQrGenerator.renderQrCardBitmap(
+            content = url,
+            title = "Share Storefront & QR",
+            badgeText = "Tech Hub"
+        )
+        assertTrue(bitmap.width >= 800)
+        assertTrue(bitmap.height > bitmap.width)
+
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val source = com.google.zxing.RGBLuminanceSource(bitmap.width, bitmap.height, pixels)
+        val binaryBitmap = com.google.zxing.BinaryBitmap(com.google.zxing.common.HybridBinarizer(source))
+        val decoded = com.google.zxing.qrcode.QRCodeReader().decode(binaryBitmap)
+        assertEquals(url, decoded.text)
+
+        val shareUri = com.example.ui.components.SuqiQrGenerator.createShareQrImageUri(context, bitmap, "techhub")
+        assertEquals("content", shareUri.scheme)
+        assertEquals("${context.packageName}.fileprovider", shareUri.authority)
+        bitmap.recycle()
+    }
+
+    @Test
+    fun testImportPickerImageOnlyCopiesToFilesDir() = runBlocking {
+        val sourceFile = java.io.File(context.cacheDir, "picker_source_test.png")
+        val bmp = android.graphics.Bitmap.createBitmap(64, 64, android.graphics.Bitmap.Config.ARGB_8888)
+        sourceFile.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        bmp.recycle()
+
+        val importedUriStr = com.example.ui.components.importPickerImageOnly(
+            context,
+            android.net.Uri.fromFile(sourceFile)
+        )
+        val importedUri = android.net.Uri.parse(importedUriStr)
+        assertEquals("file", importedUri.scheme)
+        val importedFile = java.io.File(requireNotNull(importedUri.path))
+        assertTrue("Imported file should exist", importedFile.exists())
+        assertTrue("Imported file should reside in filesDir/suqi_uploads", importedFile.absolutePath.contains("suqi_uploads"))
+    }
 }
 
 

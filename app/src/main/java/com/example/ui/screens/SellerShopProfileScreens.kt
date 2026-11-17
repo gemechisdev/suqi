@@ -2,7 +2,6 @@
 
 package com.example.ui.screens
 
-import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -42,7 +41,9 @@ import com.example.ui.i18n.placeLabel
 import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import com.example.util.EthiopianMarketplaceUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class ShopProfileSnapshot(
     val shopName: String,
@@ -138,25 +139,40 @@ fun ShopSettingsScreen(
         showDiscardDialog = true
     }
 
+    var isImportingLogo by remember { mutableStateOf(false) }
+    var isImportingCover by remember { mutableStateOf(false) }
+
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) logoUrl = uri.toString()
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            isImportingLogo = true
+            try {
+                logoUrl = importPickerImageOnly(context, uri)
+            } catch (e: Exception) {
+                viewModel.showToast(e.message ?: strings.common.failedToAddToast)
+            }
+            isImportingLogo = false
+        }
     }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) coverUrl = uri.toString()
-    }
-    val galleryPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null && galleryUrls.size < 6) {
-            galleryUrls = (galleryUrls + uri.toString()).distinct().take(6)
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            isImportingCover = true
+            try {
+                coverUrl = importPickerImageOnly(context, uri)
+            } catch (e: Exception) {
+                viewModel.showToast(e.message ?: strings.common.failedToAddToast)
+            }
+            isImportingCover = false
         }
     }
 
     LaunchedEffect(Unit) {
-        isLoading = true
         val sid = resolveActiveSellerShopId(viewModel)
-        activeShopId = sid
-        if (sid.isNotBlank()) {
-            val res = viewModel.repository.getShopDetails(sid)
-            res.data?.let { s ->
+        val res = if (sid.isNotBlank()) viewModel.repository.getShopDetails(sid) else null
+        withContext(Dispatchers.Main) {
+            activeShopId = sid
+            res?.data?.let { s ->
                 shopSlug = s.slug
                 shopCity = s.city.ifBlank { "Addis Ababa" }
                 shopRating = s.rating
@@ -180,9 +196,9 @@ fun ShopSettingsScreen(
                 returnPolicy = s.returnPolicy.take(400)
                 deliveryNotesPolicy = s.deliveryNotesPolicy.take(400)
             }
+            initialSnapshot = currentSnapshot()
+            isLoading = false
         }
-        initialSnapshot = currentSnapshot()
-        isLoading = false
     }
 
     fun dayLabelForKey(key: String): String = when (key.uppercase()) {
@@ -397,6 +413,9 @@ fun ShopSettingsScreen(
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
+                            if (isImportingCover) {
+                                CircularProgressIndicator(color = SuqiPrimary, strokeWidth = 2.5.dp, modifier = Modifier.size(28.dp))
+                            }
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
@@ -421,13 +440,15 @@ fun ShopSettingsScreen(
                                     .size(64.dp)
                                     .clip(CircleShape)
                                     .background(colors.primaryTint)
-                                    .clickable {
+                                    .clickable(enabled = !isImportingLogo) {
                                         logoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                     }
                                     .testTag("pick_shop_logo"),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (logoUrl.isNotBlank()) {
+                                if (isImportingLogo) {
+                                    CircularProgressIndicator(color = SuqiPrimary, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                                } else if (logoUrl.isNotBlank()) {
                                     AsyncImage(
                                         model = logoUrl,
                                         contentDescription = strings.sellerOps.shopLogoCoverTitle,
@@ -444,6 +465,7 @@ fun ShopSettingsScreen(
                                 Text(strings.common.tapToPickPhoto, fontSize = 12.sp, color = colors.secondaryText)
                             }
                             TextButton(
+                                enabled = !isImportingLogo,
                                 onClick = {
                                     logoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                 },
@@ -577,7 +599,7 @@ fun ShopSettingsScreen(
                     }
                 }
 
-                // Shop Photo Gallery (up to 6 tiles)
+                // Shop Photo Gallery (up to 6 tiles via SuqiImagePickerTile)
                 item {
                     SuqiSectionCard {
                         Text(
@@ -595,72 +617,44 @@ fun ShopSettingsScreen(
                             color = colors.secondaryText
                         )
                         Spacer(Modifier.height(12.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        val slotIndices = (0 until minOf(galleryUrls.size + 1, 6)).toList()
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("shop_gallery_grid")
                         ) {
-                            galleryUrls.forEachIndexed { index, url ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(94.dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(colors.secondaryBackground)
-                                        .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                            slotIndices.chunked(2).forEach { pair ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    AsyncImage(
-                                        model = url,
-                                        contentDescription = work.shopGalleryTitle,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                    IconButton(
-                                        onClick = {
-                                            galleryUrls = galleryUrls.toMutableList().apply { removeAt(index) }
-                                        },
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .size(36.dp)
-                                            .padding(4.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.Black.copy(alpha = 0.65f))
-                                    ) {
-                                        Icon(
-                                            LucideIcons.X,
-                                            contentDescription = strings.common.removeImageDesc,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(14.dp)
+                                    pair.forEach { slotIdx ->
+                                        val existingUrl = galleryUrls.getOrNull(slotIdx)
+                                        SuqiImagePickerTile(
+                                            label = if (existingUrl != null) "#${slotIdx + 1}" else work.addGalleryPhotoBtn,
+                                            imageUri = existingUrl,
+                                            onImagePicked = { imported ->
+                                                if (existingUrl != null) {
+                                                    galleryUrls = galleryUrls.toMutableList().apply { this[slotIdx] = imported }
+                                                } else if (galleryUrls.size < 6) {
+                                                    galleryUrls = (galleryUrls + imported).distinct().take(6)
+                                                }
+                                            },
+                                            onRemove = if (existingUrl != null) {
+                                                {
+                                                    galleryUrls = galleryUrls.toMutableList().apply { removeAt(slotIdx) }
+                                                }
+                                            } else null,
+                                            tileHeight = 110.dp,
+                                            aspectRatio = 1.25f,
+                                            testTag = if (existingUrl != null) "shop_gallery_tile_$slotIdx" else "add_shop_gallery_photo",
+                                            modifier = Modifier.weight(1f)
                                         )
                                     }
-                                }
-                            }
-                            if (galleryUrls.size < 6) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                    modifier = Modifier
-                                        .size(94.dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(colors.primaryTint)
-                                        .border(1.dp, SuqiPrimary.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
-                                        .clickable {
-                                            galleryPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                        }
-                                        .testTag("add_shop_gallery_photo")
-                                ) {
-                                    Icon(LucideIcons.ImagePlus, contentDescription = work.addGalleryPhotoBtn, tint = SuqiPrimary, modifier = Modifier.size(22.dp))
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = work.addGalleryPhotoBtn,
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 11.sp,
-                                        color = SuqiPrimary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    if (pair.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
                                 }
                             }
                         }
@@ -765,15 +759,9 @@ fun ShopSettingsScreen(
                         subtitle = work.shareShopQrSubtitle,
                         codeValue = storefrontUrl,
                         badgeText = shopName.ifBlank { null },
+                        shareText = if (shopName.isNotBlank()) "$shopName — $storefrontUrl" else storefrontUrl,
                         onCopyCode = { viewModel.showToast(work.storefrontLinkCopiedToast) },
-                        onShare = {
-                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, shopName.ifBlank { strings.seller.shopBrandingTitle })
-                                putExtra(Intent.EXTRA_TEXT, "$shopName — $storefrontUrl")
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, work.shareShopQrTitle))
-                        },
+                        onSaveSuccess = { viewModel.showToast(strings.common.qrSavedToast) },
                         modifier = Modifier.testTag("shop_share_qr_card")
                     )
                 }
@@ -849,12 +837,12 @@ fun DeliverySetupScreen(
     var requireReceiptScreenshot by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        isLoading = true
         val sid = resolveActiveSellerShopId(viewModel)
-        activeShopId = sid
-        if (sid.isNotBlank()) {
-            val shopRes = viewModel.repository.getShopDetails(sid)
-            shopRes.data?.let { s ->
+        val shopRes = if (sid.isNotBlank()) viewModel.repository.getShopDetails(sid) else null
+        val delRes = if (sid.isNotBlank()) viewModel.repository.getShopDeliveryOptions(sid) else null
+        withContext(Dispatchers.Main) {
+            activeShopId = sid
+            shopRes?.data?.let { s ->
                 pickupAddress = s.address
                 val parsedZones = s.coverageSubCitiesCsv
                     .split(",")
@@ -872,8 +860,7 @@ fun DeliverySetupScreen(
                 standardCutoffTime = s.standardCutoffTime.ifBlank { "16:00" }
                 expressCutoffTime = s.expressCutoffTime.ifBlank { "14:00" }
             }
-            val delRes = viewModel.repository.getShopDeliveryOptions(sid)
-            val options = delRes.data.orEmpty()
+            val options = delRes?.data.orEmpty()
             options.firstOrNull { it.optionType == "STANDARD" }?.let {
                 stdId = it.id
                 standardEnabled = it.isEnabled
@@ -891,8 +878,8 @@ fun DeliverySetupScreen(
                 pickupEnabled = it.isEnabled
                 if (it.estimatedTime.isNotBlank()) pickupAddress = it.estimatedTime
             }
+            isLoading = false
         }
-        isLoading = false
     }
 
     SuqiScreen(

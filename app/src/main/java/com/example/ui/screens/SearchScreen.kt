@@ -772,7 +772,9 @@ fun SearchResultProductRow(
     SuqiSectionCard(
         padding = 12.dp,
         onClick = onClick,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .testTag("product_card_${product.id}")
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
