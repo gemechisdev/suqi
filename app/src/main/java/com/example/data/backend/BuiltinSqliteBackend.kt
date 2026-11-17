@@ -232,6 +232,17 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         ApiResponse(success = true, data = updated.toDto())
     }
 
+    override suspend fun deleteAccount(): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val current = resolveCurrentUser()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "No active user session")
+        if (current.role == "ADMIN" || current.adminTier != "NONE") {
+            return@withContext ApiResponse(success = false, data = false, message = "Staff accounts cannot be deleted here.")
+        }
+        db.cartDao().clearAll(current.id)
+        db.userDao().deleteById(current.id)
+        ApiResponse(success = true, data = true)
+    }
+
     override suspend fun getCurrentUser(): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
         val user = resolveCurrentUser()
         ApiResponse(success = user != null, data = user?.toDto())

@@ -42,197 +42,6 @@ import com.example.util.EthiopianMarketplaceUtils
 import kotlinx.coroutines.launch
 
 @Composable
-fun NotificationsScreen(
-    viewModel: SuqiViewModel,
-    modifier: Modifier = Modifier
-) {
-    val coroutineScope = rememberCoroutineScope()
-    val colors = LocalSuqiColors.current
-    val strings = suqiStrings()
-    val isOffline by viewModel.isOffline.collectAsState()
-    var notifications by remember { mutableStateOf(viewModel.cachedNotifications) }
-    var selectedFilter by rememberSaveable { mutableStateOf("ALL") }
-    var isLoading by remember { mutableStateOf(notifications.isEmpty()) }
-    val listState = rememberLazyListState()
-
-    fun loadNotifications() {
-        coroutineScope.launch {
-            isLoading = notifications.isEmpty()
-            val res = viewModel.repository.getNotifications()
-            if (res.success && res.data != null) {
-                notifications = res.data
-                viewModel.cachedNotifications = res.data
-            }
-            viewModel.refreshUnreadNotifications()
-            isLoading = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        loadNotifications()
-    }
-
-    val filtered = remember(notifications, selectedFilter) {
-        if (selectedFilter == "ALL") notifications
-        else notifications.filter { it.type.equals(selectedFilter, ignoreCase = true) }
-    }
-
-    val filterChips = remember(notifications, strings) {
-        listOf(
-            "ALL" to "${strings.checkout.filterAll} (${notifications.size})",
-            "ORDER" to "${strings.buyer.ordersTabLabel} (${notifications.count { it.type == "ORDER" }})",
-            "PAYMENT" to "${strings.checkout.paymentMethodTitle} (${notifications.count { it.type == "PAYMENT" }})",
-            "CHAT" to "${strings.buyer.chatTabLabel} (${notifications.count { it.type == "CHAT" }})",
-            "PROMO" to "${strings.buyer.promosTabLabel} (${notifications.count { it.type == "PROMO" }})"
-        )
-    }
-
-    SuqiScreen(
-        title = strings.notificationsTitle,
-        subtitle = "${notifications.count { !it.isRead }}",
-        onBackClick = { viewModel.goBack() },
-        isOffline = isOffline,
-        headerActions = {
-            if (notifications.any { !it.isRead }) {
-                TextButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            viewModel.clearNotificationCount()
-                            loadNotifications()
-                            viewModel.showToast(strings.buyer.markAllRead)
-                        }
-                    },
-                    modifier = Modifier.testTag("notifications_mark_all_read")
-                ) {
-                    Text(strings.buyer.markAllRead, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = SuqiPrimary)
-                }
-            }
-        },
-        modifier = modifier
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            SuqiFilterChips(
-                items = filterChips,
-                selectedKey = selectedFilter,
-                onSelect = { selectedFilter = it },
-                testTagPrefix = "notif_filter"
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-
-            if (isLoading) {
-                SuqiSkeletonList(count = 4, modifier = Modifier.padding(top = 8.dp))
-            } else if (filtered.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    SuqiEmptyState(
-                        icon = LucideIcons.Bell,
-                        title = strings.buyer.noNotificationsTitle,
-                        subtitle = strings.buyer.noNotificationsSub,
-                        ctaText = if (selectedFilter != "ALL") strings.checkout.filterAll else null,
-                        onCtaClick = if (selectedFilter != "ALL") { { selectedFilter = "ALL" } } else null,
-                        testTag = "notifications_empty"
-                    )
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(filtered, key = { it.id }) { notif ->
-                        SuqiSectionCard(
-                            padding = 14.dp,
-                            containerColor = if (notif.isRead) colors.cardBackground else colors.primaryTint,
-                            onClick = {
-                                if (!notif.isRead) {
-                                    coroutineScope.launch {
-                                        viewModel.repository.markNotificationRead(notif.id, true)
-                                        loadNotifications()
-                                    }
-                                }
-                            },
-                            modifier = Modifier.testTag("notification_card_${notif.id}")
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(SuqiPrimary.copy(alpha = 0.14f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = when (notif.type) {
-                                            "PAYMENT" -> LucideIcons.Wallet
-                                            "CHAT" -> LucideIcons.MessageCircle
-                                            "PROMO" -> LucideIcons.BadgePercent
-                                            else -> LucideIcons.Truck
-                                        },
-                                        contentDescription = null,
-                                        tint = SuqiPrimary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = notif.title,
-                                            fontFamily = SuqiFontFamily,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp,
-                                            color = colors.primaryText,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        if (!notif.isRead) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(8.dp)
-                                                    .clip(CircleShape)
-                                                    .background(SuqiPrimary)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = notif.body,
-                                        fontFamily = SuqiFontFamily,
-                                        fontSize = 13.sp,
-                                        color = colors.secondaryText
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = notif.timestamp,
-                                        fontFamily = SuqiFontFamily,
-                                        fontSize = 11.sp,
-                                        color = colors.mutedText
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        coroutineScope.launch {
-                                            viewModel.repository.deleteNotification(notif.id)
-                                            loadNotifications()
-                                        }
-                                    },
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(LucideIcons.Trash2, contentDescription = strings.deleteLabel, tint = colors.mutedText, modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun SavedAddressesScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
@@ -245,6 +54,7 @@ fun SavedAddressesScreen(
     var editingAddress by remember { mutableStateOf<SavedAddressDto?>(null) }
     var showSheet by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(addresses.isEmpty()) }
+    var activeOrders by remember { mutableStateOf<List<OrderDto>>(emptyList()) }
     val listState = rememberLazyListState()
 
     BackHandler(enabled = showSheet) {
@@ -259,6 +69,8 @@ fun SavedAddressesScreen(
                 addresses = res.data
                 viewModel.cachedSavedAddresses = res.data
             }
+            val oRes = viewModel.repository.getOrders()
+            if (oRes.success && oRes.data != null) activeOrders = oRes.data
             viewModel.refreshSession()
             isLoading = false
         }
@@ -314,7 +126,8 @@ fun SavedAddressesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(addresses, key = { it.id }) { addr ->
-                    SuqiSectionCard(padding = 16.dp) {
+                    val inUse = isAddressInUse(addr, activeOrders)
+                    SuqiSectionCard(padding = 16.dp, modifier = Modifier.testTag("address_card_${addr.id}")) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -327,8 +140,13 @@ fun SavedAddressesScreen(
                                 fontSize = 15.sp,
                                 color = colors.primaryText
                             )
-                            if (addr.isDefault) {
-                                SuqiStatusBadge(strings.buyer.defaultBadge, StatusType.SUCCESS)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                if (inUse) {
+                                    SuqiStatusBadge(strings.buyerWork.inUsePill, StatusType.WARNING, modifier = Modifier.testTag("address_in_use_${addr.id}"))
+                                }
+                                if (addr.isDefault) {
+                                    SuqiStatusBadge(strings.buyer.defaultBadge, StatusType.SUCCESS)
+                                }
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
@@ -347,6 +165,15 @@ fun SavedAddressesScreen(
                                 fontFamily = SuqiFontFamily,
                                 fontSize = 12.sp,
                                 color = colors.mutedText
+                            )
+                        }
+                        if (inUse) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = strings.buyer.addressInUseBlocked,
+                                fontFamily = SuqiFontFamily,
+                                fontSize = 11.sp,
+                                color = SuqiWarning
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
@@ -380,6 +207,10 @@ fun SavedAddressesScreen(
                             }
                             OutlinedButton(
                                 onClick = {
+                                    if (inUse) {
+                                        viewModel.showToast(strings.buyer.addressInUseBlocked)
+                                        return@OutlinedButton
+                                    }
                                     coroutineScope.launch {
                                         val res = viewModel.repository.deleteSavedAddress(addr.id)
                                         if (res.success) {
@@ -391,10 +222,10 @@ fun SavedAddressesScreen(
                                     }
                                 },
                                 shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, SuqiError.copy(alpha = 0.4f)),
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                border = BorderStroke(1.dp, if (inUse) colors.border else SuqiError.copy(alpha = 0.4f)),
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("address_delete_${addr.id}")
                             ) {
-                                Text(strings.deleteLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SuqiError, maxLines = 2)
+                                Text(strings.deleteLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (inUse) colors.mutedText else SuqiError, maxLines = 2)
                             }
                         }
                     }
@@ -413,11 +244,52 @@ fun SavedAddressesScreen(
         var notes by remember(editingAddress) { mutableStateOf(editingAddress?.deliveryInstructions.orEmpty()) }
         var isDefault by remember(editingAddress) { mutableStateOf(editingAddress?.isDefault ?: addresses.isEmpty()) }
 
+        val sheetContext = androidx.compose.ui.platform.LocalContext.current
+        var gpsNote by remember(editingAddress) { mutableStateOf("") }
+        fun fillFromDevice() {
+            val fix = lastKnownCoordinates(sheetContext)
+            if (fix == null) {
+                viewModel.showToast(strings.buyerWork.locationUnavailable)
+            } else {
+                val coords = formatCoordinates(fix.first, fix.second)
+                gpsNote = String.format(strings.buyerWork.locationFilledTemplate, coords)
+                if (address.isBlank()) address = gpsNote
+            }
+        }
+        val locationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+        ) { grants ->
+            if (grants.values.any { it }) fillFromDevice() else viewModel.showToast(strings.buyerWork.locationUnavailable)
+        }
+
         SuqiBottomSheet(
             onDismissRequest = { showSheet = false },
             title = if (editingAddress == null) strings.buyer.addAddressTitle else strings.buyer.editAddressTitle
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                MapTilePlaceholder(label = strings.buyerWork.mapPreviewLabel, modifier = Modifier.fillMaxWidth().height(120.dp))
+                Text(
+                    text = gpsNote.ifBlank { strings.buyerWork.mapPinNote },
+                    fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.mutedText
+                )
+                OutlinedButton(
+                    onClick = {
+                        val fine = androidx.core.content.ContextCompat.checkSelfPermission(sheetContext, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(sheetContext, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                        if (fine == android.content.pm.PackageManager.PERMISSION_GRANTED || coarse == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            fillFromDevice()
+                        } else {
+                            locationPermissionLauncher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+                        }
+                    },
+                    shape = RoundedCornerShape(999.dp),
+                    border = BorderStroke(1.dp, SuqiPrimary),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("address_use_current_location")
+                ) {
+                    Icon(LucideIcons.MapPin, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(strings.buyerWork.useCurrentLocationBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+                }
                 SuqiTextField(value = name, onValueChange = { name = it }, label = "${strings.buyer.recipientNameField} *")
                 SuqiTextField(value = phone, onValueChange = { phone = it }, label = "${strings.buyer.phoneNumberLabel} (+251) *")
                 SuqiTextField(value = address, onValueChange = { address = it }, label = "${strings.buyer.landmarkField} *")
@@ -722,632 +594,6 @@ fun ReviewsScreen(
                 )
             }
         }
-    }
-}
-
-@Composable
-fun AppSettingsScreen(
-    viewModel: SuqiViewModel,
-    modifier: Modifier = Modifier
-) {
-    val coroutineScope = rememberCoroutineScope()
-    val colors = LocalSuqiColors.current
-    val strings = suqiStrings()
-    val currentUser by viewModel.currentUser.collectAsState()
-    val isDarkPref by viewModel.isDarkMode.collectAsState()
-    val isOffline by viewModel.isOffline.collectAsState()
-    val isDevUnlocked by viewModel.isDeveloperUnlocked.collectAsState()
-
-    val curRegion by viewModel.selectedRegion.collectAsState()
-    val curCity by viewModel.selectedCity.collectAsState()
-    val curSubCity by viewModel.selectedSubCity.collectAsState()
-    val curLang by viewModel.selectedLanguage.collectAsState()
-
-    var notificationsEnabled by remember { mutableStateOf(true) }
-    var showLocationSheet by remember { mutableStateOf(false) }
-    var versionTapCount by remember { mutableIntStateOf(0) }
-
-    SuqiScreen(
-        title = strings.settingsTitle,
-        onBackClick = { viewModel.goBack() },
-        isOffline = isOffline,
-        modifier = modifier
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item {
-                SuqiSectionCard(padding = 16.dp) {
-                    Text("${strings.languageTitle} · ${strings.buyer.regionLabel}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    val langs = listOf(
-                        "English" to "English",
-                        "Amharic" to "አማርኛ (Amharic)",
-                        "Afaan Oromo" to "Afaan Oromoo"
-                    )
-                    langs.forEach { (key, label) ->
-                        val isSel = com.example.ui.i18n.SuqiLanguage.fromSetting(curLang) == com.example.ui.i18n.SuqiLanguage.fromSetting(key)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    viewModel.setSelectedLanguage(key)
-                                    viewModel.showToast("${strings.languageTitle}: $label")
-                                }
-                                .padding(vertical = 10.dp, horizontal = 6.dp)
-                                .testTag("settings_lang_${key.lowercase().replace(" ", "_")}"),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(label, fontFamily = SuqiFontFamily, fontSize = 14.sp, color = colors.primaryText)
-                            if (isSel) {
-                                Icon(LucideIcons.Check, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 10.dp))
-
-                    SuqiListRow(
-                        icon = LucideIcons.MapPin,
-                        title = "${placeLabel(curCity)}, ${placeLabel(curSubCity)}",
-                        subtitle = "${strings.buyer.regionLabel}: $curRegion",
-                        badge = strings.common.changeLabel,
-                        onClick = { showLocationSheet = true },
-                        testTag = "settings_location_row"
-                    )
-                }
-            }
-
-            item {
-                SuqiSectionCard(padding = 16.dp) {
-                    Text(strings.appearanceTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val themeOptions = listOf(
-                        strings.systemDefault to null,
-                        strings.lightMode to false,
-                        strings.darkMode to true
-                    )
-
-                    themeOptions.forEach { (label, value) ->
-                        val isSelected = isDarkPref == value
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    viewModel.setDarkMode(value)
-                                    viewModel.showToast("${strings.appearanceTitle}: $label")
-                                }
-                                .padding(vertical = 10.dp, horizontal = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = when (value) {
-                                        true -> LucideIcons.Moon
-                                        false -> LucideIcons.Sun
-                                        null -> LucideIcons.SunMoon
-                                    },
-                                    contentDescription = null,
-                                    tint = if (isSelected) SuqiPrimary else colors.secondaryText,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = label,
-                                    fontFamily = SuqiFontFamily,
-                                    fontSize = 14.sp,
-                                    color = colors.primaryText,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                            if (isSelected) {
-                                Icon(LucideIcons.Check, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 10.dp))
-
-                    SuqiSwitchRow(
-                        title = strings.checkout.orderPaymentAlertsTitle,
-                        subtitle = strings.checkout.orderPaymentAlertsSub,
-                        checked = notificationsEnabled,
-                        onCheckedChange = { notificationsEnabled = it },
-                        testTag = "settings_alerts_switch"
-                    )
-                }
-            }
-
-            item {
-                SuqiSectionCard(padding = 16.dp) {
-                    Text(strings.checkout.accountStaffToolsTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primaryText)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    SuqiListRow(
-                        icon = LucideIcons.CircleUser,
-                        title = strings.checkout.accountEmailTitle,
-                        subtitle = currentUser?.email?.ifBlank { strings.checkout.notLinkedLabel } ?: strings.checkout.guestSessionLabel,
-                        showChevron = false,
-                        onClick = { viewModel.navigate(ScreenDestination.ProfileEdit) }
-                    )
-                    SuqiListRow(
-                        icon = LucideIcons.Phone,
-                        title = strings.buyer.phoneNumberLabel,
-                        subtitle = currentUser?.phone?.ifBlank { strings.checkout.notLinkedLabel } ?: strings.checkout.notLinkedLabel,
-                        showChevron = false,
-                        onClick = { viewModel.navigate(ScreenDestination.ProfileEdit) }
-                    )
-                    HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 6.dp))
-
-                    SuqiListRow(
-                        icon = LucideIcons.ShieldCheck,
-                        title = strings.admin.staffSignInTitle,
-                        subtitle = strings.checkout.adminStaffSignInSub,
-                        onClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
-                        testTag = "settings_admin_signin_row"
-                    )
-
-                    if (isDevUnlocked || com.example.data.api.BackendConfig.DemoMode) {
-                        SuqiSwitchRow(
-                            title = strings.buyer.offlineSimulatorTitle,
-                            subtitle = strings.offlineBannerTitle,
-                            icon = LucideIcons.WifiOff,
-                            checked = isOffline,
-                            onCheckedChange = { viewModel.setOfflineMode(it) },
-                            testTag = "settings_offline_switch"
-                        )
-                    }
-
-                    if (isDevUnlocked) {
-                        SuqiListRow(
-                            icon = LucideIcons.Wrench,
-                            title = strings.buyer.devToolsRowTitle,
-                            subtitle = strings.adminOps.openDiagnosticsSub,
-                            badge = strings.adminOps.activeStatus,
-                            onClick = { viewModel.navigate(ScreenDestination.AdminDevTools) },
-                            testTag = "settings_dev_tools_row"
-                        )
-                    }
-
-                    HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 8.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                versionTapCount++
-                                if (versionTapCount >= 7 && !isDevUnlocked) {
-                                    viewModel.unlockDeveloperTools()
-                                    viewModel.showToast(strings.admin.devToolsTitle)
-                                } else if (!isDevUnlocked && versionTapCount >= 4) {
-                                    viewModel.showToast("${7 - versionTapCount}")
-                                }
-                            }
-                            .padding(vertical = 8.dp, horizontal = 4.dp)
-                            .testTag("settings_version_pill"),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(strings.checkout.appVersionLabel, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(colors.secondaryBackground)
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = if (isDevUnlocked) "v1.0.0 (Dev)" else "v1.0.0",
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp,
-                                color = if (isDevUnlocked) SuqiPrimary else colors.primaryText
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                SuqiButton(
-                    text = strings.signOut,
-                    isPrimary = false,
-                    icon = LucideIcons.LogOut,
-                    onClick = {
-                        coroutineScope.launch {
-                            viewModel.signOut(ScreenDestination.Auth)
-                            viewModel.showToast(strings.signOut)
-                        }
-                    },
-                    testTag = "settings_sign_out_button",
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-        }
-    }
-
-    if (showLocationSheet) {
-        SuqiBottomSheet(
-            onDismissRequest = { showLocationSheet = false },
-            title = strings.selectYourLocation
-        ) {
-            Text(strings.buyer.regionLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
-            Spacer(modifier = Modifier.height(6.dp))
-            val regions = listOf("Addis Ababa", "Oromia", "Amhara", "Sidama", "Dire Dawa")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                regions.take(3).forEach { r ->
-                    val isSel = curRegion == r
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = if (isSel) SuqiPrimary else colors.secondaryBackground,
-                        modifier = Modifier.clickable { viewModel.selectedRegion.value = r }
-                    ) {
-                        Text(
-                            text = placeLabel(r),
-                            fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = if (isSel) Color.White else colors.primaryText,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-            Text(strings.checkout.businessSubCityLabel.removeSuffix(" *"), fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
-            Spacer(modifier = Modifier.height(6.dp))
-
-            val subCities = listOf("Bole", "Kirkos", "Yeka", "Arada", "Lideta", "Nifas Silk")
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                subCities.forEach { sc ->
-                    val isSel = curSubCity == sc
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSel) colors.primaryTint else colors.secondaryBackground,
-                        border = BorderStroke(1.dp, if (isSel) SuqiPrimary else colors.border),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                viewModel.selectedSubCity.value = sc
-                                viewModel.selectedCity.value = "Addis Ababa"
-                                coroutineScope.launch {
-                                    viewModel.repository.updateUserProfile(
-                                        mapOf(
-                                            "region" to curRegion,
-                                            "city" to "Addis Ababa",
-                                            "subCity" to sc
-                                        )
-                                    )
-                                }
-                                viewModel.showToast("${viewModel.localizePlace("Addis Ababa")}, ${viewModel.localizePlace(sc)}")
-                                showLocationSheet = false
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "${placeLabel("Addis Ababa")}, ${placeLabel(sc)}",
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 14.sp,
-                                color = if (isSel) SuqiPrimary else colors.primaryText
-                            )
-                            if (isSel) {
-                                Icon(LucideIcons.Check, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun HelpLegalScreen(
-    viewModel: SuqiViewModel,
-    modifier: Modifier = Modifier
-) {
-    val coroutineScope = rememberCoroutineScope()
-    val colors = LocalSuqiColors.current
-    val strings = suqiStrings()
-    val isOffline by viewModel.isOffline.collectAsState()
-    var activeDocument by remember { mutableStateOf<EthiopianMarketplaceUtils.LegalDocument?>(null) }
-    var showFaqDialog by remember { mutableStateOf(false) }
-    var showTicketSheet by remember { mutableStateOf(false) }
-    var tickets by remember { mutableStateOf<List<SupportTicketDto>>(emptyList()) }
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val contentPrefs = remember { context.getSharedPreferences("suqi_content_prefs", android.content.Context.MODE_PRIVATE) }
-    val customSupportPhone = remember { contentPrefs.getString("support_phone", "+251 912 345 678").orEmpty().ifBlank { "+251 912 345 678" } }
-    val customNotice = remember { contentPrefs.getString("legal_notice", "").orEmpty() }
-    val customFaqTitle = remember { contentPrefs.getString("faq_custom_q", "").orEmpty() }
-    val customFaqAnswer = remember { contentPrefs.getString("faq_custom_a", "").orEmpty() }
-
-    fun loadTickets() {
-        coroutineScope.launch {
-            val res = viewModel.repository.getSupportTickets()
-            if (res.success && res.data != null) {
-                tickets = res.data
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        loadTickets()
-    }
-
-    SuqiScreen(
-        title = strings.helpSupportTitle,
-        onBackClick = { viewModel.goBack() },
-        isOffline = isOffline,
-        modifier = modifier
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item {
-                SuqiSectionCard(containerColor = colors.primaryTint, padding = 20.dp) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                        Icon(LucideIcons.Headphones, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(40.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(strings.checkout.needHelpBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            strings.buyer.contactUsTitle,
-                            fontFamily = SuqiFontFamily,
-                            fontSize = 13.sp,
-                            color = colors.secondaryText,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                            SuqiButton(
-                                text = strings.checkout.submitTicketBtn,
-                                icon = LucideIcons.MessageSquarePlus,
-                                onClick = { showTicketSheet = true },
-                                testTag = "help_submit_ticket_button",
-                                modifier = Modifier.weight(1f)
-                            )
-                            SuqiButton(
-                                text = strings.buyer.contactUsTitle,
-                                isPrimary = false,
-                                icon = LucideIcons.Phone,
-                                onClick = { viewModel.showToast(customSupportPhone) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (tickets.isNotEmpty()) {
-                item {
-                    SuqiSectionCard(padding = 16.dp) {
-                        Text(
-                            text = "${strings.buyer.myTicketsTitle} (${tickets.size})",
-                            fontFamily = SuqiFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = colors.primaryText
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        tickets.forEachIndexed { idx, t ->
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(t.subject, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = colors.primaryText)
-                                    SuqiStatusBadge(t.status, if (t.status == "OPEN") StatusType.WARNING else StatusType.SUCCESS)
-                                }
-                                Text("${t.category} • ${t.createdAt}", fontSize = 11.sp, color = colors.mutedText)
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(t.description, fontSize = 12.sp, color = colors.secondaryText)
-                            }
-                            if (idx < tickets.lastIndex) {
-                                HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = 10.dp))
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                SuqiSectionCard(padding = 14.dp) {
-                    SuqiListRow(
-                        icon = LucideIcons.HelpCircle,
-                        title = strings.buyer.helpSearchHint.removeSuffix("…"),
-                        subtitle = strings.helpSupportTitle,
-                        onClick = { showFaqDialog = true }
-                    )
-                    SuqiListRow(
-                        icon = LucideIcons.FileText,
-                        title = strings.buyer.termsTitle,
-                        subtitle = strings.extras.legalProclamationSubtitle,
-                        onClick = { activeDocument = EthiopianMarketplaceUtils.TERMS_OF_SERVICE }
-                    )
-                    SuqiListRow(
-                        icon = LucideIcons.Shield,
-                        title = strings.buyer.privacyPolicyTitle,
-                        subtitle = strings.buyer.privacyTitle,
-                        onClick = { activeDocument = EthiopianMarketplaceUtils.PRIVACY_POLICY }
-                    )
-                    SuqiListRow(
-                        icon = LucideIcons.Handshake,
-                        title = strings.seller.sellerVerificationTitle,
-                        subtitle = strings.seller.studioTitle,
-                        onClick = { activeDocument = EthiopianMarketplaceUtils.SELLER_AGREEMENT }
-                    )
-                    SuqiListRow(
-                        icon = LucideIcons.Info,
-                        title = strings.buyer.aboutSuqiTitle,
-                        subtitle = "v1.0.0 — ${strings.everyShopEveryProduct}",
-                        showChevron = false,
-                        onClick = { viewModel.showToast(strings.extras.appVersionToast) }
-                    )
-                }
-            }
-        }
-    }
-
-    if (showTicketSheet) {
-        var category by remember { mutableStateOf("Order Issue") }
-        var subject by remember { mutableStateOf("") }
-        var description by remember { mutableStateOf("") }
-
-        SuqiBottomSheet(
-            onDismissRequest = { showTicketSheet = false },
-            title = strings.checkout.submitHelpTicketTitle
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(strings.checkout.issueCategoryLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = colors.secondaryText)
-                val cats = listOf(
-                    "Order Issue" to strings.buyer.ordersTabLabel,
-                    "Payment" to strings.checkout.paymentMethodTitle,
-                    "Delivery" to strings.checkout.stepDelivery,
-                    "Account" to strings.accountTitle
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    cats.forEach { (key, label) ->
-                        val sel = key == category
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(if (sel) SuqiPrimary else colors.secondaryBackground)
-                                .clickable { category = key }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (sel) Color.White else colors.primaryText)
-                        }
-                    }
-                }
-                SuqiTextField(value = subject, onValueChange = { subject = it }, label = "${strings.checkout.issueCategoryLabel} *")
-                SuqiTextField(value = description, onValueChange = { description = it }, label = strings.checkout.messageDetailsRequiredLabel, singleLine = false)
-                SuqiButton(
-                    text = strings.checkout.submitTicketBtn,
-                    onClick = {
-                        if (subject.isBlank() || description.isBlank()) {
-                            viewModel.showToast(strings.checkout.messageDetailsRequiredLabel)
-                            return@SuqiButton
-                        }
-                        coroutineScope.launch {
-                            viewModel.repository.submitSupportTicket(
-                                SupportTicketDto(
-                                    id = "",
-                                    userId = "",
-                                    category = category,
-                                    subject = subject.trim(),
-                                    description = description.trim(),
-                                    status = "OPEN",
-                                    createdAt = ""
-                                )
-                            )
-                            showTicketSheet = false
-                            loadTickets()
-                            viewModel.showToast(strings.checkout.submitTicketBtn)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
-
-    activeDocument?.let { doc ->
-        AlertDialog(
-            onDismissRequest = { activeDocument = null },
-            title = {
-                Column {
-                    Text(text = doc.title, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
-                    Text(text = doc.subtitle, fontSize = 12.sp, color = colors.secondaryText)
-                }
-            },
-            text = {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    items(doc.sections) { sec ->
-                        Column {
-                            Text(text = sec.heading, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = SuqiPrimary)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = sec.content, fontFamily = SuqiFontFamily, fontSize = 13.sp, lineHeight = 18.sp, color = colors.primaryText)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { activeDocument = null }) {
-                    Text(strings.common.closeLabel, color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
-                }
-            },
-            containerColor = colors.cardBackground,
-            shape = RoundedCornerShape(24.dp)
-        )
-    }
-
-    if (showFaqDialog) {
-        AlertDialog(
-            onDismissRequest = { showFaqDialog = false },
-            title = {
-                Text(strings.helpSupportTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primaryText)
-            },
-            text = {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (customNotice.isNotBlank()) {
-                        item {
-                            SuqiSectionCard(containerColor = colors.primaryTint, padding = 12.dp) {
-                                Text(text = customNotice, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText, lineHeight = 17.sp)
-                            }
-                        }
-                    }
-                    val allFaqs = buildList {
-                        if (customFaqTitle.isNotBlank() && customFaqAnswer.isNotBlank()) {
-                            add(customFaqTitle to customFaqAnswer)
-                        }
-                        addAll(EthiopianMarketplaceUtils.FAQS)
-                    }
-                    items(allFaqs) { (q, a) ->
-                        SuqiSectionCard(containerColor = colors.secondaryBackground, padding = 12.dp) {
-                            Text(text = q, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = SuqiPrimary)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = a, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText, lineHeight = 17.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showFaqDialog = false }) {
-                    Text(strings.common.closeLabel, color = SuqiPrimary, fontWeight = FontWeight.SemiBold)
-                }
-            },
-            containerColor = colors.cardBackground,
-            shape = RoundedCornerShape(24.dp)
-        )
     }
 }
 

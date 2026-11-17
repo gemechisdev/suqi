@@ -163,7 +163,7 @@ fun SearchScreen(
                 productResults = applyLocalFilters(pRes.data.orEmpty())
                 val sRes = viewModel.repository.getShops(query = q.takeIf { it.isNotBlank() })
                 shopResults = (sRes.data.orEmpty()).filter { !verifiedOnly || it.isVerified }
-                if (recordRecent && q.isNotBlank()) {
+                if (recordRecent && q.isNotBlank() && viewModel.buyerPrefs.loadPrivacyPrefs().saveSearchHistory) {
                     val trimmed = q.trim()
                     recentSearches.removeAll { it.equals(trimmed, ignoreCase = true) }
                     recentSearches.add(0, trimmed)

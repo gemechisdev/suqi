@@ -51,6 +51,9 @@ sealed class ScreenDestination {
         val productContextImage: String? = null
     ) : ScreenDestination()
     data object Notifications : ScreenDestination()
+    data object NotificationPrefs : ScreenDestination()
+    data object AboutApp : ScreenDestination()
+    data class TicketThread(val ticketId: String) : ScreenDestination()
     data object SavedAddresses : ScreenDestination()
     data object Wishlist : ScreenDestination()
     data object Following : ScreenDestination()
@@ -460,6 +463,7 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private val prefs = application.getSharedPreferences("suqi_prefs", android.content.Context.MODE_PRIVATE)
+    val buyerPrefs = com.example.data.local.BuyerPreferencesStore(application)
 
     // Location & Language State
     val selectedRegion = MutableStateFlow("Addis Ababa")
@@ -500,6 +504,8 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     val recentlyViewed: StateFlow<List<ProductDto>> = _recentlyViewed.asStateFlow()
 
     fun recordProductView(product: ProductDto) {
+        // B-18 privacy toggle: when off, nothing is remembered
+        if (!buyerPrefs.loadPrivacyPrefs().rememberRecentlyViewed) return
         val current = _recentlyViewed.value.filter { it.id != product.id }.toMutableList()
         current.add(0, product)
         _recentlyViewed.value = current.take(10)

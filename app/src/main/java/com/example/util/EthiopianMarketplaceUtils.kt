@@ -142,6 +142,14 @@ object EthiopianMarketplaceUtils {
             lower == "just now" -> return nowMillis
             lower == "today" -> return nowMillis - 3_600_000L
             lower == "yesterday" -> return nowMillis - 86_400_000L
+            lower.endsWith("min ago") || lower.endsWith("mins ago") || lower.endsWith("minutes ago") || lower.endsWith("minute ago") -> {
+                val minutes = lower.substringBefore(" ").toLongOrNull()
+                if (minutes != null) return nowMillis - minutes.coerceAtLeast(0L) * 60_000L
+            }
+            lower.endsWith("week ago") || lower.endsWith("weeks ago") -> {
+                val weeks = lower.substringBefore(" ").toLongOrNull()
+                if (weeks != null) return nowMillis - weeks.coerceAtLeast(0L) * 7L * 86_400_000L
+            }
             lower.endsWith("hours ago") || lower.endsWith("hour ago") -> {
                 val hours = lower.substringBefore(" ").toLongOrNull()
                 if (hours != null) return nowMillis - hours.coerceAtLeast(0L) * 3_600_000L

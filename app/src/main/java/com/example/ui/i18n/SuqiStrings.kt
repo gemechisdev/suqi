@@ -1010,7 +1010,8 @@ data class SuqiStringsData(
     val sellerOps: SuqiSellerOpsStrings,
     val adminOps: SuqiAdminOpsStrings,
     val extras: SuqiExtraStrings,
-    val sellerWork: SuqiPhase3Strings
+    val sellerWork: SuqiPhase3Strings,
+    val buyerWork: SuqiPhase4Strings
 )
 
 object SuqiStringCatalog {
@@ -1939,7 +1940,8 @@ object SuqiStringCatalog {
             developerRoleLabel = "DEVELOPER"
         ),
         extras = SuqiExtraCatalog.english,
-        sellerWork = SuqiPhase3Catalog.english
+        sellerWork = SuqiPhase3Catalog.english,
+        buyerWork = SuqiPhase4Catalog.english
     )
 
     val amharic = SuqiStringsData(
@@ -2867,7 +2869,8 @@ object SuqiStringCatalog {
             developerRoleLabel = "ገንቢ (DEVELOPER)"
         ),
         extras = SuqiExtraCatalog.amharic,
-        sellerWork = SuqiPhase3Catalog.amharic
+        sellerWork = SuqiPhase3Catalog.amharic,
+        buyerWork = SuqiPhase4Catalog.amharic
     )
 
     val afaanOromo = SuqiStringsData(
@@ -3795,7 +3798,8 @@ object SuqiStringCatalog {
             developerRoleLabel = "MISOOMSAA (DEVELOPER)"
         ),
         extras = SuqiExtraCatalog.afaanOromo,
-        sellerWork = SuqiPhase3Catalog.afaanOromo
+        sellerWork = SuqiPhase3Catalog.afaanOromo,
+        buyerWork = SuqiPhase4Catalog.afaanOromo
     )
 
     fun forLanguage(lang: SuqiLanguage): SuqiStringsData = when (lang) {

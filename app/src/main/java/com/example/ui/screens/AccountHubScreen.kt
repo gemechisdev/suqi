@@ -708,6 +708,15 @@ fun ProfileEditScreen(
         mutableStateOf(currentUser?.preferredLanguage?.ifBlank { "English" } ?: "English")
     }
     var isSaving by remember { mutableStateOf(false) }
+    var showLocationSheet by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deleteText by remember { mutableStateOf("") }
+    val curRegion by viewModel.selectedRegion.collectAsState()
+    val curCity by viewModel.selectedCity.collectAsState()
+    val curSubCity by viewModel.selectedSubCity.collectAsState()
+    val w = strings.buyerWork
+    // Phone numbers that came from OTP sign-in are verified, so the field becomes read-only with a pill
+    val phoneVerified = !currentUser?.phone.isNullOrBlank()
 
     val avatarPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -853,6 +862,10 @@ fun ProfileEditScreen(
                         label = strings.buyer.phoneNumberLabel,
                         placeholder = "+251 9XX XXX XXX",
                         leadingIcon = LucideIcons.Phone,
+                        enabled = !phoneVerified,
+                        trailingIcon = if (phoneVerified) {
+                            { SuqiStatusBadge(w.verifiedPill, StatusType.SUCCESS, modifier = Modifier.padding(end = 8.dp).testTag("profile_phone_verified_pill")) }
+                        } else null,
                         testTag = "input_profile_phone"
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -917,7 +930,123 @@ fun ProfileEditScreen(
                     }
                 }
             }
+            // Default location: opens the same region / city / sub-city sheet used on Home
+            item {
+                SuqiSectionCard(padding = 10.dp) {
+                    SuqiListRow(
+                        icon = LucideIcons.MapPin,
+                        title = w.defaultLocationTitle,
+                        subtitle = "${com.example.ui.i18n.placeLabel(curCity)}, ${com.example.ui.i18n.placeLabel(curSubCity)}",
+                        badge = strings.common.changeLabel,
+                        onClick = { showLocationSheet = true },
+                        testTag = "profile_default_location_row"
+                    )
+                }
+            }
+
+            // Account actions (danger zone)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(w.dangerZoneTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = colors.mutedText)
+                    OutlinedButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                viewModel.signOut(ScreenDestination.Home)
+                                viewModel.showToast(strings.checkout.guestSessionLabel)
+                            }
+                        },
+                        shape = RoundedCornerShape(999.dp),
+                        border = BorderStroke(1.dp, colors.border),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("profile_sign_out_btn")
+                    ) {
+                        Icon(LucideIcons.LogOut, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(strings.signOut, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
+                    }
+                    OutlinedButton(
+                        onClick = { deleteText = ""; showDeleteDialog = true },
+                        shape = RoundedCornerShape(999.dp),
+                        border = BorderStroke(1.dp, SuqiError),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("profile_delete_account_btn")
+                    ) {
+                        Icon(LucideIcons.Trash2, contentDescription = null, tint = SuqiError, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(w.deleteAccountBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiError)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
         }
+    }
+
+    if (showLocationSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showLocationSheet = false },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        ) {
+            LocationPickerContent(
+                currentRegion = curRegion,
+                currentCity = curCity,
+                currentSubCity = curSubCity,
+                onSelectLocation = { region, city, subCity ->
+                    viewModel.selectedRegion.value = region
+                    viewModel.selectedCity.value = city
+                    viewModel.selectedSubCity.value = subCity
+                    coroutineScope.launch {
+                        viewModel.repository.updateUserProfile(mapOf("region" to region, "city" to city, "subCity" to subCity))
+                        viewModel.showToast(w.locationSavedToast)
+                    }
+                    showLocationSheet = false
+                }
+            )
+        }
+    }
+
+    if (showDeleteDialog) {
+        val confirmWord = w.deleteConfirmWord
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text(w.deleteAccountTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(w.deleteAccountBody, fontFamily = SuqiFontFamily, fontSize = 13.sp, lineHeight = 19.sp, color = colors.secondaryText)
+                    SuqiTextField(
+                        value = deleteText,
+                        onValueChange = { deleteText = it },
+                        label = String.format(w.deleteTypePromptTemplate, confirmWord),
+                        testTag = "input_delete_confirm"
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            val res = viewModel.repository.deleteAccount()
+                            if (res.success) {
+                                viewModel.buyerPrefs.clearAll()
+                                viewModel.buyerPrefs.clearSearchHistory()
+                                showDeleteDialog = false
+                                viewModel.signOut(ScreenDestination.Home)
+                                viewModel.showToast(w.accountDeletedToast)
+                            } else {
+                                viewModel.showToast(res.message ?: strings.common.failedToAddToast)
+                            }
+                        }
+                    },
+                    enabled = deleteText == confirmWord,
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SuqiError, contentColor = Color.White),
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("btn_confirm_delete_account")
+                ) { Text(w.deleteConfirmBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text(strings.cancelLabel, color = colors.secondaryText) }
+            },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 }
 

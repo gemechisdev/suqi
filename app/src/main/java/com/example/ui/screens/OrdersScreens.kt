@@ -288,6 +288,7 @@ fun OrderDetailScreen(
     var order by remember { mutableStateOf<OrderDto?>(null) }
     var showResubmitSheet by remember { mutableStateOf(false) }
     var showSupportSheet by remember { mutableStateOf(false) }
+    var showInvoice by remember { mutableStateOf(false) }
     var zoomReceiptUri by remember { mutableStateOf<String?>(null) }
 
     fun loadOrder() {
@@ -487,6 +488,25 @@ fun OrderDetailScreen(
                 }
             }
 
+            // ETA chip + invoice entry
+            item {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    EstimatedDeliveryChip(order = currentOrder)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { showInvoice = true },
+                        shape = RoundedCornerShape(999.dp),
+                        border = BorderStroke(1.dp, SuqiPrimary),
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("order_invoice_btn")
+                    ) {
+                        Icon(LucideIcons.Receipt, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(strings.buyerWork.invoiceBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+                    }
+                    ReturnItemPill(order = currentOrder, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+
             // Courier card — ONLY rendered when actually dispatched or delivered (zero hardcoded Alemayehu T.)
             if (currentOrder.orderStatus in listOf("Dispatched", "Out for Delivery", "Delivered")) {
                 item {
@@ -678,6 +698,10 @@ fun OrderDetailScreen(
     }
 
     // Resubmit Payment Proof Sheet (Ref + Optional PickVisualMedia receipt)
+    if (showInvoice) {
+        InvoiceSheet(order = currentOrder, viewModel = viewModel, onDismiss = { showInvoice = false })
+    }
+
     if (showResubmitSheet) {
         var newRef by remember { mutableStateOf(currentOrder.transactionReference) }
         var newAmount by remember {

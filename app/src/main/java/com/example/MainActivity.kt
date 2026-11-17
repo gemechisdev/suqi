@@ -286,6 +286,9 @@ fun SuqiAppRoot(
                             viewModel = viewModel
                         )
                         is ScreenDestination.Notifications -> NotificationsScreen(viewModel = viewModel)
+                        is ScreenDestination.NotificationPrefs -> NotificationPrefsScreen(viewModel = viewModel)
+                        is ScreenDestination.AboutApp -> AboutAppScreen(viewModel = viewModel)
+                        is ScreenDestination.TicketThread -> TicketThreadScreen(ticketId = dest.ticketId, viewModel = viewModel)
                         is ScreenDestination.SavedAddresses -> SavedAddressesScreen(viewModel = viewModel)
                         is ScreenDestination.Wishlist -> WishlistScreen(viewModel = viewModel)
                         is ScreenDestination.Reviews -> ReviewsScreen(

@@ -77,5 +77,6 @@ object SuqiEndpoints {
     const val SUPPORT_TICKET_RESOLVE = "support/tickets/{id}/resolve"
     const val AUTH_PHONE = "auth/phone"
     const val AUTH_PROFILE = "auth/profile"
+    const val AUTH_DELETE_ACCOUNT = "auth/account"
     const val AUTH_ADMIN = "auth/admin"
 }

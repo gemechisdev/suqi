@@ -115,6 +115,7 @@ class SuqiRepository private constructor(context: Context) {
         return res
     }
     suspend fun updateUserProfile(payload: Map<String, String>) = api.updateUserProfile(payload)
+    suspend fun deleteAccount() = api.deleteAccount()
     suspend fun upgradeToSeller(details: Map<String, String>) = api.upgradeToSeller(details)
 
     // Marketplace

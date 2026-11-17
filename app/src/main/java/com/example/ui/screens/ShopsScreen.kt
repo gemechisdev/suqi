@@ -349,7 +349,11 @@ fun ShopStorefrontScreen(
     var shop by remember { mutableStateOf(cachedShop) }
     var products by remember { mutableStateOf(viewModel.cachedShopProducts[shopId].orEmpty()) }
     var reviews by remember { mutableStateOf(viewModel.cachedShopReviews[shopId].orEmpty()) }
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0: Products, 1: Collections, 2: Reviews
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0: Products, 1: Collections, 2: Reviews, 3: About
+    var deliveryOptions by remember { mutableStateOf<List<com.example.data.model.ShopDeliveryOptionDto>>(emptyList()) }
+    var paymentMethods by remember { mutableStateOf<List<com.example.data.model.ShopPaymentMethodDto>>(emptyList()) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
     var activeCollectionFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var shopSearchQuery by rememberSaveable { mutableStateOf("") }
     var showShareSheet by remember { mutableStateOf(false) }
@@ -375,6 +379,10 @@ fun ShopStorefrontScreen(
             reviews = rRes.data
             viewModel.cachedShopReviews[shopId] = rRes.data
         }
+        val dRes = viewModel.repository.getShopDeliveryOptions(shopId)
+        if (dRes.success && dRes.data != null) deliveryOptions = dRes.data
+        val pmRes = viewModel.repository.getShopPaymentMethods(shopId)
+        if (pmRes.success && pmRes.data != null) paymentMethods = pmRes.data
     }
 
     val currentShop = shop
@@ -409,14 +417,43 @@ fun ShopStorefrontScreen(
         isOffline = isOffline,
         headerActions = {
             IconButton(
-                onClick = { showShareSheet = true },
+                onClick = {
+                    selectedTab = 3
+                    coroutineScope.launch { storefrontListState.animateScrollToItem(1) }
+                },
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(colors.secondaryBackground)
-                    .testTag("shop_share_button")
+                    .testTag("shop_info_button")
             ) {
-                Icon(LucideIcons.Share2, contentDescription = strings.checkout.shareShopTitle, tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                Icon(LucideIcons.Info, contentDescription = strings.buyerWork.shopInfoDesc, tint = colors.primaryText, modifier = Modifier.size(18.dp))
+            }
+            Box {
+                IconButton(
+                    onClick = { showMoreMenu = true },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(colors.secondaryBackground)
+                        .testTag("shop_more_button")
+                ) {
+                    Icon(LucideIcons.MoreVertical, contentDescription = strings.buyerWork.shopMenuDesc, tint = colors.primaryText, modifier = Modifier.size(18.dp))
+                }
+                DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(strings.checkout.shareShopTitle, fontFamily = SuqiFontFamily) },
+                        leadingIcon = { Icon(LucideIcons.Share2, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        onClick = { showMoreMenu = false; showShareSheet = true },
+                        modifier = Modifier.testTag("shop_share_button")
+                    )
+                    DropdownMenuItem(
+                        text = { Text(strings.buyerWork.reportShopLabel, fontFamily = SuqiFontFamily, color = SuqiError) },
+                        leadingIcon = { Icon(LucideIcons.Flag, contentDescription = null, tint = SuqiError, modifier = Modifier.size(18.dp)) },
+                        onClick = { showMoreMenu = false; showReportDialog = true },
+                        modifier = Modifier.testTag("shop_report_button")
+                    )
+                }
             }
             IconButton(
                 onClick = { viewModel.navigate(ScreenDestination.Cart) },
@@ -454,11 +491,11 @@ fun ShopStorefrontScreen(
 
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(72.dp)
                             .align(Alignment.BottomStart)
                             .offset(x = 16.dp, y = 28.dp)
                             .clip(CircleShape)
-                            .border(3.dp, colors.cardBackground, CircleShape)
+                            .border(3.dp, Color.White, CircleShape)
                             .background(colors.cardBackground),
                         contentAlignment = Alignment.Center
                     ) {
@@ -644,26 +681,19 @@ fun ShopStorefrontScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp)
-                    ) {
-                        TabLabel(
-                            title = "${strings.productsTab} (${products.size})",
-                            isSelected = selectedTab == 0,
-                            onClick = { selectedTab = 0 }
-                        )
-                        TabLabel(
-                            title = strings.buyer.collectionsTabLabel,
-                            isSelected = selectedTab == 1,
-                            onClick = { selectedTab = 1 }
-                        )
-                        TabLabel(
-                            title = "${strings.customerReviews} (${reviews.size})",
-                            isSelected = selectedTab == 2,
-                            onClick = { selectedTab = 2 }
-                        )
-                    }
+                    SuqiTabs(
+                        tabs = listOf(
+                            SuqiTabItem("products", strings.productsTab, products.size),
+                            SuqiTabItem("collections", strings.buyer.collectionsTabLabel),
+                            SuqiTabItem("reviews", strings.customerReviews, reviews.size),
+                            SuqiTabItem("about", strings.buyerWork.tabAbout)
+                        ),
+                        selectedIndex = selectedTab,
+                        onSelectTab = { selectedTab = it },
+                        scrollable = true,
+                        testTagPrefix = "storefront_tab",
+                        modifier = Modifier.offset(x = (-12).dp)
+                    )
 
                     if (activeCollectionFilter != null && selectedTab == 0) {
                         Spacer(modifier = Modifier.height(10.dp))
@@ -812,6 +842,10 @@ fun ShopStorefrontScreen(
                         }
                     }
                 }
+            } else if (selectedTab == 3) {
+                item {
+                    ShopAboutContent(shop = currentShop, deliveryOptions = deliveryOptions, paymentMethods = paymentMethods)
+                }
             } else {
                 if (reviews.isEmpty()) {
                     item {
@@ -828,6 +862,40 @@ fun ShopStorefrontScreen(
                 }
             }
         }
+    }
+
+    if (showReportDialog) {
+        AlertDialog(
+            onDismissRequest = { showReportDialog = false },
+            title = { Text(strings.buyerWork.reportShopLabel, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
+            text = { Text(currentShop.name, fontFamily = SuqiFontFamily, color = colors.secondaryText) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showReportDialog = false
+                        viewModel.requireSignedInOrPrompt(strings.buyerWork.reportShopLabel) {
+                            coroutineScope.launch {
+                                viewModel.repository.submitSupportTicket(
+                                    com.example.data.model.SupportTicketDto(
+                                        id = "", userId = "", category = "Shop Report",
+                                        subject = "Report shop: ${currentShop.name}",
+                                        description = "Shop id ${currentShop.id} was reported by a buyer from the storefront.",
+                                        status = "OPEN", createdAt = ""
+                                    )
+                                )
+                                viewModel.showToast(strings.buyerWork.reportShopSentToast)
+                            }
+                        }
+                    },
+                    modifier = Modifier.testTag("shop_report_confirm")
+                ) { Text(strings.buyerWork.reportShopLabel, color = SuqiError, fontWeight = FontWeight.SemiBold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReportDialog = false }) { Text(strings.cancelLabel, color = colors.secondaryText) }
+            },
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 
     if (showShareSheet) {

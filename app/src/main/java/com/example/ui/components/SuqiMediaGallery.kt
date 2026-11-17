@@ -252,7 +252,13 @@ private fun VideoPlayer(url: String, isActive: Boolean, modifier: Modifier = Mod
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            val frame = rememberVideoThumbnail(url)
+            // B-18 data saver: do not fetch a remote poster frame until the buyer taps play
+            val ctx = LocalContext.current
+            val skipRemotePoster = remember(url) {
+                url.startsWith("http", ignoreCase = true) &&
+                    com.example.data.local.BuyerPreferencesStore(ctx).loadDataSaver()
+            }
+            val frame = if (skipRemotePoster) null else rememberVideoThumbnail(url)
             val strings = suqiStrings()
             if (frame != null) {
                 Image(

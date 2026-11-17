@@ -23,6 +23,9 @@ interface SuqiApiService {
     @PUT(SuqiEndpoints.AUTH_PROFILE)
     suspend fun updateUserProfile(@Body payload: Map<String, String>): ApiResponse<UserDto>
 
+    @DELETE(SuqiEndpoints.AUTH_DELETE_ACCOUNT)
+    suspend fun deleteAccount(): ApiResponse<Boolean>
+
     @GET(SuqiEndpoints.AUTH_ME)
     suspend fun getCurrentUser(): ApiResponse<UserDto>
 
