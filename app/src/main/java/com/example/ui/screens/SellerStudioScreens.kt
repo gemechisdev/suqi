@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import com.example.ui.i18n.localizeDeliveryTitle
+import com.example.util.applyOnMain
 import com.example.ui.i18n.localizeEta
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -92,7 +93,7 @@ fun SellerStudioScreen(
             val qRes = viewModel.repository.getSellerVerificationQueue()
             val ordersRes = viewModel.repository.getSellerOrders()
             val prodRes = viewModel.repository.getSellerProducts()
-            withContext(Dispatchers.Main) {
+            applyOnMain {
                 if (dashRes.success && dashRes.data != null) {
                     dashboardData = dashRes.data
                     viewModel.cachedSellerDashboard = dashRes.data
@@ -1849,7 +1850,7 @@ fun SellerOrdersScreen(
         coroutineScope.launch {
             isLoading = orders.isEmpty()
             val res = viewModel.repository.getSellerOrders()
-            withContext(Dispatchers.Main) {
+            applyOnMain {
                 if (res.success && res.data != null) {
                     orders = res.data
                     viewModel.cachedSellerOrders = res.data
@@ -2159,7 +2160,7 @@ fun SellerOrderDetailScreen(
         coroutineScope.launch {
             isLoading = true
             val res = viewModel.repository.getOrderDetails(orderId)
-            withContext(Dispatchers.Main) {
+            applyOnMain {
                 if (res.success) order = res.data
                 isLoading = false
             }

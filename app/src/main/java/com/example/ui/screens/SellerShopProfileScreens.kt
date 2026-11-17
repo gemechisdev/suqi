@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.ShopBusinessHoursCodec
+import com.example.util.applyOnMain
 import com.example.data.model.ShopDayHours
 import com.example.data.model.ShopDeliveryOptionDto
 import com.example.data.model.ShopGalleryCodec
@@ -170,7 +171,7 @@ fun ShopSettingsScreen(
     LaunchedEffect(Unit) {
         val sid = resolveActiveSellerShopId(viewModel)
         val res = if (sid.isNotBlank()) viewModel.repository.getShopDetails(sid) else null
-        withContext(Dispatchers.Main) {
+        applyOnMain {
             activeShopId = sid
             res?.data?.let { s ->
                 shopSlug = s.slug
@@ -840,7 +841,7 @@ fun DeliverySetupScreen(
         val sid = resolveActiveSellerShopId(viewModel)
         val shopRes = if (sid.isNotBlank()) viewModel.repository.getShopDetails(sid) else null
         val delRes = if (sid.isNotBlank()) viewModel.repository.getShopDeliveryOptions(sid) else null
-        withContext(Dispatchers.Main) {
+        applyOnMain {
             activeShopId = sid
             shopRes?.data?.let { s ->
                 pickupAddress = s.address
