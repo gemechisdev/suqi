@@ -27,11 +27,11 @@ val SuqiImageBackdropDark = Color(0xFF262629)
 /** Idle pagination dot on a white surface. */
 val SuqiDotIdle = Color(0xFFE2DDD8)
 
-/** Purplish-cream surface for shop cards (light) and its dark-theme tint. */
-val SuqiShopTintLight = Color(0xFFF3ECFB)
-val SuqiShopTintDark = Color(0xFF2A2237)
-val SuqiShopBorderLight = Color(0xFFE4D8F5)
-val SuqiShopBorderDark = Color(0xFF41365A)
+/** Warm pink-orange surface and border for shop cards (light) and their dark-theme variants. */
+val SuqiShopTintLight = Color(0xFFFFEBE4)
+val SuqiShopTintDark = Color(0xFF3A1D22)
+val SuqiShopBorderLight = Color(0xFFFFC9B8)
+val SuqiShopBorderDark = Color(0xFF5E2F33)
 
 /** Warm tint used for soft elevation shadows (never pure black). */
 val SuqiWarmShadow = Color(0xFFC2540A)
