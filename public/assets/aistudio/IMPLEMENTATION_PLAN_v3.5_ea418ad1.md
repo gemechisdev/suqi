@@ -11,7 +11,15 @@
 
 ## 0. What changed
 
-### 0.0 Phase 3 closed (v3.5 → v3.6)
+### 0.0 Persistent Navigation State & Session Cleanup (v3.6 note)
+| Item | Details |
+|---|---|
+| **Unique nav IDs & `SaveableStateHolder`** | `SuqiViewModel` tracks a stack of `NavEntry(id, destination)` entries with unique `nav_N` IDs; `SuqiAppRoot` wraps screens in `SaveableStateHolder.SaveableStateProvider(entry.id)` so revisiting the same destination type (e.g., product A → B → A) keeps separate saved UI/scroll state while root tabs (Home, Seller Studio, Account) reuse their entry ID across tab switches. |
+| **Disposal & sign-out cleanup** | Popped entry IDs are queued in `disposedNavIds` and purged via `SaveableStateHolder.removeState`. `clearUserCaches()` clears all in-memory `cached*` ViewModel fields, recently viewed, unread badge, and active checkout state whenever `refreshSession()` detects a user ID change; `signOut()` clears caches and resets the nav stack to a fresh root entry. |
+| **Process-death limitation** | Navigation stack entries and in-memory screen caches live in `SuqiViewModel` and are **not** persisted across OS process death (`SavedStateHandle`); they survive configuration changes (rotation) and normal in-app back/tab navigation, whereas after process kill the app restarts on Home. |
+| **Tests** | `NavigationBackstackTest` adds 9 ViewModel/session unit tests (including `clearUserCaches()` on account switch and `signOut()` nav-stack/cache reset) and 4 end-to-end Compose/Robolectric back-stack & scroll preservation tests. |
+
+### 0.0a Phase 3 closed (v3.5 → v3.6)
 Phase 3 (Seller daily work: `S-03`, `S-04`, `S-07`, `S-14`, `S-08`) was audited and the two remaining findings were fixed before closing:
 | Item | Result |
 |---|---|
@@ -31,7 +39,7 @@ Phase 3 (Seller daily work: `S-03`, `S-04`, `S-07`, `S-14`, `S-08`) was audited 
 | **`shop.productCount`** | Counts drafts, paused, and archived products in addition to active listings. |
 | **Compose UI tests** | Phase 3 Compose UI tests are mostly smoke checks (screen renders, sheet opens, selection toggles); stepper increments, bulk-apply mutations, and save paths are verified in backend/unit tests (`ExampleRobolectricTest`). |
 
-### 0.0a Phase 2 closed (v3.4 → v3.5)
+### 0.0b Phase 2 closed (v3.4 → v3.5)
 Phase 2 (Operate the platform) was audited twice. The first audit found five gaps; all five were fixed and re-verified in code.
 | Item | Result |
 |---|---|

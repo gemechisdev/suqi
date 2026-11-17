@@ -965,10 +965,8 @@ fun AppSettingsScreen(
                     icon = LucideIcons.LogOut,
                     onClick = {
                         coroutineScope.launch {
-                            viewModel.repository.loginAsGuest()
-                            viewModel.refreshSession()
+                            viewModel.signOut(ScreenDestination.Auth)
                             viewModel.showToast(strings.signOut)
-                            viewModel.popToRoot(ScreenDestination.Auth)
                         }
                     },
                     testTag = "settings_sign_out_button",

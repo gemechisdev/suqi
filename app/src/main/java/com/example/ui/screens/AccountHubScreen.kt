@@ -573,8 +573,7 @@ fun AccountHubScreen(
                     OutlinedButton(
                         onClick = {
                             coroutineScope.launch {
-                                viewModel.repository.loginAsGuest()
-                                viewModel.refreshSession()
+                                viewModel.signOut(ScreenDestination.Home)
                                 viewModel.showToast(strings.checkout.guestSessionLabel)
                             }
                         },

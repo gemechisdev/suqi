@@ -296,7 +296,80 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     var cachedAdminPlans: List<SubscriptionPlanDto> = emptyList()
     val cachedOwnerMetrics: MutableMap<Int, OwnerDashboardMetricsDto> = mutableMapOf()
 
+    fun clearUserCaches() {
+        cachedHomeProducts = emptyList()
+        cachedHomeShops = emptyList()
+        cachedHomeCategories = emptyList()
+        cachedHomeBanners = emptyList()
+        cachedAdminSettings = null
+        cachedCategoryProducts.clear()
+        cachedAllProducts = emptyList()
+        cachedAllShops = emptyList()
+        cachedAllCategories = emptyList()
+        cachedProductDetails.clear()
+        cachedProductReviews.clear()
+        cachedProductQuestions.clear()
+        cachedShopDeliveryOptions.clear()
+        cachedShopsByFilter.clear()
+        cachedShopDetails.clear()
+        cachedShopProducts.clear()
+        cachedShopReviews.clear()
+        cachedBuyerOrders = emptyList()
+        cachedCartItems = emptyList()
+        cachedNotifications = emptyList()
+        cachedSavedAddresses = emptyList()
+        cachedFollowedShops = emptyList()
+        cachedBuyerConversations = emptyList()
+        cachedSellerDashboard = emptyMap()
+        cachedSellerQueue = emptyList()
+        cachedSellerOrders = emptyList()
+        cachedSellerProducts = emptyList()
+        cachedSellerConversations = emptyList()
+        cachedAdminAllShops = emptyList()
+        cachedAdminPendingShops = emptyList()
+        cachedAdminFlaggedReviews = emptyList()
+        cachedAdminTickets = emptyList()
+        cachedAdminAllOrders = emptyList()
+        cachedAdminItemTypes = emptyList()
+        cachedAdminPlans = emptyList()
+        cachedOwnerMetrics.clear()
+
+        _recentlyViewed.value = emptyList()
+        unreadNotificationCount.value = 0
+        _guestGateAction.value = null
+        _adminConsoleInitialTab.value = "overview"
+        activeCheckoutDeliveryAddress.value = ""
+        activeCheckoutRecipientName.value = ""
+        activeCheckoutRecipientPhone.value = ""
+        activeCheckoutDeliveryOption.value = null
+        activeCheckoutPaymentMethod.value = null
+        activeCheckoutTransactionRef.value = ""
+        activeCheckoutPayerIdentifier.value = ""
+        activeCheckoutReceiptUri.value = ""
+        activeCheckoutTotalAmount.value = 0.0
+        activeCheckoutShopPromoCode.value = null
+        activeCheckoutItems.value = emptyList()
+        activeCheckoutShopId.value = ""
+        activeCheckoutShopName.value = ""
+    }
+
+    suspend fun signOut(destination: ScreenDestination = ScreenDestination.Home) {
+        ++sessionRefreshGeneration
+        repository.loginAsGuest()
+        clearUserCaches()
+        _currentUser.value = null
+        _activeRole.value = "GUEST"
+        _adminTier.value = "NONE"
+        lastSessionUserId = null
+        // Create a fresh root entry rather than reusing the old Home entry so SaveableStateHolder
+        // disposes all previous user screen state.
+        updateNavStack(listOf(NavEntry(nextNavId(), destination)))
+        refreshSession()
+    }
+
     // Session & Role State (F-02, B-16, A-01)
+    private var lastSessionUserId: String? = null
+    private var sessionRefreshGeneration = 0L
     private val _currentUser = MutableStateFlow<UserDto?>(null)
     val currentUser: StateFlow<UserDto?> = _currentUser.asStateFlow()
 
@@ -466,11 +539,18 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshSession() {
+        val gen = ++sessionRefreshGeneration
         viewModelScope.launch {
             repository.refreshCartCount()
             val userRes = repository.getCurrentUser()
+            if (gen != sessionRefreshGeneration) return@launch
             if (userRes.success && userRes.data != null) {
                 val u = userRes.data
+                val previousUserId = lastSessionUserId ?: _currentUser.value?.id
+                if (previousUserId != null && previousUserId != u.id) {
+                    clearUserCaches()
+                }
+                lastSessionUserId = u.id
                 _currentUser.value = u
                 _activeRole.value = u.activeRole.ifBlank { u.role }
                 _adminTier.value = u.adminTier
