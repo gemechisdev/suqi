@@ -357,6 +357,70 @@ fun SuqiAppRoot(
                                 SellerAnalyticsScreen(viewModel = viewModel)
                             }
                         }
+                        is ScreenDestination.SellerReviewsQA -> {
+                            if (!hasSellerAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.seller.sellerRestrictedTitle,
+                                    subtitle = strings.seller.sellerRestrictedSub,
+                                    primaryButtonText = if (activeRole == "GUEST") strings.signIn else strings.becomeSellerLabel,
+                                    onPrimaryClick = {
+                                        viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
+                                    },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "seller_restricted"
+                                )
+                            } else {
+                                SellerReviewsQAScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.SellerCustomers -> {
+                            if (!hasSellerAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.seller.sellerRestrictedTitle,
+                                    subtitle = strings.seller.sellerRestrictedSub,
+                                    primaryButtonText = if (activeRole == "GUEST") strings.signIn else strings.becomeSellerLabel,
+                                    onPrimaryClick = {
+                                        viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
+                                    },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "seller_restricted"
+                                )
+                            } else {
+                                SellerCustomersScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.SellerCollections -> {
+                            if (!hasSellerAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.seller.sellerRestrictedTitle,
+                                    subtitle = strings.seller.sellerRestrictedSub,
+                                    primaryButtonText = if (activeRole == "GUEST") strings.signIn else strings.becomeSellerLabel,
+                                    onPrimaryClick = {
+                                        viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
+                                    },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "seller_restricted"
+                                )
+                            } else {
+                                SellerCollectionsScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.SellerStaffAccounts -> {
+                            if (!hasSellerAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.seller.sellerRestrictedTitle,
+                                    subtitle = strings.seller.sellerRestrictedSub,
+                                    primaryButtonText = if (activeRole == "GUEST") strings.signIn else strings.becomeSellerLabel,
+                                    onPrimaryClick = {
+                                        viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
+                                    },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "seller_restricted"
+                                )
+                            } else {
+                                SellerStaffAccountsScreen(viewModel = viewModel)
+                            }
+                        }
 
                         // Admin Console (Role-Gated A-01)
                         is ScreenDestination.AdminSignIn -> AdminSignInScreen(viewModel = viewModel)
