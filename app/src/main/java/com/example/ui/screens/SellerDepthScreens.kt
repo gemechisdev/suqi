@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.AdminUserRowDto
 import com.example.data.model.ProductQuestionDto
 import com.example.data.model.ReviewDto
-import com.example.data.model.UserDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.StatusType
@@ -78,8 +77,8 @@ fun SellerReviewsQAScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var reviews by remember { mutableStateOf(emptyList<ReviewDto>()) }
-    var questions by remember { mutableStateOf(emptyList<ProductQuestionDto>()) }
+    var reviews by remember { mutableStateOf<List<ReviewDto>>(emptyList()) }
+    var questions by remember { mutableStateOf<List<ProductQuestionDto>>(emptyList()) }
     var selectedTab by rememberSaveable { mutableStateOf("REVIEWS") }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -141,10 +140,9 @@ fun SellerReviewsQAScreen(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            val items = if (selectedTab == "REVIEWS") reviews else questions
-            if (isLoading && items.isEmpty()) {
+            if (isLoading && reviews.isEmpty() && questions.isEmpty()) {
                 com.example.ui.components.SuqiSkeletonList(count = 3, modifier = Modifier.fillMaxWidth())
-            } else if (items.isEmpty()) {
+            } else if (reviews.isEmpty() && questions.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.MessageCircle,
@@ -159,11 +157,41 @@ fun SellerReviewsQAScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(items, key = { it.id }) { item ->
-                        SuqiSectionCard(padding = 14.dp, modifier = Modifier.fillMaxWidth()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                if (selectedTab == "REVIEWS") {
-                                    val review = item as ReviewDto
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val tabs = listOf("REVIEWS" to strings.customerReviews, "QUESTIONS" to strings.questionsAnswers)
+                            tabs.forEach { (key, label) ->
+                                val selected = key == selectedTab
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 36.dp)
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(if (selected) SuqiPrimary else colors.cardBackground)
+                                        .border(if (!selected) 1.dp else 0.dp, colors.border, RoundedCornerShape(999.dp))
+                                        .clickable { selectedTab = key }
+                                        .testTag("seller_review_tab_$key")
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontFamily = SuqiFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = if (selected) Color.White else colors.primaryText,
+                                        modifier = Modifier.align(Alignment.Center)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    if (selectedTab == "REVIEWS") {
+                        items(reviews, key = { it.id }) { review ->
+                            SuqiSectionCard(padding = 14.dp, modifier = Modifier.fillMaxWidth()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -208,7 +236,7 @@ fun SellerReviewsQAScreen(
                                             containerColor = colors.secondaryBackground,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Column(horizontalAlignment = androidx.compose.ui.Alignment.Start) {
+                                            Column(horizontalAlignment = Alignment.Start) {
                                                 Text(
                                                     text = "Your reply:",
                                                     fontSize = 11.sp,
@@ -244,8 +272,13 @@ fun SellerReviewsQAScreen(
                                             isPrimary = false
                                         )
                                     }
-                                } else {
-                                    val q = item as ProductQuestionDto
+                                }
+                            }
+                        }
+                    } else {
+                        items(questions, key = { it.id }) { q ->
+                            SuqiSectionCard(padding = 14.dp, modifier = Modifier.fillMaxWidth()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -566,10 +599,4 @@ fun SellerStaffAccountsScreen(
             )
         }
     }
-}
-
-// Local helper used by Q&A screen to resolve active seller shop id
-private fun resolveActiveSellerShopId(viewModel: SuqiViewModel): String {
-    val user = viewModel.currentUser.value
-    return user?.shopId.orEmpty()
 }
