@@ -1,12 +1,19 @@
 package com.example
 
 import android.app.Application
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.BuyerNotificationPrefs
 import com.example.data.local.BuyerPreferencesStore
+import com.example.data.local.NotificationEntity
+import com.example.data.local.OrderEntity
+import com.example.data.local.SuqiDatabase
 import com.example.data.model.OrderDto
 import com.example.data.model.SavedAddressDto
 import com.example.data.model.ShopBusinessHoursCodec
+import com.example.data.model.SupportTicketDto
+import com.example.ui.ScreenDestination
+import com.example.ui.SuqiViewModel
 import com.example.ui.i18n.SuqiStringCatalog
 import com.example.ui.screens.NotificationDayGroup
 import com.example.ui.screens.estimatedArrivalDate
@@ -14,13 +21,16 @@ import com.example.ui.screens.formatBytes
 import com.example.ui.screens.isAddressInUse
 import com.example.ui.screens.isShopOpenNow
 import com.example.ui.screens.notificationDayGroup
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.util.Calendar
 
@@ -126,5 +136,151 @@ class Phase4LogicTest {
             assertTrue(it.joinedLabelTemplate.contains("%s"))
         }
         assertEquals("DELETE", en.deleteConfirmWord)
+    }
+
+    private fun awaitMainCondition(timeoutMs: Long = 5_000, predicate: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (!predicate() && System.currentTimeMillis() < deadline) {
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(10)
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+        assertTrue(predicate())
+    }
+
+    @Test
+    fun deleteAccount_removesBuyerDataAnonymizesHistoryAndResetsSession() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val db = SuqiDatabase.getInstance(app)
+        val vm = SuqiViewModel(app)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val buyer = runBlocking {
+            vm.repository.loginWithPhoneOtp("+251 911 777 888", "123456", "Cleanup Buyer").data!!
+        }
+        vm.refreshSession()
+        awaitMainCondition { vm.currentUser.value?.id == buyer.id }
+
+        val orderId = "ord_del_${System.currentTimeMillis()}"
+        val reviewId = runBlocking {
+            vm.repository.addToCart("prod_laptop_hp", 1, "Silver")
+            vm.repository.saveAddress(
+                SavedAddressDto(
+                    id = "", fullName = "Cleanup Buyer", phone = buyer.phone,
+                    region = "Addis Ababa", city = "Addis Ababa", subCity = "Bole",
+                    streetOrLandmark = "Bole Medhanialem", isDefault = true
+                )
+            )
+            db.notificationDao().insert(
+                NotificationEntity(
+                    id = "notif_del_${System.currentTimeMillis()}",
+                    userId = buyer.id,
+                    type = "ORDER",
+                    title = "Order update",
+                    body = "Body",
+                    timestamp = "Just now",
+                    isRead = false
+                )
+            )
+            db.productDao().updateWishlist("prod_laptop_hp", true)
+            vm.repository.sendChatMessage("shop_techhub", mapOf("message" to "Hello from buyer"))
+            vm.repository.submitSupportTicket(
+                SupportTicketDto(id = "", userId = buyer.id, category = "Account", subject = "Help", description = "Need help", status = "OPEN", createdAt = "")
+            )
+            val rev = vm.repository.submitReview(
+                mapOf("targetId" to "prod_laptop_hp", "targetType" to "PRODUCT", "rating" to 5.0, "comment" to "Great product!")
+            ).data!!
+            db.orderDao().insertOrder(
+                OrderEntity(
+                    id = orderId,
+                    orderReference = "SUQ-DEL-1",
+                    customerUserId = buyer.id,
+                    customerName = buyer.name,
+                    customerPhone = buyer.phone,
+                    deliveryAddress = "Bole Medhanialem",
+                    shopId = "shop_techhub",
+                    shopName = "Tech Hub",
+                    itemsJson = "[]",
+                    subtotal = 100.0,
+                    deliveryFee = 0.0,
+                    discountAmount = 0.0,
+                    totalAmount = 100.0,
+                    deliveryOptionTitle = "Standard",
+                    deliveryOptionType = "STANDARD",
+                    deliveryEstimatedDays = "1-2 days",
+                    paymentMethodTitle = "Telebirr",
+                    paymentMethodType = "TELEBIRR",
+                    paymentMethodAccount = "+251 912",
+                    transactionReference = "TXN-DEL-${System.currentTimeMillis()}",
+                    paymentStatus = "VERIFIED",
+                    orderStatus = "Delivered",
+                    createdAt = "Now",
+                    payerIdentifier = buyer.phone
+                )
+            )
+            rev.id
+        }
+
+        vm.cachedBuyerOrders = listOf(order("Bole", "Delivered"))
+        vm.cachedSavedAddresses = listOf(address)
+
+        val deleteRes = runBlocking { vm.repository.deleteAccount() }
+        assertTrue(deleteRes.success)
+        assertEquals(true, deleteRes.data)
+
+        runBlocking { vm.signOut(ScreenDestination.Home) }
+        awaitMainCondition { vm.currentUser.value?.role == "GUEST" }
+
+        assertEquals("GUEST", vm.activeRole.value)
+        assertTrue(vm.cachedBuyerOrders.isEmpty())
+        assertTrue(vm.cachedSavedAddresses.isEmpty())
+        assertEquals(listOf(ScreenDestination.Home), vm.navBackStack.value.map { it.destination })
+
+        runBlocking {
+            assertNull(db.userDao().getUserById(buyer.id))
+            assertTrue(db.cartDao().getCartItems(buyer.id).isEmpty())
+            assertTrue(db.savedAddressDao().getAddresses(buyer.id).isEmpty())
+            assertTrue(db.notificationDao().getNotifications(buyer.id).isEmpty())
+            assertTrue(db.productDao().getAllProducts().none { it.isWishlisted })
+            assertTrue(db.shopDao().getAllShops().none { it.isFollowing })
+            assertTrue(db.chatDao().getAllMessages().isEmpty())
+            assertTrue(db.supportTicketDao().getTicketsForUser(buyer.id).isEmpty())
+
+            val anonymizedRev = db.reviewDao().getReviewsForTarget("prod_laptop_hp").firstOrNull { it.id == reviewId }
+            assertNotNull(anonymizedRev)
+            assertEquals("deleted_user", anonymizedRev!!.userId)
+            assertEquals("Deleted user", anonymizedRev.userName)
+            assertEquals("", anonymizedRev.userAvatar)
+
+            val anonymizedOrder = db.orderDao().getOrderById(orderId)
+            assertNotNull(anonymizedOrder)
+            assertEquals("deleted_user", anonymizedOrder!!.customerUserId)
+            assertEquals("Deleted user", anonymizedOrder.customerName)
+            assertEquals("", anonymizedOrder.customerPhone)
+            assertEquals("Removed", anonymizedOrder.deliveryAddress)
+            assertEquals("", anonymizedOrder.payerIdentifier)
+        }
+    }
+
+    @Test
+    fun deleteAccount_blocksAccountsThatOwnAShop() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val db = SuqiDatabase.getInstance(app)
+        val vm = SuqiViewModel(app)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val seller = runBlocking {
+            vm.repository.loginWithPhoneOtp("+251 912 345 678", "123456").data!!
+        }
+        vm.refreshSession()
+        awaitMainCondition { vm.currentUser.value?.id == seller.id }
+
+        val deleteRes = runBlocking { vm.repository.deleteAccount() }
+        assertFalse(deleteRes.success)
+        assertEquals(false, deleteRes.data)
+        runBlocking {
+            assertNotNull(db.userDao().getUserById(seller.id))
+            assertNotNull(db.shopDao().getShopByOwner(seller.id))
+        }
     }
 }

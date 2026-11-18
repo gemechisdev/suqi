@@ -697,6 +697,7 @@ fun ProfileEditScreen(
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
     val strings = com.example.ui.i18n.suqiStrings()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val currentUser by viewModel.currentUser.collectAsState()
 
     var fullName by remember(currentUser?.id) { mutableStateOf(currentUser?.name.orEmpty()) }
@@ -1028,10 +1029,12 @@ fun ProfileEditScreen(
                             if (res.success) {
                                 viewModel.buyerPrefs.clearAll()
                                 viewModel.buyerPrefs.clearSearchHistory()
+                                TicketThreadStore(context).clearAll()
                                 showDeleteDialog = false
                                 viewModel.signOut(ScreenDestination.Home)
                                 viewModel.showToast(w.accountDeletedToast)
                             } else {
+                                showDeleteDialog = false
                                 viewModel.showToast(res.message ?: strings.common.failedToAddToast)
                             }
                         }

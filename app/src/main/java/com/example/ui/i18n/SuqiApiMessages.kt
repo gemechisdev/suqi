@@ -18,6 +18,8 @@ object SuqiApiMessages {
         r("^Invalid admin credentials\\..*", "የአስተዳዳሪ መረጃ ትክክል አይደለም።", "Ragaan bulchaa sirrii miti."),
         r("^Message cannot be empty\\.?", "መልዕክቱ ባዶ መሆን አይችልም።", "Ergaan duwwaa ta'uu hin danda'u."),
         r("^No active user session\\.?", "ንቁ የተጠቃሚ ክፍለ ጊዜ የለም።", "Yeroon fayyadamaa hojiirra jiru hin jiru."),
+        r("^Staff accounts cannot be deleted here\\.?", "የሰራተኛ መለያዎች እዚህ መሰረዝ አይችሉም።", "Herregni hojjettootaa asitti haqamuu hin danda'u."),
+        r("^Accounts that own a shop cannot be deleted.*", "ሱቅ ያላቸው መለያዎች ሱቁ ንቁ ሆኖ ሳለ መሰረዝ አይችሉም።", "Herregni dukaana qabu osoo dukaanni hojiirra jiruu haqamuu hin danda'u."),
         r("^No shop associated with (current )?account\\.?", "ከመለያው ጋር የተያያዘ ሱቅ የለም።", "Akaawuntii kanaan walqabatee suuqni hin jiru."),
         r("^No shop found for delivery option\\.?", "ለዚህ የማድረስ አማራጭ ሱቅ አልተገኘም።", "Filannoo geejjibaa kanaaf suuqni hin argamne."),
         r("^No shop found for payment method\\.?", "ለዚህ የክፍያ ዘዴ ሱቅ አልተገኘም።", "Mala kaffaltii kanaaf suuqni hin argamne."),

@@ -58,6 +58,9 @@ interface ShopDao {
 
     @Update
     suspend fun updateShop(shop: ShopEntity)
+
+    @Query("UPDATE shops SET isFollowing = 0")
+    suspend fun clearAllFollowing()
 }
 
 @Dao
@@ -91,6 +94,9 @@ interface ProductDao {
 
     @Query("UPDATE products SET isWishlisted = :isWishlisted WHERE id = :id")
     suspend fun updateWishlist(id: String, isWishlisted: Boolean)
+
+    @Query("UPDATE products SET isWishlisted = 0")
+    suspend fun clearAllWishlist()
 
     @Query("UPDATE products SET stockQuantity = stockQuantity - :qty WHERE id = :id AND stockQuantity >= :qty")
     suspend fun decrementStock(id: String, qty: Int): Int
@@ -166,6 +172,9 @@ interface OrderDao {
 
     @Update
     suspend fun updateOrder(order: OrderEntity)
+
+    @Query("UPDATE orders SET customerUserId = 'deleted_user', customerName = 'Deleted user', customerPhone = '', deliveryAddress = 'Removed', payerIdentifier = '' WHERE customerUserId = :userId")
+    suspend fun anonymizeByCustomerId(userId: String)
 }
 
 @Dao
@@ -232,6 +241,9 @@ interface ReviewDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(reviews: List<ReviewEntity>)
+
+    @Query("UPDATE reviews SET userId = 'deleted_user', userName = 'Deleted user', userAvatar = '' WHERE userId = :userId")
+    suspend fun anonymizeByUserId(userId: String)
 }
 
 @Dao
@@ -253,6 +265,9 @@ interface ChatDao {
 
     @Query("UPDATE chat_messages SET isRead = :isRead WHERE conversationId = :convId")
     suspend fun setConversationRead(convId: String, isRead: Boolean)
+
+    @Query("DELETE FROM chat_messages")
+    suspend fun deleteAllMessages()
 }
 
 @Dao
@@ -274,6 +289,9 @@ interface NotificationDao {
 
     @Query("DELETE FROM notifications WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM notifications WHERE userId = :userId")
+    suspend fun deleteByUserId(userId: String)
 }
 
 @Dao
@@ -295,6 +313,9 @@ interface SavedAddressDao {
 
     @Query("DELETE FROM saved_addresses WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM saved_addresses WHERE userId = :userId")
+    suspend fun deleteByUserId(userId: String)
 }
 
 @Dao
@@ -403,6 +424,9 @@ interface SupportTicketDao {
 
     @Query("UPDATE support_tickets SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: String, status: String)
+
+    @Query("DELETE FROM support_tickets WHERE userId = :userId")
+    suspend fun deleteByUserId(userId: String)
 }
 
 @Dao

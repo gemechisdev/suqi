@@ -235,10 +235,30 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     override suspend fun deleteAccount(): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         val current = resolveCurrentUser()
             ?: return@withContext ApiResponse(success = false, data = false, message = "No active user session")
+        if (current.role == "GUEST") {
+            return@withContext ApiResponse(success = false, data = false, message = "No active user session")
+        }
         if (current.role == "ADMIN" || current.adminTier != "NONE") {
             return@withContext ApiResponse(success = false, data = false, message = "Staff accounts cannot be deleted here.")
         }
+        val ownedShop = db.shopDao().getShopByOwner(current.id)
+            ?: current.shopId?.takeIf { it.isNotBlank() }?.let { db.shopDao().getShopById(it) }
+        if (ownedShop != null) {
+            return@withContext ApiResponse(
+                success = false,
+                data = false,
+                message = "Accounts that own a shop cannot be deleted while the shop is active."
+            )
+        }
         db.cartDao().clearAll(current.id)
+        db.savedAddressDao().deleteByUserId(current.id)
+        db.notificationDao().deleteByUserId(current.id)
+        db.productDao().clearAllWishlist()
+        db.shopDao().clearAllFollowing()
+        db.chatDao().deleteAllMessages()
+        db.supportTicketDao().deleteByUserId(current.id)
+        db.reviewDao().anonymizeByUserId(current.id)
+        db.orderDao().anonymizeByCustomerId(current.id)
         db.userDao().deleteById(current.id)
         ApiResponse(success = true, data = true)
     }

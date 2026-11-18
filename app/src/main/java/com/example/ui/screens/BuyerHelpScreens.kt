@@ -59,6 +59,10 @@ class TicketThreadStore(context: android.content.Context) {
         messages.forEach { arr.put(JSONObject().put("u", it.fromUser).put("t", it.text).put("ts", it.time)) }
         prefs.edit().putString("thread_$ticketId", arr.toString()).apply()
     }
+
+    fun clearAll() {
+        prefs.edit().clear().apply()
+    }
 }
 
 @Composable
