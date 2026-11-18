@@ -1622,6 +1622,37 @@ object SeedData {
                 )
             )
         }
+
+        // Phase 6 config tables (idempotent: each seeds only while empty).
+        if (db.platformSwitchDao().getAll().isEmpty()) {
+            db.platformSwitchDao().insertAll(
+                listOf(
+                    PlatformSwitchEntity("q_and_a", "EXPERIENCE", true, 0.0, 1),
+                    PlatformSwitchEntity("compare_products", "EXPERIENCE", true, 0.0, 2),
+                    PlatformSwitchEntity("video_uploads", "MEDIA", true, 0.0, 1),
+                    PlatformSwitchEntity("product_variants", "CATALOG", true, 0.0, 1),
+                    PlatformSwitchEntity("flash_sales", "MONETIZATION", true, 0.0, 1)
+                )
+            )
+        }
+        if (db.paymentProviderDao().getAll().isEmpty()) {
+            db.paymentProviderDao().upsert(PaymentProviderEntity("prov_telebirr", "Telebirr", "📱", "+251 9XX XXX XXX", "10-character transaction ID", true, 1))
+            db.paymentProviderDao().upsert(PaymentProviderEntity("prov_cbe", "Commercial Bank of Ethiopia", "🏦", "1000XXXXXXXXX", "FT + 10 digits", true, 2))
+            db.paymentProviderDao().upsert(PaymentProviderEntity("prov_awash", "Awash Bank", "🏦", "01320XXXXXXXX", "Transfer reference", true, 3))
+        }
+        if (db.locationAreaDao().getAll().isEmpty()) {
+            db.locationAreaDao().upsert(LocationAreaEntity("loc_addis", "Addis Ababa", "", "REGION", true, true, 1))
+            db.locationAreaDao().upsert(LocationAreaEntity("loc_oromia", "Oromia", "", "REGION", true, false, 2))
+            db.locationAreaDao().upsert(LocationAreaEntity("loc_addis_city", "Addis Ababa", "loc_addis", "CITY", true, true, 1))
+            db.locationAreaDao().upsert(LocationAreaEntity("loc_bole", "Bole", "loc_addis_city", "SUB_CITY", true, true, 1))
+            db.locationAreaDao().upsert(LocationAreaEntity("loc_kirkos", "Kirkos", "loc_addis_city", "SUB_CITY", true, false, 2))
+        }
+        if (db.contentEntryDao().getAll().isEmpty()) {
+            db.contentEntryDao().upsert(ContentEntryEntity("faq_delivery", "FAQ", "How long does delivery take?", "", "", "Most Addis Ababa orders arrive within 1-2 days.", "", "", true, ""))
+            db.contentEntryDao().upsert(ContentEntryEntity("faq_payment", "FAQ", "Which payment methods are accepted?", "", "", "Telebirr and bank transfers verified by the seller.", "", "", true, ""))
+            db.contentEntryDao().upsert(ContentEntryEntity("terms_main", "TERMS", "Terms of Service", "", "", "By using Suqi you agree to these terms.", "", "", true, ""))
+            db.contentEntryDao().upsert(ContentEntryEntity("privacy_main", "PRIVACY", "Privacy Policy", "", "", "We store only the data needed to run your orders.", "", "", true, ""))
+        }
     }
 
     /**
