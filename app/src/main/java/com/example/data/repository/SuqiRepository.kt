@@ -369,6 +369,14 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun saveAdminShopNotes(id: String, notes: String) = api.saveAdminShopNotes(id, mapOf("notes" to notes))
     suspend fun getAuditLog() = api.getAuditLog()
 
+    // Phase 6: seller collections & staff
+    suspend fun getSellerCollections() = api.getSellerCollections()
+    suspend fun saveSellerCollection(collection: ShopCollectionDto) = api.saveSellerCollection(collection)
+    suspend fun deleteSellerCollection(id: String) = api.deleteSellerCollection(id)
+    suspend fun getSellerStaff() = api.getSellerStaff()
+    suspend fun saveSellerStaff(staff: ShopStaffDto) = api.saveSellerStaff(staff)
+    suspend fun deleteSellerStaff(id: String) = api.deleteSellerStaff(id)
+
     // Phase 6: admin ops & config
     suspend fun getLocationAreas() = api.getLocationAreas()
     suspend fun saveLocationArea(area: LocationAreaDto) = api.saveLocationArea(area)

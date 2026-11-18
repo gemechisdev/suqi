@@ -3748,6 +3748,100 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         ApiResponse(success = true, data = db.auditLogDao().getRecent(500).map { it.toDto() })
     }
 
+    // ==================== PHASE 6: SELLER COLLECTIONS & STAFF ====================
+
+    private suspend fun requireSellerShop(): String? {
+        val user = resolveCurrentUser() ?: return null
+        if (user.role != "SELLER" && user.activeRole != "SELLER") return null
+        return resolveActiveSellerShopId()
+    }
+
+    override suspend fun getSellerCollections(): ApiResponse<List<ShopCollectionDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = requireSellerShop()
+            ?: return@withContext ApiResponse(success = false, message = "Seller account required.")
+        ApiResponse(success = true, data = db.shopCollectionDao().getByShop(shopId).map { it.toDto() })
+    }
+
+    override suspend fun saveSellerCollection(collection: ShopCollectionDto): ApiResponse<ShopCollectionDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = requireSellerShop()
+            ?: return@withContext ApiResponse(success = false, message = "Seller account required.")
+        if (collection.name.isBlank()) return@withContext ApiResponse(success = false, message = "Collection name is required.")
+        val existing = if (collection.id.isBlank()) null else db.shopCollectionDao().getById(collection.id)
+        if (existing != null && existing.shopId != shopId) {
+            return@withContext ApiResponse(success = false, message = "Not your collection.")
+        }
+        val ownProductIds = db.productDao().getAllProducts().filter { it.shopId == shopId }.map { it.id }.toSet()
+        val entity = ShopCollectionEntity(
+            id = collection.id.ifBlank { "col_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}" },
+            shopId = shopId,
+            name = collection.name.trim(),
+            productIdsCsv = collection.productIds.filter { it in ownProductIds }.distinct().joinToString(","),
+            isVisible = collection.isVisible,
+            sortOrder = collection.sortOrder,
+            createdAt = existing?.createdAt ?: getCurrentTime()
+        )
+        db.shopCollectionDao().upsert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deleteSellerCollection(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = requireSellerShop()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Seller account required.")
+        val existing = db.shopCollectionDao().getById(id)
+        if (existing == null || existing.shopId != shopId) {
+            return@withContext ApiResponse(success = false, data = false, message = "Collection not found")
+        }
+        db.shopCollectionDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun getSellerStaff(): ApiResponse<List<ShopStaffDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = requireSellerShop()
+            ?: return@withContext ApiResponse(success = false, message = "Seller account required.")
+        ApiResponse(success = true, data = db.shopStaffDao().getByShop(shopId).map { it.toDto() })
+    }
+
+    override suspend fun saveSellerStaff(staff: ShopStaffDto): ApiResponse<ShopStaffDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = requireSellerShop()
+            ?: return@withContext ApiResponse(success = false, message = "Seller account required.")
+        if (staff.name.isBlank()) return@withContext ApiResponse(success = false, message = "Staff name is required.")
+        if (staff.phone.filter { it.isDigit() }.length < 9) return@withContext ApiResponse(success = false, message = "Enter a valid phone number.")
+        val role = staff.role.uppercase().takeIf { it in setOf("MANAGER", "ORDERS", "CATALOG") }
+            ?: return@withContext ApiResponse(success = false, message = "Unknown staff role.")
+        val existing = if (staff.id.isBlank()) null else db.shopStaffDao().getById(staff.id)
+        if (existing != null && existing.shopId != shopId) {
+            return@withContext ApiResponse(success = false, message = "Not your staff member.")
+        }
+        val entity = ShopStaffEntity(
+            id = staff.id.ifBlank { "staff_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(4)}" },
+            shopId = shopId,
+            name = staff.name.trim(),
+            phone = staff.phone.trim(),
+            role = role,
+            isActive = staff.isActive,
+            createdAt = existing?.createdAt ?: getCurrentTime()
+        )
+        db.shopStaffDao().upsert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deleteSellerStaff(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = requireSellerShop()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Seller account required.")
+        val existing = db.shopStaffDao().getById(id)
+        if (existing == null || existing.shopId != shopId) {
+            return@withContext ApiResponse(success = false, data = false, message = "Staff member not found")
+        }
+        db.shopStaffDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
+
     // ==================== PHASE 6: LOCATIONS, PROVIDERS, CONTENT, SWITCHES ====================
 
     override suspend fun getLocationAreas(): ApiResponse<List<LocationAreaDto>> = withContext(Dispatchers.IO) {
@@ -3759,6 +3853,18 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         db.ensureSeeded()
         requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
         if (area.name.isBlank()) return@withContext ApiResponse(success = false, message = "Area name is required.")
+        val parentLevel = when (area.level) {
+            "REGION" -> ""
+            "CITY" -> "REGION"
+            "SUB_CITY" -> "CITY"
+            else -> return@withContext ApiResponse(success = false, message = "Unknown area level.")
+        }
+        if (parentLevel.isNotEmpty()) {
+            val parent = db.locationAreaDao().getById(area.parentId)
+            if (parent == null || parent.level != parentLevel) {
+                return@withContext ApiResponse(success = false, message = "Choose a valid parent area.")
+            }
+        }
         val entity = LocationAreaEntity(
             id = area.id.ifBlank { "loc_${System.currentTimeMillis()}" },
             name = area.name.trim(),
@@ -4336,6 +4442,17 @@ fun AuditLogEntity.toDto() = AuditLogEntryDto(
     id = id, actorUserId = actorUserId, actorName = actorName, actorRole = actorRole,
     action = action, targetType = targetType, targetId = targetId, targetLabel = targetLabel,
     beforeValue = beforeValue, afterValue = afterValue, note = note, createdAt = createdAt
+)
+
+// Phase 6: seller collections & staff mappers
+fun ShopCollectionEntity.toDto() = ShopCollectionDto(
+    id = id, shopId = shopId, name = name,
+    productIds = productIdsCsv.split(",").filter { it.isNotBlank() },
+    isVisible = isVisible, sortOrder = sortOrder, createdAt = createdAt
+)
+
+fun ShopStaffEntity.toDto() = ShopStaffDto(
+    id = id, shopId = shopId, name = name, phone = phone, role = role, isActive = isActive, createdAt = createdAt
 )
 
 // Phase 6: ops/config mappers

@@ -8,6 +8,8 @@ import com.example.data.local.SuqiDatabase
 import com.example.data.model.ContentEntryDto
 import com.example.data.model.LocationAreaDto
 import com.example.data.model.PaymentProviderDto
+import com.example.data.model.ShopCollectionDto
+import com.example.data.model.ShopStaffDto
 import com.example.ui.SuqiViewModel
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -273,6 +275,65 @@ class Phase6LogicTest {
             val latest = log.first { it.targetId == "flash_sales" }
             assertNotNull(latest.actorUserId.takeIf { it.isNotBlank() })
             assertEquals("OWNER", latest.actorRole)
+        }
+    }
+
+    private fun signInSeller(vm: SuqiViewModel) = runBlocking {
+        vm.repository.loginWithPhoneOtp("+251 912 345 678", "123456")
+        vm.repository.updateUserProfile(mapOf("activeRole" to "SELLER"))
+    }
+
+    @Test
+    fun locations_parentLevelIsValidated() {
+        val vm = newVm()
+        signInAdmin(vm)
+        runBlocking {
+            assertFalse("city needs a parent", vm.repository.saveLocationArea(LocationAreaDto(id = "", name = "X", level = "CITY")).success)
+            assertFalse("sub-city under a region", vm.repository.saveLocationArea(LocationAreaDto(id = "", name = "X", parentId = "loc_addis", level = "SUB_CITY")).success)
+            assertFalse(vm.repository.saveLocationArea(LocationAreaDto(id = "", name = "X", level = "PLANET")).success)
+            assertTrue(vm.repository.saveLocationArea(LocationAreaDto(id = "", name = "Yeka", parentId = "loc_addis_city", level = "SUB_CITY")).success)
+            assertTrue(vm.repository.saveLocationArea(LocationAreaDto(id = "", name = "Tigray", level = "REGION")).success)
+        }
+    }
+
+    @Test
+    fun sellerCollections_crudScopedToOwnShopAndProducts() {
+        val vm = newVm()
+        createBuyer(vm, "+251 911 700 201", "Buyer No Collections")
+        runBlocking { assertFalse(vm.repository.saveSellerCollection(ShopCollectionDto(id = "", name = "Nope")).success) }
+        signInSeller(vm)
+        runBlocking {
+            assertFalse("name required", vm.repository.saveSellerCollection(ShopCollectionDto(id = "", name = " ")).success)
+            val ownProduct = vm.repository.getSellerProducts().data.orEmpty().first().id
+            val saved = vm.repository.saveSellerCollection(
+                ShopCollectionDto(id = "", name = "Back to school", productIds = listOf(ownProduct, "someone_elses_product", ownProduct))
+            )
+            assertTrue(saved.message, saved.success)
+            assertEquals("only own, distinct products are kept", listOf(ownProduct), saved.data!!.productIds)
+
+            val hidden = vm.repository.saveSellerCollection(saved.data!!.copy(isVisible = false))
+            assertFalse(hidden.data!!.isVisible)
+            assertEquals(1, vm.repository.getSellerCollections().data.orEmpty().count { it.id == saved.data!!.id })
+
+            assertTrue(vm.repository.deleteSellerCollection(saved.data!!.id).success)
+            assertFalse(vm.repository.deleteSellerCollection(saved.data!!.id).success)
+        }
+    }
+
+    @Test
+    fun sellerStaff_inviteValidationToggleAndRemove() {
+        val vm = newVm()
+        signInSeller(vm)
+        runBlocking {
+            assertFalse(vm.repository.saveSellerStaff(ShopStaffDto(id = "", name = "", phone = "+251 911 000 222")).success)
+            assertFalse("short phone", vm.repository.saveSellerStaff(ShopStaffDto(id = "", name = "Hana", phone = "123")).success)
+            assertFalse("bad role", vm.repository.saveSellerStaff(ShopStaffDto(id = "", name = "Hana", phone = "+251 911 000 222", role = "BOSS")).success)
+            val saved = vm.repository.saveSellerStaff(ShopStaffDto(id = "", name = "Hana", phone = "+251 911 000 222", role = "MANAGER"))
+            assertTrue(saved.message, saved.success)
+            assertTrue(vm.repository.getSellerStaff().data.orEmpty().any { it.id == saved.data!!.id })
+            assertFalse(vm.repository.saveSellerStaff(saved.data!!.copy(isActive = false)).data!!.isActive)
+            assertTrue(vm.repository.deleteSellerStaff(saved.data!!.id).success)
+            assertFalse(vm.repository.deleteSellerStaff(saved.data!!.id).success)
         }
     }
 }

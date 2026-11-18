@@ -54,9 +54,11 @@ import kotlinx.coroutines.sync.withLock
         LocationAreaEntity::class,
         PaymentProviderEntity::class,
         ContentEntryEntity::class,
-        PlatformSwitchEntity::class
+        PlatformSwitchEntity::class,
+        ShopCollectionEntity::class,
+        ShopStaffEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -97,6 +99,8 @@ abstract class SuqiDatabase : RoomDatabase() {
     abstract fun paymentProviderDao(): PaymentProviderDao
     abstract fun contentEntryDao(): ContentEntryDao
     abstract fun platformSwitchDao(): PlatformSwitchDao
+    abstract fun shopCollectionDao(): ShopCollectionDao
+    abstract fun shopStaffDao(): ShopStaffDao
 
     private val seedMutex = Mutex()
     @Volatile
@@ -588,6 +592,34 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v14: Phase 6 seller depth — shop collections and shop staff. */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `shop_collections` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `shopId` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `productIdsCsv` TEXT NOT NULL DEFAULT '',
+                        `isVisible` INTEGER NOT NULL DEFAULT 1,
+                        `sortOrder` INTEGER NOT NULL DEFAULT 0,
+                        `createdAt` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `shop_staff` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `shopId` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `phone` TEXT NOT NULL,
+                        `role` TEXT NOT NULL DEFAULT 'ORDERS',
+                        `isActive` INTEGER NOT NULL DEFAULT 1,
+                        `createdAt` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+            }
+        }
+
         /** v13: Phase 6 admin ops/config — locations tree, payment providers, content manager, grouped platform switches, order dispute fields. */
         val MIGRATION_12_13 = object : Migration(12, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -667,7 +699,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     ).addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-                        MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13
+                        MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14
                     ).addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)

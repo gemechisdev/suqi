@@ -102,6 +102,16 @@ fun AdminLocationsManagerScreen(
 
     LaunchedEffect(Unit) { loadAreas() }
 
+    var addLevel by remember { mutableStateOf<String?>(null) }
+    var addName by remember { mutableStateOf("") }
+    var addParentId by remember { mutableStateOf("") }
+    fun openAdd(level: String) {
+        addLevel = level
+        addName = ""
+        val parentLevel = when (level) { "CITY" -> "REGION"; "SUB_CITY" -> "CITY"; else -> "" }
+        addParentId = areas.firstOrNull { it.level == parentLevel }?.id.orEmpty()
+    }
+
     SuqiScreen(
         title = strings.admin.locationsTitle,
         subtitle = "${areas.size} areas",
@@ -118,20 +128,63 @@ fun AdminLocationsManagerScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SuqiButton(
                         text = p6.addRegionBtn,
-                        onClick = {},
+                        onClick = { openAdd("REGION") },
                         modifier = Modifier.weight(1f).heightIn(min = 44.dp)
                     )
                     SuqiButton(
                         text = p6.addCityBtn,
-                        onClick = {},
+                        onClick = { openAdd("CITY") },
                         modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                         isPrimary = false
                     )
                     SuqiButton(
                         text = p6.addSubCityBtn,
-                        onClick = {},
+                        onClick = { openAdd("SUB_CITY") },
                         modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                         isPrimary = false
+                    )
+                }
+            }
+            addLevel?.let { level ->
+                com.example.ui.components.SuqiBottomSheet(onDismissRequest = { addLevel = null }) {
+                    com.example.ui.components.SuqiTextField(
+                        value = addName,
+                        onValueChange = { addName = it },
+                        label = "Name",
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "location_name_input"
+                    )
+                    if (level != "REGION") {
+                        val parentLevel = if (level == "CITY") "REGION" else "CITY"
+                        Spacer(modifier = Modifier.height(8.dp))
+                        com.example.ui.components.SuqiFilterChips(
+                            items = areas.filter { it.level == parentLevel }.map { it.id to it.name },
+                            selectedKey = addParentId,
+                            onSelect = { addParentId = it },
+                            testTagPrefix = "location_parent"
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SuqiButton(
+                        text = strings.saveLabel,
+                        onClick = {
+                            coroutineScope.launch {
+                                val res = viewModel.repository.saveLocationArea(
+                                    LocationAreaDto(
+                                        id = "",
+                                        name = addName,
+                                        parentId = if (level == "REGION") "" else addParentId,
+                                        level = level,
+                                        sortOrder = areas.count { it.level == level } + 1
+                                    )
+                                )
+                                if (res.success) {
+                                    addLevel = null
+                                    loadAreas()
+                                } else viewModel.showToast(res.message ?: strings.retryLabel)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("location_save_btn")
                     )
                 }
             }

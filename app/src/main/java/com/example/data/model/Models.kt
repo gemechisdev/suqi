@@ -871,3 +871,25 @@ data class ApiResponse<T>(
     val data: T? = null,
     val errorCode: String? = null
 )
+
+@JsonClass(generateAdapter = true)
+data class ShopCollectionDto(
+    val id: String,
+    val shopId: String = "",
+    val name: String,
+    val productIds: List<String> = emptyList(),
+    val isVisible: Boolean = true,
+    val sortOrder: Int = 0,
+    val createdAt: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class ShopStaffDto(
+    val id: String,
+    val shopId: String = "",
+    val name: String,
+    val phone: String,
+    val role: String = "ORDERS", // "MANAGER", "ORDERS", "CATALOG"
+    val isActive: Boolean = true,
+    val createdAt: String = ""
+)

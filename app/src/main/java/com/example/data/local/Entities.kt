@@ -618,3 +618,27 @@ data class PlatformSwitchEntity(
     val numericValue: Double = 0.0,
     val sortOrder: Int = 0
 )
+
+// ==================== PHASE 6: SELLER COLLECTIONS & STAFF ====================
+
+@Entity(tableName = "shop_collections")
+data class ShopCollectionEntity(
+    @PrimaryKey val id: String,
+    val shopId: String,
+    val name: String,
+    val productIdsCsv: String = "",
+    val isVisible: Boolean = true,
+    val sortOrder: Int = 0,
+    val createdAt: String = ""
+)
+
+@Entity(tableName = "shop_staff")
+data class ShopStaffEntity(
+    @PrimaryKey val id: String,
+    val shopId: String,
+    val name: String,
+    val phone: String,
+    val role: String = "ORDERS", // "MANAGER", "ORDERS", "CATALOG"
+    val isActive: Boolean = true,
+    val createdAt: String = ""
+)

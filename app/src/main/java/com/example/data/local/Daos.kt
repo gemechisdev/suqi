@@ -796,3 +796,33 @@ interface PlatformSwitchDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<PlatformSwitchEntity>)
 }
+
+@Dao
+interface ShopCollectionDao {
+    @Query("SELECT * FROM shop_collections WHERE shopId = :shopId ORDER BY sortOrder ASC, rowid ASC")
+    suspend fun getByShop(shopId: String): List<ShopCollectionEntity>
+
+    @Query("SELECT * FROM shop_collections WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ShopCollectionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: ShopCollectionEntity)
+
+    @Query("DELETE FROM shop_collections WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface ShopStaffDao {
+    @Query("SELECT * FROM shop_staff WHERE shopId = :shopId ORDER BY rowid ASC")
+    suspend fun getByShop(shopId: String): List<ShopStaffEntity>
+
+    @Query("SELECT * FROM shop_staff WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ShopStaffEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: ShopStaffEntity)
+
+    @Query("DELETE FROM shop_staff WHERE id = :id")
+    suspend fun deleteById(id: String)
+}

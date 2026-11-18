@@ -463,7 +463,23 @@ fun SellerCollectionsScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var collections by remember { mutableStateOf<List<String>>(emptyList()) }
+    val coroutineScope = rememberCoroutineScope()
+    var collections by remember { mutableStateOf<List<com.example.data.model.ShopCollectionDto>>(emptyList()) }
+    var products by remember { mutableStateOf<List<com.example.data.model.ProductDto>>(emptyList()) }
+    var showSheet by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+    var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+
+    fun load() {
+        coroutineScope.launch {
+            val res = viewModel.repository.getSellerCollections()
+            if (res.success && res.data != null) collections = res.data
+            val prod = viewModel.repository.getSellerProducts()
+            if (prod.success && prod.data != null) products = prod.data
+        }
+    }
+
+    LaunchedEffect(Unit) { load() }
 
     SuqiScreen(
         title = strings.sellerOps.sellerToolsShopTitle,
@@ -477,49 +493,119 @@ fun SellerCollectionsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (collections.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    com.example.ui.components.SuqiEmptyState(
-                        icon = LucideIcons.ShoppingBag,
-                        title = strings.sellerOps.sellerToolsShopTitle,
-                        subtitle = "No collections yet",
-                        testTag = "seller_collections_empty"
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(collections, key = { it }) { name ->
-                        SuqiSectionCard(
-                            padding = 14.dp,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = name,
-                                fontFamily = SuqiFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = colors.primaryText
-                            )
+            Box(modifier = Modifier.weight(1f)) {
+                if (collections.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        com.example.ui.components.SuqiEmptyState(
+                            icon = LucideIcons.ShoppingBag,
+                            title = strings.sellerOps.sellerToolsShopTitle,
+                            subtitle = "No collections yet",
+                            testTag = "seller_collections_empty"
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(collections, key = { it.id }) { col ->
+                            SuqiSectionCard(
+                                padding = 14.dp,
+                                modifier = Modifier.fillMaxWidth().testTag("collection_card_${col.id}")
+                            ) {
+                                Text(
+                                    text = col.name,
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = colors.primaryText
+                                )
+                                Text(
+                                    text = "${col.productIds.size} products",
+                                    fontSize = 12.sp,
+                                    color = colors.secondaryText
+                                )
+                                com.example.ui.components.SuqiSwitchRow(
+                                    title = "Visible in shop",
+                                    checked = col.isVisible,
+                                    onCheckedChange = { on ->
+                                        coroutineScope.launch {
+                                            viewModel.repository.saveSellerCollection(col.copy(isVisible = on))
+                                            load()
+                                        }
+                                    },
+                                    testTag = "collection_visible_${col.id}"
+                                )
+                                SuqiButton(
+                                    text = "Delete",
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            val res = viewModel.repository.deleteSellerCollection(col.id)
+                                            if (!res.success) viewModel.showToast(res.message ?: strings.retryLabel)
+                                            load()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).testTag("collection_delete_${col.id}"),
+                                    isPrimary = false
+                                )
+                            }
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
             SuqiButton(
                 text = "Create Collection",
-                onClick = { viewModel.showToast("Collection creation not yet wired") },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                onClick = {
+                    newName = ""
+                    selectedIds = emptySet()
+                    showSheet = true
+                },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(16.dp).testTag("collection_create_btn")
             )
+        }
+
+        if (showSheet) {
+            SuqiBottomSheet(onDismissRequest = { showSheet = false }) {
+                SuqiTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = "Collection name",
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "collection_name_input"
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                products.take(20).forEach { prod ->
+                    com.example.ui.components.SuqiSwitchRow(
+                        title = prod.name,
+                        checked = prod.id in selectedIds,
+                        onCheckedChange = { on -> selectedIds = if (on) selectedIds + prod.id else selectedIds - prod.id },
+                        testTag = "collection_product_${prod.id}"
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                SuqiButton(
+                    text = strings.saveLabel,
+                    onClick = {
+                        coroutineScope.launch {
+                            val res = viewModel.repository.saveSellerCollection(
+                                com.example.data.model.ShopCollectionDto(id = "", name = newName, productIds = selectedIds.toList())
+                            )
+                            if (res.success) {
+                                showSheet = false
+                                load()
+                            } else viewModel.showToast(res.message ?: strings.retryLabel)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("collection_save_btn")
+                )
+            }
         }
     }
 }
 
 // ==========================================
-// S-18 (P3): Staff accounts (roles, invite, permissions matrix)
+// S-18 (P3): Staff accounts
 // ==========================================
 @Composable
 fun SellerStaffAccountsScreen(
@@ -530,24 +616,25 @@ fun SellerStaffAccountsScreen(
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     val coroutineScope = rememberCoroutineScope()
-    var staff by remember { mutableStateOf<List<AdminUserRowDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var staff by remember { mutableStateOf<List<com.example.data.model.ShopStaffDto>>(emptyList()) }
+    var showSheet by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var role by remember { mutableStateOf("ORDERS") }
+    val owner = viewModel.currentUser.value
 
-    fun loadStaff() {
+    fun load() {
         coroutineScope.launch {
-            // No staff-account model exists yet: the shop's only account is the signed-in owner.
-            staff = viewModel.currentUser.value?.let {
-                listOf(AdminUserRowDto(id = it.id, name = it.name, phone = it.phone, role = "OWNER"))
-            }.orEmpty()
-            isLoading = false
+            val res = viewModel.repository.getSellerStaff()
+            if (res.success && res.data != null) staff = res.data
         }
     }
 
-    LaunchedEffect(Unit) { loadStaff() }
+    LaunchedEffect(Unit) { load() }
 
     SuqiScreen(
         title = strings.sellerOps.sellerToolsShopTitle,
-        subtitle = "${staff.size} staff",
+        subtitle = "${staff.size + 1} accounts",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -557,61 +644,108 @@ fun SellerStaffAccountsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (isLoading && staff.isEmpty()) {
-                com.example.ui.components.SuqiSkeletonList(count = 3, modifier = Modifier.fillMaxWidth())
-            } else if (staff.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    com.example.ui.components.SuqiEmptyState(
-                        icon = LucideIcons.User,
-                        title = strings.sellerOps.sellerToolsShopTitle,
-                        subtitle = "No staff accounts yet",
-                        testTag = "seller_staff_empty"
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(staff, key = { it.id }) { member ->
-                        SuqiSectionCard(
-                            padding = 14.dp,
-                            modifier = Modifier.fillMaxWidth().testTag("seller_staff_${member.id}")
-                        ) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (owner != null) {
+                    item(key = "owner") {
+                        SuqiSectionCard(padding = 14.dp, modifier = Modifier.fillMaxWidth().testTag("seller_staff_${owner.id}")) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text(
-                                        text = member.name,
-                                        fontFamily = SuqiFontFamily,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = colors.primaryText
-                                    )
-                                    Text(
-                                        text = "${member.role} • ${member.phone}",
-                                        fontSize = 12.sp,
-                                        color = colors.secondaryText
-                                    )
+                                    Text(owner.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                                    Text(owner.phone, fontSize = 12.sp, color = colors.secondaryText)
                                 }
-                                SuqiStatusBadge(member.role, StatusType.NEUTRAL)
+                                SuqiStatusBadge("OWNER", StatusType.SUCCESS)
                             }
                         }
                     }
                 }
+                items(staff, key = { it.id }) { member ->
+                    SuqiSectionCard(padding = 14.dp, modifier = Modifier.fillMaxWidth().testTag("staff_card_${member.id}")) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(member.name, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.primaryText)
+                                Text(member.phone, fontSize = 12.sp, color = colors.secondaryText)
+                            }
+                            SuqiStatusBadge(member.role, StatusType.NEUTRAL)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        com.example.ui.components.SuqiSwitchRow(
+                            title = "Active",
+                            checked = member.isActive,
+                            onCheckedChange = { on ->
+                                coroutineScope.launch {
+                                    viewModel.repository.saveSellerStaff(member.copy(isActive = on))
+                                    load()
+                                }
+                            },
+                            testTag = "staff_active_${member.id}"
+                        )
+                        SuqiButton(
+                            text = "Remove",
+                            onClick = {
+                                coroutineScope.launch {
+                                    viewModel.repository.deleteSellerStaff(member.id)
+                                    load()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).testTag("staff_delete_${member.id}"),
+                            isPrimary = false
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(16.dp))
             SuqiButton(
                 text = "Invite Staff",
                 onClick = {
-                    viewModel.showToast("Staff invite not yet wired")
+                    name = ""
+                    phone = ""
+                    role = "ORDERS"
+                    showSheet = true
                 },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(16.dp).testTag("staff_invite_btn")
             )
+        }
+
+        if (showSheet) {
+            SuqiBottomSheet(onDismissRequest = { showSheet = false }) {
+                SuqiTextField(value = name, onValueChange = { name = it }, label = "Name", modifier = Modifier.fillMaxWidth(), testTag = "staff_name_input")
+                Spacer(modifier = Modifier.height(8.dp))
+                SuqiTextField(value = phone, onValueChange = { phone = it }, label = "Phone", modifier = Modifier.fillMaxWidth(), testTag = "staff_phone_input")
+                Spacer(modifier = Modifier.height(8.dp))
+                com.example.ui.components.SuqiFilterChips(
+                    items = listOf("MANAGER" to "Manager", "ORDERS" to "Orders", "CATALOG" to "Catalog"),
+                    selectedKey = role,
+                    onSelect = { role = it },
+                    testTagPrefix = "staff_role"
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                SuqiButton(
+                    text = strings.saveLabel,
+                    onClick = {
+                        coroutineScope.launch {
+                            val res = viewModel.repository.saveSellerStaff(
+                                com.example.data.model.ShopStaffDto(id = "", name = name, phone = phone, role = role)
+                            )
+                            if (res.success) {
+                                showSheet = false
+                                load()
+                            } else viewModel.showToast(res.message ?: strings.retryLabel)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("staff_save_btn")
+                )
+            }
         }
     }
 }

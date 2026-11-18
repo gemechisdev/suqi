@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
@@ -316,6 +317,18 @@ class Phase6ComposeUiTest {
     }
 
     @Test
+    fun adminLocations_addRegionSavesNewArea() {
+        val vm = newAdminViewModel()
+        show { AdminLocationsManagerScreen(viewModel = vm) }
+        waitForTag("default_zone_loc_bole")
+        composeRule.onNodeWithText("Add region", ignoreCase = true).performClick()
+        waitForTag("location_name_input")
+        composeRule.onNodeWithTag("location_name_input").performTextInput("Sidama")
+        composeRule.onNodeWithTag("location_save_btn").performClick()
+        waitForCondition { runBlocking { vm.repository.getLocationAreas().data.orEmpty().any { it.name == "Sidama" && it.level == "REGION" } } }
+    }
+
+    @Test
     fun adminPaymentProviders_activeToggleSaves() {
         val vm = newAdminViewModel()
         show { AdminPaymentProvidersScreen(viewModel = vm) }
@@ -399,16 +412,47 @@ class Phase6ComposeUiTest {
     }
 
     @Test
-    fun sellerCollections_composesForSeller() {
+    fun sellerCollections_createAndDeleteCollection() {
         val vm = newSellerViewModel()
+        val productId = runBlocking { vm.repository.getSellerProducts().data.orEmpty().first().id }
         show { SellerCollectionsScreen(viewModel = vm) }
-        composeRule.waitForIdle()
+
+        waitForTag("collection_create_btn")
+        composeRule.onNodeWithTag("collection_create_btn").performClick()
+        waitForTag("collection_name_input")
+        composeRule.onNodeWithTag("collection_name_input").performTextInput("Eid specials")
+        waitForTag("collection_product_$productId")
+        composeRule.onNodeWithTag("collection_product_$productId").performClick()
+        composeRule.onNodeWithTag("collection_save_btn").performClick()
+
+        waitForCondition { runBlocking { vm.repository.getSellerCollections().data.orEmpty().any { it.name == "Eid specials" } } }
+        val col = runBlocking { vm.repository.getSellerCollections().data.orEmpty().first { it.name == "Eid specials" } }
+        assertEquals(listOf(productId), col.productIds)
+
+        waitForTag("collection_delete_${col.id}")
+        composeRule.onNodeWithTag("collection_delete_${col.id}").performClick()
+        waitForCondition { runBlocking { vm.repository.getSellerCollections().data.orEmpty().none { it.id == col.id } } }
     }
 
     @Test
-    fun sellerStaffAccounts_composesForSeller() {
+    fun sellerStaffAccounts_inviteAndRemoveStaff() {
         val vm = newSellerViewModel()
         show { SellerStaffAccountsScreen(viewModel = vm) }
         waitForTag("seller_staff_${vm.currentUser.value!!.id}")
+
+        composeRule.onNodeWithTag("staff_invite_btn").performClick()
+        waitForTag("staff_name_input")
+        composeRule.onNodeWithTag("staff_name_input").performTextInput("Selam Staff")
+        composeRule.onNodeWithTag("staff_phone_input").performTextInput("+251 911 333 444")
+        composeRule.onNodeWithTag("staff_role_MANAGER").performClick()
+        composeRule.onNodeWithTag("staff_save_btn").performClick()
+
+        waitForCondition { runBlocking { vm.repository.getSellerStaff().data.orEmpty().any { it.name == "Selam Staff" } } }
+        val member = runBlocking { vm.repository.getSellerStaff().data.orEmpty().first { it.name == "Selam Staff" } }
+        assertEquals("MANAGER", member.role)
+
+        waitForTag("staff_delete_${member.id}")
+        composeRule.onNodeWithTag("staff_delete_${member.id}").performClick()
+        waitForCondition { runBlocking { vm.repository.getSellerStaff().data.orEmpty().none { it.id == member.id } } }
     }
 }

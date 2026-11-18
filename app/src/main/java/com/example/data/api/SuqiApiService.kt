@@ -438,6 +438,25 @@ interface SuqiApiService {
     @GET(SuqiEndpoints.ADMIN_AUDIT_LOG)
     suspend fun getAuditLog(): ApiResponse<List<AuditLogEntryDto>>
 
+    // Phase 6: seller collections & staff
+    @GET(SuqiEndpoints.SELLER_COLLECTIONS)
+    suspend fun getSellerCollections(): ApiResponse<List<ShopCollectionDto>>
+
+    @POST(SuqiEndpoints.SELLER_COLLECTIONS)
+    suspend fun saveSellerCollection(@Body collection: ShopCollectionDto): ApiResponse<ShopCollectionDto>
+
+    @DELETE(SuqiEndpoints.SELLER_COLLECTIONS)
+    suspend fun deleteSellerCollection(@Query("id") id: String): ApiResponse<Boolean>
+
+    @GET(SuqiEndpoints.SELLER_STAFF)
+    suspend fun getSellerStaff(): ApiResponse<List<ShopStaffDto>>
+
+    @POST(SuqiEndpoints.SELLER_STAFF)
+    suspend fun saveSellerStaff(@Body staff: ShopStaffDto): ApiResponse<ShopStaffDto>
+
+    @DELETE(SuqiEndpoints.SELLER_STAFF)
+    suspend fun deleteSellerStaff(@Query("id") id: String): ApiResponse<Boolean>
+
     // Phase 6: admin ops & config
     @GET(SuqiEndpoints.ADMIN_LOCATIONS)
     suspend fun getLocationAreas(): ApiResponse<List<LocationAreaDto>>
