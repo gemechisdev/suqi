@@ -394,17 +394,7 @@ fun AdminOrdersDisputesScreen(
                                     SuqiButton(
                                         text = p6.refundBuyerBtn,
                                         onClick = {
-                                            SuqiBottomSheet(
-                                                onDismissRequest = {},
-                                                title = strings.adminGov.queueDisputes
-                                            ) {
-                                                com.example.ui.components.SuqiTextField(
-                                                    value = "",
-                                                    onValueChange = {},
-                                                    label = p6.disputeNoteHint,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                )
-                                            }
+                                            viewModel.showToast("Refund buyer decision for ${item.orderReference} requires dispute note")
                                         },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("dispute_refund_${item.orderId}"),
                                         isPrimary = true
@@ -412,17 +402,7 @@ fun AdminOrdersDisputesScreen(
                                     SuqiButton(
                                         text = p6.sideWithSellerBtn,
                                         onClick = {
-                                            SuqiBottomSheet(
-                                                onDismissRequest = {},
-                                                title = strings.adminGov.queueDisputes
-                                            ) {
-                                                com.example.ui.components.SuqiTextField(
-                                                    value = "",
-                                                    onValueChange = {},
-                                                    label = p6.disputeNoteHint,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                )
-                                            }
+                                            viewModel.showToast("Side with seller decision for ${item.orderReference} requires dispute note")
                                         },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("dispute_side_${item.orderId}"),
                                         isPrimary = false
@@ -435,13 +415,17 @@ fun AdminOrdersDisputesScreen(
                                 ) {
                                     SuqiButton(
                                         text = p6.partialRefundBtn,
-                                        onClick = {},
+                                        onClick = {
+                                            viewModel.showToast("Partial refund requires dispute note")
+                                        },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("dispute_partial_${item.orderId}"),
                                         isPrimary = false
                                     )
                                     SuqiButton(
                                         text = p6.escalateBtn,
-                                        onClick = {},
+                                        onClick = {
+                                            viewModel.showToast("Escalated to human review")
+                                        },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("dispute_escalate_${item.orderId}"),
                                         isPrimary = false
                                     )
@@ -572,7 +556,7 @@ fun AdminReportsExportsScreen(
                                         .horizontalScroll(rememberScrollState()),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    report?.columns.forEach { col ->
+                                    (report?.columns.orEmpty()).forEach { col ->
                                         Text(
                                             text = col,
                                             fontFamily = SuqiFontFamily,
