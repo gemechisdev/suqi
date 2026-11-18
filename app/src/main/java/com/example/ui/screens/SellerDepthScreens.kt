@@ -517,6 +517,7 @@ fun SellerStaffAccountsScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
     var staff by remember { mutableStateOf<List<AdminUserRowDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -595,10 +596,8 @@ fun SellerStaffAccountsScreen(
             SuqiButton(
                 text = "Invite Staff",
                 onClick = {
-                                            coroutineScope.launch {
-                                                viewModel.showToast("Staff invite not yet wired")
-                                            }
-                                        },
+                    viewModel.showToast("Staff invite not yet wired")
+                },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             )
         }
