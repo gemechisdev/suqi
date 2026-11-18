@@ -51,6 +51,7 @@ fun formatBytes(bytes: Long): String = when {
     else -> String.format(java.util.Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppSettingsScreen(
     viewModel: SuqiViewModel,

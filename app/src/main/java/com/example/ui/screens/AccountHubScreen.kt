@@ -688,6 +688,7 @@ fun AccountHubScreen(
 /**
  * B-02 Profile Edit Screen with PickVisualMedia avatar picker and Room persistence.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileEditScreen(
     viewModel: SuqiViewModel,
