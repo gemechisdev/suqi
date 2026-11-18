@@ -367,7 +367,7 @@ fun AdminContentManagerScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 40.dp)
+                            .heightIn(min = 48.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (selected) SuqiPrimary else colors.cardBackground)
                             .border(if (!selected) 1.dp else 0.dp, colors.border, RoundedCornerShape(12.dp))

@@ -538,13 +538,13 @@ fun AdminReportsExportsScreen(
                                         SuqiButton(
                                             text = p6.exportCsvBtn,
                                             onClick = { viewModel.showToast("CSV export not yet wired") },
-                                            modifier = Modifier.heightIn(min = 40.dp),
+                                            modifier = Modifier.heightIn(min = 48.dp),
                                             isPrimary = false
                                         )
                                         SuqiButton(
                                             text = p6.exportPdfBtn,
                                             onClick = { viewModel.showToast("PDF export not yet wired") },
-                                            modifier = Modifier.heightIn(min = 40.dp),
+                                            modifier = Modifier.heightIn(min = 48.dp),
                                             isPrimary = false
                                         )
                                     }

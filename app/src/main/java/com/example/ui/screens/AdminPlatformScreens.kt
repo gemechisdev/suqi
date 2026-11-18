@@ -495,7 +495,7 @@ private fun AdminActionRow(
                 .clip(CircleShape)
                 .background(tint.copy(alpha = 0.12f))
         ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = "Icon", tint = tint, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(12.dp))
         Text(
@@ -506,7 +506,7 @@ private fun AdminActionRow(
             color = colors.primaryText,
             modifier = Modifier.weight(1f)
         )
-        Icon(LucideIcons.ChevronRight, contentDescription = null, tint = colors.mutedText)
+        Icon(LucideIcons.ChevronRight, contentDescription = "Navigate right", tint = colors.mutedText)
     }
 }
 
@@ -652,7 +652,7 @@ private fun AdminShopCard(
                             .clip(RoundedCornerShape(12.dp))
                     )
                 } else {
-                    Icon(LucideIcons.Store, contentDescription = null, tint = SuqiPrimary)
+                    Icon(LucideIcons.Store, contentDescription = "Store icon", tint = SuqiPrimary)
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -1032,7 +1032,7 @@ fun AdminAuditLogScreen(
         headerActions = {
             Icon(
                 imageVector = LucideIcons.History,
-                contentDescription = null,
+                contentDescription = "Icon",
                 tint = colors.primaryText,
                 modifier = Modifier
                     .size(24.dp)

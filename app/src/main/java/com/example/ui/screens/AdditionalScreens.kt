@@ -286,7 +286,7 @@ fun SavedAddressesScreen(
                     border = BorderStroke(1.dp, SuqiPrimary),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("address_use_current_location")
                 ) {
-                    Icon(LucideIcons.MapPin, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+                    Icon(LucideIcons.MapPin, contentDescription = "Map pin", tint = SuqiPrimary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(strings.buyerWork.useCurrentLocationBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
                 }
@@ -495,7 +495,7 @@ private fun LegacyReviewsScreen(
                 containerColor = SuqiPrimary,
                 contentColor = Color.White
             ) {
-                Icon(LucideIcons.MessageSquarePlus, contentDescription = null)
+                Icon(LucideIcons.MessageSquarePlus, contentDescription = "New message")
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(strings.buyer.writeReviewTitle)
             }
@@ -677,7 +677,7 @@ fun AdminSignInScreen(
                                 .background(colors.primaryTint),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(LucideIcons.ShieldCheck, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(34.dp))
+                            Icon(LucideIcons.ShieldCheck, contentDescription = "Shield check", tint = SuqiPrimary, modifier = Modifier.size(34.dp))
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
@@ -758,7 +758,7 @@ fun AdminSignInScreen(
                             errorMsg = null
                         },
                         placeholder = { Text(strings.admin.staffPinLabel, color = colors.mutedText) },
-                        leadingIcon = { Icon(LucideIcons.Lock, contentDescription = null, tint = colors.secondaryText) },
+                        leadingIcon = { Icon(LucideIcons.Lock, contentDescription = "Lock", tint = colors.secondaryText) },
                         trailingIcon = {
                             IconButton(onClick = { showPin = !showPin }) {
                                 Icon(

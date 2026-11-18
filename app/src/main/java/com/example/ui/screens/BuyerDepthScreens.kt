@@ -153,7 +153,7 @@ fun BuyerWishlistScreen(
                                         onClick = {
                                             viewModel.showToast("Added to cart")
                                         },
-                                        modifier = Modifier.heightIn(min = 40.dp),
+                                        modifier = Modifier.heightIn(min = 48.dp),
                                         isPrimary = false
                                     )
                                     Button(
@@ -162,7 +162,7 @@ fun BuyerWishlistScreen(
                                         },
                                         modifier = Modifier.size(44.dp)
                                     ) {
-                                        Icon(imageVector = LucideIcons.Trash2, contentDescription = null, tint = SuqiError, modifier = Modifier.size(20.dp))
+                                        Icon(imageVector = LucideIcons.Trash2, contentDescription = "Delete", tint = SuqiError, modifier = Modifier.size(20.dp))
                                     }
                                 }
                             }

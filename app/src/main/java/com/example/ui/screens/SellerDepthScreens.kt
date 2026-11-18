@@ -215,7 +215,7 @@ fun SellerReviewsQAScreen(
                                             repeat(5) { i ->
                                                 Icon(
                                                     imageVector = LucideIcons.Star,
-                                                    contentDescription = null,
+                                                    contentDescription = "Icon",
                                                     tint = if (i < review.rating.toInt()) SuqiPrimary else colors.border,
                                                     modifier = Modifier.size(14.dp)
                                                 )
