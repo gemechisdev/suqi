@@ -89,7 +89,7 @@ fun BuyerWishlistScreen(
     LaunchedEffect(Unit) { loadWishlist() }
 
     SuqiScreen(
-        title = strings.buyer.wishlistTitle,
+        title = strings.wishlistTitle,
         subtitle = "${wishlist.size} items",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -104,8 +104,8 @@ fun BuyerWishlistScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.Heart,
-                        title = strings.buyer.wishlistTitle,
-                        subtitle = strings.buyer.emptyWishlistSub,
+                        title = strings.wishlistTitle,
+                        subtitle = strings.emptyWishlistSub,
                         testTag = "wishlist_empty"
                     )
                 }
@@ -149,7 +149,7 @@ fun BuyerWishlistScreen(
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     SuqiButton(
-                                        text = strings.common.addToCart,
+                                        text = strings.buyer.addToCart,
                                         onClick = {
                                             viewModel.showToast("Added to cart")
                                         },
@@ -205,7 +205,7 @@ fun BuyerCouponsScreen(
     }
 
     SuqiScreen(
-        title = strings.buyer.couponsTitle,
+        title = strings.couponsTitle,
         subtitle = "Coupons strings.buyer.couponsSub Wallet",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -218,7 +218,7 @@ fun BuyerCouponsScreen(
         ) {
             SuqiSectionCard(padding = 16.dp, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Enter promo code",
+                    text = strings.promoCodeHint,
                     fontFamily = SuqiFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
@@ -228,13 +228,13 @@ fun BuyerCouponsScreen(
                 SuqiTextField(
                     value = couponCode,
                     onValueChange = { couponCode = it },
-                    label = strings.common.promoCodeHint,
+                    label = strings.promoCodeHint,
                     modifier = Modifier.fillMaxWidth(),
                     testTag = "buyer_coupon_code"
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 SuqiButton(
-                    text = strings.common.applyLabel,
+                    text = strings.applyLabel,
                     onClick = { applyCoupon() },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 )
@@ -296,7 +296,7 @@ fun BuyerCompareScreen(
     var compared by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
 
     SuqiScreen(
-        title = "Compare Products",
+        title = strings.compareTitle,
         subtitle = "${compared.size} compared",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -311,8 +311,8 @@ fun BuyerCompareScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.Compare,
-                        title = "Compare Products",
-                        subtitle = "Add items to compare",
+                        title = strings.compareTitle,
+                        subtitle = strings.compareEmptySub,
                         testTag = "compare_empty"
                     )
                 }
@@ -356,7 +356,7 @@ fun BuyerCompareScreen(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 SuqiButton(
-                                    text = strings.common.addToCart,
+                                    text = strings.buyer.addToCart,
                                     onClick = { viewModel.showToast("Added to cart") },
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
                                     isPrimary = false
