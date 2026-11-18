@@ -39,9 +39,16 @@ import kotlinx.coroutines.sync.withLock
         SupportTicketEntity::class,
         ItemTypeEntity::class,
         WishlistItemEntity::class,
-        ShopFollowEntity::class
+        ShopFollowEntity::class,
+        ReturnRequestEntity::class,
+        PayoutRequestEntity::class,
+        CommissionConfigEntity::class,
+        SubscriptionUpgradeEntity::class,
+        FlashSaleEntity::class,
+        SupportTicketMessageEntity::class,
+        AdminBroadcastEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -67,6 +74,13 @@ abstract class SuqiDatabase : RoomDatabase() {
     abstract fun itemTypeDao(): ItemTypeDao
     abstract fun wishlistDao(): WishlistDao
     abstract fun shopFollowDao(): ShopFollowDao
+    abstract fun returnRequestDao(): ReturnRequestDao
+    abstract fun payoutRequestDao(): PayoutRequestDao
+    abstract fun commissionConfigDao(): CommissionConfigDao
+    abstract fun subscriptionUpgradeDao(): SubscriptionUpgradeDao
+    abstract fun flashSaleDao(): FlashSaleDao
+    abstract fun supportTicketMessageDao(): SupportTicketMessageDao
+    abstract fun adminBroadcastDao(): AdminBroadcastDao
 
     private val seedMutex = Mutex()
     @Volatile
@@ -345,6 +359,164 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v10: Phase 5 returns, finance/payouts/commissions, subscription upgrades, flash sales, promo scopes, review photos/tags/replies, support thread messages, broadcasts. */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE shops ADD COLUMN payoutProviderType TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN payoutBankName TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN payoutAccountName TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE shops ADD COLUMN payoutAccountNumber TEXT NOT NULL DEFAULT ''")
+
+                db.execSQL("ALTER TABLE promo_codes ADD COLUMN scopeType TEXT NOT NULL DEFAULT 'SHOP'")
+                db.execSQL("ALTER TABLE promo_codes ADD COLUMN scopeTargetIdsCsv TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE promo_codes ADD COLUMN maxUsesTotal INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE promo_codes ADD COLUMN usesCount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE promo_codes ADD COLUMN perCustomerLimit INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE promo_codes ADD COLUMN startDate TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE promo_codes ADD COLUMN ordersCount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE promo_codes ADD COLUMN revenueGenerated REAL NOT NULL DEFAULT 0.0")
+
+                db.execSQL("ALTER TABLE reviews ADD COLUMN tagsCsv TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE reviews ADD COLUMN photosJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE reviews ADD COLUMN isAnonymous INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reviews ADD COLUMN helpfulCount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reviews ADD COLUMN helpfulUserIdsCsv TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE reviews ADD COLUMN sellerReply TEXT")
+                db.execSQL("ALTER TABLE reviews ADD COLUMN sellerReplyAt TEXT")
+
+                db.execSQL("ALTER TABLE admin_settings ADD COLUMN isPilotMode INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE admin_settings ADD COLUMN pilotEndDate TEXT NOT NULL DEFAULT '2026-12-31'")
+
+                db.execSQL("ALTER TABLE flagged_reviews ADD COLUMN reviewId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE flagged_reviews ADD COLUMN productName TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE flagged_reviews ADD COLUMN rating REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE flagged_reviews ADD COLUMN moderatorNote TEXT NOT NULL DEFAULT ''")
+
+                db.execSQL("ALTER TABLE subscription_plans ADD COLUMN maxPromoCodes INTEGER NOT NULL DEFAULT 5")
+                db.execSQL("ALTER TABLE subscription_plans ADD COLUMN analyticsDays INTEGER NOT NULL DEFAULT 7")
+
+                db.execSQL("ALTER TABLE support_tickets ADD COLUMN priority TEXT NOT NULL DEFAULT 'NORMAL'")
+                db.execSQL("ALTER TABLE support_tickets ADD COLUMN requesterRole TEXT NOT NULL DEFAULT 'BUYER'")
+                db.execSQL("ALTER TABLE support_tickets ADD COLUMN assignedTo TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE support_tickets ADD COLUMN resolutionSummary TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE support_tickets ADD COLUMN updatedAt TEXT NOT NULL DEFAULT ''")
+
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `return_requests` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `orderId` TEXT NOT NULL,
+                        `orderReference` TEXT NOT NULL,
+                        `shopId` TEXT NOT NULL,
+                        `shopName` TEXT NOT NULL,
+                        `customerUserId` TEXT NOT NULL,
+                        `customerName` TEXT NOT NULL,
+                        `itemsJson` TEXT NOT NULL,
+                        `refundAmount` REAL NOT NULL,
+                        `reason` TEXT NOT NULL,
+                        `comment` TEXT NOT NULL DEFAULT '',
+                        `photosJson` TEXT NOT NULL DEFAULT '[]',
+                        `resolution` TEXT NOT NULL DEFAULT 'REFUND',
+                        `status` TEXT NOT NULL DEFAULT 'REQUESTED',
+                        `sellerNote` TEXT NOT NULL DEFAULT '',
+                        `refundMethod` TEXT NOT NULL DEFAULT 'Telebirr',
+                        `createdAt` TEXT NOT NULL,
+                        `updatedAt` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `payout_requests` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `shopId` TEXT NOT NULL,
+                        `shopName` TEXT NOT NULL,
+                        `amount` REAL NOT NULL,
+                        `providerType` TEXT NOT NULL,
+                        `bankName` TEXT NOT NULL,
+                        `accountName` TEXT NOT NULL,
+                        `accountNumber` TEXT NOT NULL,
+                        `status` TEXT NOT NULL DEFAULT 'PENDING',
+                        `referenceCode` TEXT NOT NULL DEFAULT '',
+                        `note` TEXT NOT NULL DEFAULT '',
+                        `createdAt` TEXT NOT NULL,
+                        `processedAt` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `commission_configs` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `categoryId` TEXT NOT NULL,
+                        `categoryName` TEXT NOT NULL,
+                        `ratePercent` REAL NOT NULL,
+                        `minPayoutAmount` REAL NOT NULL DEFAULT 500.0
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `subscription_upgrades` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `shopId` TEXT NOT NULL,
+                        `shopName` TEXT NOT NULL,
+                        `planId` TEXT NOT NULL,
+                        `planName` TEXT NOT NULL,
+                        `billingCycle` TEXT NOT NULL DEFAULT 'MONTHLY',
+                        `amount` REAL NOT NULL,
+                        `paymentMethodTitle` TEXT NOT NULL DEFAULT 'Telebirr',
+                        `transactionReference` TEXT NOT NULL,
+                        `receiptImageUri` TEXT NOT NULL DEFAULT '',
+                        `status` TEXT NOT NULL DEFAULT 'PENDING',
+                        `adminNote` TEXT NOT NULL DEFAULT '',
+                        `createdAt` TEXT NOT NULL,
+                        `reviewedAt` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `flash_sales` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `shopId` TEXT NOT NULL,
+                        `shopName` TEXT NOT NULL,
+                        `productId` TEXT NOT NULL,
+                        `productName` TEXT NOT NULL,
+                        `productImageUrl` TEXT NOT NULL DEFAULT '',
+                        `categoryId` TEXT NOT NULL DEFAULT '',
+                        `originalPrice` REAL NOT NULL,
+                        `salePrice` REAL NOT NULL,
+                        `discountPercent` INTEGER NOT NULL,
+                        `stockCap` INTEGER NOT NULL,
+                        `claimedCount` INTEGER NOT NULL DEFAULT 0,
+                        `startAt` TEXT NOT NULL DEFAULT '',
+                        `endAt` TEXT NOT NULL DEFAULT '',
+                        `isActive` INTEGER NOT NULL DEFAULT 1
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `support_ticket_messages` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `ticketId` TEXT NOT NULL,
+                        `senderRole` TEXT NOT NULL,
+                        `senderName` TEXT NOT NULL,
+                        `message` TEXT NOT NULL,
+                        `isInternalNote` INTEGER NOT NULL DEFAULT 0,
+                        `createdAt` TEXT NOT NULL
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `admin_broadcasts` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `title` TEXT NOT NULL,
+                        `body` TEXT NOT NULL,
+                        `audience` TEXT NOT NULL DEFAULT 'ALL',
+                        `imageUrl` TEXT NOT NULL DEFAULT '',
+                        `destinationType` TEXT NOT NULL DEFAULT 'NONE',
+                        `targetId` TEXT NOT NULL DEFAULT '',
+                        `scheduledAt` TEXT NOT NULL DEFAULT '',
+                        `status` TEXT NOT NULL DEFAULT 'SENT',
+                        `sentCount` INTEGER NOT NULL DEFAULT 0,
+                        `openedCount` INTEGER NOT NULL DEFAULT 0,
+                        `isTemplate` INTEGER NOT NULL DEFAULT 0,
+                        `createdAt` TEXT NOT NULL
+                    )"""
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -368,7 +540,10 @@ abstract class SuqiDatabase : RoomDatabase() {
                         appContext,
                         SuqiDatabase::class.java,
                         "suqi_marketplace.db"
-                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).addCallback(object : Callback() {
+                    ).addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
+                    ).addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
                             CoroutineScope(Dispatchers.IO).launch {

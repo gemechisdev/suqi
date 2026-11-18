@@ -227,11 +227,17 @@ interface ReviewDao {
     @Query("SELECT * FROM reviews WHERE targetId = :targetId ORDER BY date DESC")
     suspend fun getReviewsForTarget(targetId: String): List<ReviewEntity>
 
+    @Query("SELECT * FROM reviews WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ReviewEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(review: ReviewEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(reviews: List<ReviewEntity>)
+
+    @Update
+    suspend fun update(review: ReviewEntity)
 
     @Query("UPDATE reviews SET userId = 'deleted_user', userName = 'Deleted user', userAvatar = '' WHERE userId = :userId")
     suspend fun anonymizeByUserId(userId: String)
@@ -413,6 +419,9 @@ interface FlaggedReviewDao {
     @Query("SELECT * FROM flagged_reviews ORDER BY createdAt DESC")
     suspend fun getAllFlagged(): List<FlaggedReviewEntity>
 
+    @Query("SELECT * FROM flagged_reviews WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): FlaggedReviewEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: FlaggedReviewEntity)
 
@@ -421,6 +430,9 @@ interface FlaggedReviewDao {
 
     @Query("UPDATE flagged_reviews SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: String, status: String)
+
+    @Query("UPDATE flagged_reviews SET status = :status, moderatorNote = :note WHERE id = :id")
+    suspend fun updateStatusWithNote(id: String, status: String, note: String)
 }
 
 @Dao
@@ -461,8 +473,17 @@ interface SupportTicketDao {
     @Query("SELECT * FROM support_tickets ORDER BY createdAt DESC")
     suspend fun getAllTickets(): List<SupportTicketEntity>
 
+    @Query("SELECT * FROM support_tickets WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): SupportTicketEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(ticket: SupportTicketEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(tickets: List<SupportTicketEntity>)
+
+    @Update
+    suspend fun update(ticket: SupportTicketEntity)
 
     @Query("UPDATE support_tickets SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: String, status: String)
@@ -483,5 +504,140 @@ interface ItemTypeDao {
     suspend fun insertAll(itemTypes: List<ItemTypeEntity>)
 
     @Query("DELETE FROM item_types WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface ReturnRequestDao {
+    @Query("SELECT * FROM return_requests ORDER BY createdAt DESC")
+    suspend fun getAll(): List<ReturnRequestEntity>
+
+    @Query("SELECT * FROM return_requests WHERE customerUserId = :userId ORDER BY createdAt DESC")
+    suspend fun getByCustomer(userId: String): List<ReturnRequestEntity>
+
+    @Query("SELECT * FROM return_requests WHERE shopId = :shopId ORDER BY createdAt DESC")
+    suspend fun getByShop(shopId: String): List<ReturnRequestEntity>
+
+    @Query("SELECT * FROM return_requests WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ReturnRequestEntity?
+
+    @Query("SELECT * FROM return_requests WHERE orderId = :orderId LIMIT 1")
+    suspend fun getByOrderId(orderId: String): ReturnRequestEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: ReturnRequestEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<ReturnRequestEntity>)
+
+    @Update
+    suspend fun update(entity: ReturnRequestEntity)
+}
+
+@Dao
+interface PayoutRequestDao {
+    @Query("SELECT * FROM payout_requests ORDER BY createdAt DESC")
+    suspend fun getAll(): List<PayoutRequestEntity>
+
+    @Query("SELECT * FROM payout_requests WHERE shopId = :shopId ORDER BY createdAt DESC")
+    suspend fun getByShop(shopId: String): List<PayoutRequestEntity>
+
+    @Query("SELECT * FROM payout_requests WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): PayoutRequestEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: PayoutRequestEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<PayoutRequestEntity>)
+
+    @Update
+    suspend fun update(entity: PayoutRequestEntity)
+}
+
+@Dao
+interface CommissionConfigDao {
+    @Query("SELECT * FROM commission_configs ORDER BY CASE WHEN categoryId = 'DEFAULT' THEN 0 ELSE 1 END, categoryName ASC")
+    suspend fun getAll(): List<CommissionConfigEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: CommissionConfigEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<CommissionConfigEntity>)
+
+    @Query("DELETE FROM commission_configs WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface SubscriptionUpgradeDao {
+    @Query("SELECT * FROM subscription_upgrades ORDER BY createdAt DESC")
+    suspend fun getAll(): List<SubscriptionUpgradeEntity>
+
+    @Query("SELECT * FROM subscription_upgrades WHERE shopId = :shopId ORDER BY createdAt DESC")
+    suspend fun getByShop(shopId: String): List<SubscriptionUpgradeEntity>
+
+    @Query("SELECT * FROM subscription_upgrades WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): SubscriptionUpgradeEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: SubscriptionUpgradeEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SubscriptionUpgradeEntity>)
+
+    @Update
+    suspend fun update(entity: SubscriptionUpgradeEntity)
+}
+
+@Dao
+interface FlashSaleDao {
+    @Query("SELECT * FROM flash_sales ORDER BY startAt DESC")
+    suspend fun getAll(): List<FlashSaleEntity>
+
+    @Query("SELECT * FROM flash_sales WHERE isActive = 1 ORDER BY startAt DESC")
+    suspend fun getActive(): List<FlashSaleEntity>
+
+    @Query("SELECT * FROM flash_sales WHERE shopId = :shopId ORDER BY startAt DESC")
+    suspend fun getByShop(shopId: String): List<FlashSaleEntity>
+
+    @Query("SELECT * FROM flash_sales WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): FlashSaleEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: FlashSaleEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<FlashSaleEntity>)
+
+    @Query("DELETE FROM flash_sales WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface SupportTicketMessageDao {
+    @Query("SELECT * FROM support_ticket_messages WHERE ticketId = :ticketId ORDER BY rowid ASC")
+    suspend fun getByTicket(ticketId: String): List<SupportTicketMessageEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: SupportTicketMessageEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<SupportTicketMessageEntity>)
+}
+
+@Dao
+interface AdminBroadcastDao {
+    @Query("SELECT * FROM admin_broadcasts ORDER BY rowid DESC")
+    suspend fun getAll(): List<AdminBroadcastEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: AdminBroadcastEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<AdminBroadcastEntity>)
+
+    @Query("DELETE FROM admin_broadcasts WHERE id = :id")
     suspend fun deleteById(id: String)
 }

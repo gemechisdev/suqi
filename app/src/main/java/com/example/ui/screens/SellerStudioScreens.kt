@@ -539,6 +539,29 @@ fun SellerStudioScreen(
                                 onClick = { viewModel.navigate(ScreenDestination.ShopSettings) }
                             )
                         }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            QuickActionTile(
+                                icon = LucideIcons.BarChart3,
+                                title = strings.seller.analyticsTitle,
+                                modifier = Modifier.weight(1f).testTag("quick_action_analytics"),
+                                onClick = { viewModel.navigate(ScreenDestination.SellerAnalytics) }
+                            )
+                            QuickActionTile(
+                                icon = LucideIcons.Wallet,
+                                title = strings.seller.earningsTitle,
+                                modifier = Modifier.weight(1f).testTag("quick_action_earnings"),
+                                onClick = { viewModel.navigate(ScreenDestination.SellerEarnings) }
+                            )
+                            QuickActionTile(
+                                icon = LucideIcons.RotateCcw,
+                                title = strings.returnsTitle,
+                                modifier = Modifier.weight(1f).testTag("quick_action_returns"),
+                                onClick = { viewModel.navigate(ScreenDestination.SellerReturns) }
+                            )
+                        }
                     }
                 }
             }
@@ -1447,6 +1470,14 @@ fun PromotionsScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
+    PromotionsV2Screen(viewModel = viewModel, modifier = modifier)
+}
+
+@Composable
+private fun LegacyPromotionsScreen(
+    viewModel: SuqiViewModel,
+    modifier: Modifier = Modifier
+) {
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
@@ -1711,6 +1742,14 @@ fun SellerVerificationScreen(
 
 @Composable
 fun SellerSubscriptionScreen(
+    viewModel: SuqiViewModel,
+    modifier: Modifier = Modifier
+) {
+    SellerSubscriptionV2Screen(viewModel = viewModel, modifier = modifier)
+}
+
+@Composable
+private fun LegacySellerSubscriptionScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -2989,6 +3028,27 @@ fun SellerMoreScreen(
                         subtitle = strings.sellerOps.merchantVerificationSub,
                         onClick = { viewModel.navigate(ScreenDestination.SellerVerification) },
                         testTag = "seller_more_verification"
+                    )
+                    SuqiListRow(
+                        icon = LucideIcons.BarChart3,
+                        title = strings.seller.analyticsTitle,
+                        subtitle = strings.phase5.funnelTitle,
+                        onClick = { viewModel.navigate(ScreenDestination.SellerAnalytics) },
+                        testTag = "seller_more_analytics"
+                    )
+                    SuqiListRow(
+                        icon = LucideIcons.Wallet,
+                        title = strings.seller.earningsTitle,
+                        subtitle = strings.phase5.availableBalanceLabel,
+                        onClick = { viewModel.navigate(ScreenDestination.SellerEarnings) },
+                        testTag = "seller_more_earnings"
+                    )
+                    SuqiListRow(
+                        icon = LucideIcons.RotateCcw,
+                        title = strings.returnsTitle,
+                        subtitle = strings.phase5.sellerReturnsRequestedTab,
+                        onClick = { viewModel.navigate(ScreenDestination.SellerReturns) },
+                        testTag = "seller_more_returns"
                     )
                     SuqiListRow(
                         icon = LucideIcons.Sparkles,

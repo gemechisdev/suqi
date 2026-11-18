@@ -704,7 +704,24 @@ fun ProductDetailsScreen(
                             for (stars in 5 downTo 1) {
                                 val countForStar = if (reviews.isNotEmpty()) reviews.count { it.rating.toInt() == stars } else 0
                                 val fraction = if (reviews.isNotEmpty()) countForStar.toFloat() / totalR.toFloat() else 0f
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable {
+                                            viewModel.navigate(
+                                                ScreenDestination.Reviews(
+                                                    targetId = currentProd.id,
+                                                    targetName = currentProd.localizedName(lang),
+                                                    targetType = "PRODUCT",
+                                                    initialStarFilter = stars
+                                                )
+                                            )
+                                        }
+                                        .padding(vertical = 2.dp)
+                                        .testTag("product_star_bar_$stars")
+                                ) {
                                     Text("${stars}★", fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.secondaryText, modifier = Modifier.width(24.dp))
                                     LinearProgressIndicator(
                                         progress = { fraction },
@@ -724,7 +741,17 @@ fun ProductDetailsScreen(
                         Text(strings.buyer.noReviewsSub, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.mutedText)
                     } else {
                         reviews.take(3).forEach { rev ->
-                            ReviewItemCard(review = rev)
+                            ReviewItemCard(
+                                review = rev,
+                                onToggleHelpful = { clicked ->
+                                    coroutineScope.launch {
+                                        val res = viewModel.repository.toggleReviewHelpful(clicked.id)
+                                        if (res.success && res.data != null) {
+                                            reviews = reviews.map { if (it.id == clicked.id) res.data else it }
+                                        }
+                                    }
+                                }
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                     }

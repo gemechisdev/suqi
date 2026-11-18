@@ -987,8 +987,14 @@ fun TabLabel(
 }
 
 @Composable
-fun ReviewItemCard(review: ReviewDto) {
+fun ReviewItemCard(
+    review: ReviewDto,
+    onToggleHelpful: ((ReviewDto) -> Unit)? = null,
+    onPhotoClick: ((String) -> Unit)? = null
+) {
     val colors = LocalSuqiColors.current
+    val strings = suqiStrings()
+    val p5 = strings.phase5
     SuqiSectionCard(
         padding = 14.dp,
         containerColor = colors.secondaryBackground,
@@ -999,13 +1005,18 @@ fun ReviewItemCard(review: ReviewDto) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = review.userName,
-                fontFamily = SuqiFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                color = colors.primaryText
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
+                Text(
+                    text = review.userName,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = colors.primaryText
+                )
+                if (review.isVerifiedPurchase) {
+                    SuqiStatusBadge(strings.buyer.verifiedPurchaseLabel, StatusType.SUCCESS)
+                }
+            }
             Text(
                 text = review.date,
                 fontFamily = SuqiFontFamily,
@@ -1024,6 +1035,21 @@ fun ReviewItemCard(review: ReviewDto) {
                 )
             }
         }
+        if (review.tags.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(review.tags) { tag ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(colors.primaryTint)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(tag, fontFamily = SuqiFontFamily, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+                    }
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = review.comment,
@@ -1031,5 +1057,66 @@ fun ReviewItemCard(review: ReviewDto) {
             fontSize = 13.sp,
             color = colors.primaryText
         )
+        if (review.photos.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(review.photos) { photoUrl ->
+                    AsyncImage(
+                        model = photoUrl,
+                        contentDescription = strings.customerReviews,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(enabled = onPhotoClick != null) { onPhotoClick?.invoke(photoUrl) }
+                    )
+                }
+            }
+        }
+        if (review.sellerReply.isNotBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.shopTint)
+                    .padding(8.dp)
+            ) {
+                Column {
+                    Text(
+                        text = "${p5.sellerRepliedLabel} • ${review.sellerReplyAt}",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = SuqiPrimary
+                    )
+                    Text(review.sellerReply, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
+                }
+            }
+        }
+        if (onToggleHelpful != null || review.helpfulCount > 0) {
+            Spacer(modifier = Modifier.height(6.dp))
+            OutlinedButton(
+                onClick = { onToggleHelpful?.invoke(review) },
+                enabled = onToggleHelpful != null,
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(1.dp, if (review.isHelpfulByCurrentUser) SuqiPrimary else colors.border),
+                modifier = Modifier.heightIn(min = 38.dp)
+            ) {
+                Icon(
+                    imageVector = LucideIcons.ThumbsUp,
+                    contentDescription = null,
+                    tint = if (review.isHelpfulByCurrentUser) SuqiPrimary else colors.secondaryText,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = String.format(p5.helpfulBtnTemplate, review.helpfulCount),
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 11.sp,
+                    color = if (review.isHelpfulByCurrentUser) SuqiPrimary else colors.secondaryText
+                )
+            }
+        }
     }
 }

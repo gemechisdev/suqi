@@ -315,4 +315,95 @@ interface SuqiApiService {
 
     @DELETE(SuqiEndpoints.SUBSCRIPTION_PLANS)
     suspend fun deleteSubscriptionPlan(@Query("id") id: String): ApiResponse<Boolean>
+
+    // Phase 5: Returns & Refunds
+    @GET(SuqiEndpoints.RETURNS_BUYER)
+    suspend fun getBuyerReturns(): ApiResponse<List<ReturnRequestDto>>
+
+    @GET(SuqiEndpoints.RETURNS_SELLER)
+    suspend fun getSellerReturns(): ApiResponse<List<ReturnRequestDto>>
+
+    @GET(SuqiEndpoints.RETURN_DETAILS)
+    suspend fun getReturnDetails(@Path("id") id: String): ApiResponse<ReturnRequestDto>
+
+    @POST(SuqiEndpoints.RETURNS_BUYER)
+    suspend fun submitReturnRequest(@Body payload: Map<String, Any>): ApiResponse<ReturnRequestDto>
+
+    @POST(SuqiEndpoints.RETURN_DECISION)
+    suspend fun decideReturnRequest(@Path("id") id: String, @Body payload: Map<String, String>): ApiResponse<ReturnRequestDto>
+
+    // Phase 5: Earnings, Payouts & Commissions
+    @GET(SuqiEndpoints.SELLER_EARNINGS)
+    suspend fun getSellerEarningsSummary(): ApiResponse<SellerEarningsSummaryDto>
+
+    @PUT(SuqiEndpoints.SELLER_PAYOUT_ACCOUNT)
+    suspend fun saveShopPayoutAccount(@Body account: PayoutAccountDto): ApiResponse<PayoutAccountDto>
+
+    @POST(SuqiEndpoints.SELLER_PAYOUTS)
+    suspend fun requestSellerPayout(@Body payload: Map<String, Any>): ApiResponse<PayoutRequestDto>
+
+    @GET(SuqiEndpoints.ADMIN_FINANCE)
+    suspend fun getAdminFinanceOverview(): ApiResponse<AdminFinanceOverviewDto>
+
+    @POST(SuqiEndpoints.ADMIN_COMMISSIONS)
+    suspend fun saveCommissionConfig(@Body rule: CommissionRuleDto): ApiResponse<CommissionRuleDto>
+
+    @POST(SuqiEndpoints.ADMIN_PAYOUT_DECISION)
+    suspend fun decidePayoutRequest(@Path("id") id: String, @Body payload: Map<String, String>): ApiResponse<PayoutRequestDto>
+
+    // Phase 5: Subscriptions & Pilot
+    @PUT(SuqiEndpoints.ADMIN_PILOT_CONFIG)
+    suspend fun updatePilotConfig(@Body payload: Map<String, Any>): ApiResponse<AdminSettingsDto>
+
+    @GET(SuqiEndpoints.SUBSCRIPTION_UPGRADES)
+    suspend fun getSubscriptionUpgrades(): ApiResponse<List<SubscriptionUpgradeDto>>
+
+    @POST(SuqiEndpoints.SUBSCRIPTION_UPGRADES)
+    suspend fun submitSubscriptionUpgrade(@Body payload: Map<String, Any>): ApiResponse<SubscriptionUpgradeDto>
+
+    @POST(SuqiEndpoints.SUBSCRIPTION_UPGRADE_DECISION)
+    suspend fun decideSubscriptionUpgrade(@Path("id") id: String, @Body payload: Map<String, String>): ApiResponse<SubscriptionUpgradeDto>
+
+    @POST(SuqiEndpoints.SELLER_SUBSCRIPTION_CANCEL)
+    suspend fun cancelShopSubscription(): ApiResponse<Boolean>
+
+    // Phase 5: Promotions 2.0 & Flash Sales
+    @POST(SuqiEndpoints.PROMO_VALIDATE)
+    suspend fun validatePromoCode(@Body payload: Map<String, Any>): ApiResponse<PromoCodeDto>
+
+    @GET(SuqiEndpoints.FLASH_SALES)
+    suspend fun getFlashSales(@Query("activeOnly") activeOnly: Boolean = true): ApiResponse<List<FlashSaleDto>>
+
+    @POST(SuqiEndpoints.FLASH_SALES)
+    suspend fun saveFlashSale(@Body flashSale: FlashSaleDto): ApiResponse<FlashSaleDto>
+
+    @DELETE(SuqiEndpoints.FLASH_SALES)
+    suspend fun deleteFlashSale(@Query("id") id: String): ApiResponse<Boolean>
+
+    // Phase 5: Seller Analytics
+    @GET(SuqiEndpoints.SELLER_ANALYTICS)
+    suspend fun getSellerAnalytics(@Query("rangeDays") rangeDays: Int = 7): ApiResponse<SellerAnalyticsDto>
+
+    // Phase 5: Reviews 2.0 & Moderation 2.0
+    @POST(SuqiEndpoints.REVIEW_HELPFUL)
+    suspend fun toggleReviewHelpful(@Path("id") reviewId: String): ApiResponse<ReviewDto>
+
+    @POST(SuqiEndpoints.REVIEW_REPLY)
+    suspend fun replyToReview(@Path("id") reviewId: String, @Body payload: Map<String, String>): ApiResponse<ReviewDto>
+
+    @POST(SuqiEndpoints.ADMIN_MODERATION_BULK)
+    suspend fun bulkModerateReviews(@Body payload: Map<String, Any>): ApiResponse<Int>
+
+    // Phase 5: Support Inbox & Broadcast 2.0
+    @GET(SuqiEndpoints.SUPPORT_TICKET_MESSAGES)
+    suspend fun getTicketMessages(@Path("id") ticketId: String): ApiResponse<List<SupportTicketMessageDto>>
+
+    @POST(SuqiEndpoints.SUPPORT_TICKET_MESSAGES)
+    suspend fun sendTicketMessage(@Path("id") ticketId: String, @Body payload: Map<String, Any>): ApiResponse<SupportTicketMessageDto>
+
+    @PUT(SuqiEndpoints.SUPPORT_TICKET_UPDATE)
+    suspend fun updateSupportTicket(@Path("id") ticketId: String, @Body payload: Map<String, String>): ApiResponse<SupportTicketDto>
+
+    @GET(SuqiEndpoints.ADMIN_BROADCAST)
+    suspend fun getAdminBroadcasts(): ApiResponse<List<AdminBroadcastDto>>
 }

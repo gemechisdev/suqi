@@ -286,6 +286,7 @@ fun OrderDetailScreen(
     val isOffline by viewModel.isOffline.collectAsState()
 
     var order by remember { mutableStateOf<OrderDto?>(null) }
+    var existingReturn by remember { mutableStateOf<ReturnRequestDto?>(null) }
     var showResubmitSheet by remember { mutableStateOf(false) }
     var showSupportSheet by remember { mutableStateOf(false) }
     var showInvoice by remember { mutableStateOf(false) }
@@ -296,6 +297,11 @@ fun OrderDetailScreen(
             val res = viewModel.repository.getOrderDetails(orderId)
             if (res.success && res.data != null) {
                 order = res.data
+                val retRes = viewModel.repository.getBuyerReturns()
+                if (retRes.success && retRes.data != null) {
+                    viewModel.cachedBuyerReturns = retRes.data
+                    existingReturn = retRes.data.firstOrNull { it.orderId == orderId }
+                }
             }
         }
     }
@@ -503,7 +509,13 @@ fun OrderDetailScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(strings.buyerWork.invoiceBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
                     }
-                    ReturnItemPill(order = currentOrder, modifier = Modifier.padding(top = 8.dp))
+                    ReturnItemPill(
+                        order = currentOrder,
+                        existingReturn = existingReturn,
+                        onRequestReturn = { viewModel.navigate(ScreenDestination.ReturnRequest(currentOrder.id)) },
+                        onViewReturnStatus = { ret -> viewModel.navigate(ScreenDestination.ReturnStatus(ret.id)) },
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
             }
 

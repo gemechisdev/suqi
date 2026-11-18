@@ -462,20 +462,37 @@ fun TicketThreadScreen(
     val isOffline by viewModel.isOffline.collectAsState()
     val store = remember { TicketThreadStore(context) }
     var ticket by remember { mutableStateOf<SupportTicketDto?>(null) }
+    var backendMessages by remember { mutableStateOf<List<SupportTicketMessageDto>>(emptyList()) }
     var replies by remember { mutableStateOf(store.load(ticketId)) }
     var draft by remember { mutableStateOf("") }
 
     LaunchedEffect(ticketId) {
         val res = viewModel.repository.getSupportTickets()
         if (res.success && res.data != null) ticket = res.data.firstOrNull { it.id == ticketId }
+        val msgRes = viewModel.repository.getTicketMessages(ticketId)
+        if (msgRes.success && msgRes.data != null) backendMessages = msgRes.data
     }
 
     val t = ticket
     val isResolved = t != null && t.status != "OPEN"
-    val messages = remember(t, replies) {
+    val messages = remember(t, backendMessages, replies) {
         buildList {
             if (t != null) add(TicketMessage(true, t.description, t.createdAt))
-            addAll(replies)
+            val backendAsLocal = backendMessages
+                .filter { !it.isInternalNote }
+                .map { msg ->
+                    TicketMessage(
+                        fromUser = msg.senderRole.equals("BUYER", true) || msg.senderRole.equals("SELLER", true),
+                        text = msg.message,
+                        time = msg.createdAt
+                    )
+                }
+            addAll(backendAsLocal)
+            replies.forEach { localMsg ->
+                if (backendAsLocal.none { it.text == localMsg.text && it.fromUser == localMsg.fromUser }) {
+                    add(localMsg)
+                }
+            }
         }
     }
 
@@ -514,12 +531,22 @@ fun TicketThreadScreen(
                             icon = LucideIcons.Send,
                             enabled = draft.isNotBlank() && t != null,
                             onClick = {
+                                val text = draft.trim()
                                 val now = java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.US).format(java.util.Date())
-                                val next = replies + TicketMessage(true, draft.trim(), now) +
+                                val next = replies + TicketMessage(true, text, now) +
                                     TicketMessage(false, w.ticketAutoReply, now)
                                 replies = next
                                 store.save(ticketId, next)
                                 draft = ""
+                                coroutineScope.launch {
+                                    viewModel.repository.sendTicketMessage(
+                                        ticketId = ticketId,
+                                        message = text,
+                                        isInternalNote = false,
+                                        senderRole = "BUYER"
+                                    )
+                                    viewModel.repository.getTicketMessages(ticketId).data?.let { backendMessages = it }
+                                }
                             },
                             testTag = "ticket_send_btn"
                         )

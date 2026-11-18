@@ -197,11 +197,19 @@ data class PromoCodeDto(
     val id: String,
     val shopId: String,
     val code: String,
-    val discountType: String, // "PERCENTAGE", "FIXED"
+    val discountType: String, // "PERCENTAGE", "FIXED", "FREE_DELIVERY"
     val discountValue: Double,
     val minOrderAmount: Double,
     val validUntil: String,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val scopeType: String = "SHOP", // "SHOP", "CATEGORY", "PRODUCTS"
+    val scopeTargetIds: List<String> = emptyList(),
+    val maxUsesTotal: Int = 0, // 0 = unlimited
+    val usesCount: Int = 0,
+    val perCustomerLimit: Int = 1,
+    val startDate: String = "",
+    val ordersCount: Int = 0,
+    val revenueGenerated: Double = 0.0
 )
 
 @JsonClass(generateAdapter = true)
@@ -215,7 +223,14 @@ data class ReviewDto(
     val rating: Double,
     val comment: String,
     val isVerifiedPurchase: Boolean = true,
-    val date: String
+    val date: String,
+    val tags: List<String> = emptyList(),
+    val photos: List<String> = emptyList(),
+    val isAnonymous: Boolean = false,
+    val helpfulCount: Int = 0,
+    val isHelpfulByCurrentUser: Boolean = false,
+    val sellerReply: String? = null,
+    val sellerReplyAt: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -302,7 +317,9 @@ data class AdminSettingsDto(
     val activePlanName: String = "Pro Seller Plan",
     val activePlanPrice: Double = 299.0,
     val homeSectionsOrder: List<String> = HomeSectionKeys.defaultOrder,
-    val hiddenHomeSections: List<String> = emptyList()
+    val hiddenHomeSections: List<String> = emptyList(),
+    val isPilotMode: Boolean = true,
+    val pilotEndDate: String = "2026-12-31"
 )
 
 @JsonClass(generateAdapter = true)
@@ -406,8 +423,12 @@ data class FlaggedReviewDto(
     val authorName: String,
     val reason: String,
     val reviewText: String,
-    val status: String = "REPORTED", // "REPORTED", "HIDDEN", "DISMISSED"
-    val createdAt: String
+    val status: String = "REPORTED", // "REPORTED", "HIDDEN", "RESTORED", "DISMISSED"
+    val createdAt: String,
+    val reviewId: String = "",
+    val productName: String = "",
+    val rating: Double = 0.0,
+    val moderatorNote: String = ""
 )
 
 @JsonClass(generateAdapter = true)
@@ -431,8 +452,17 @@ data class SubscriptionPlanDto(
     val maxProducts: Int,
     val featuresCsv: String,
     val isPopular: Boolean = false,
-    val isActive: Boolean = true
-)
+    val isActive: Boolean = true,
+    val maxPromoCodes: Int = 5,
+    val analyticsDays: Int = 7
+) {
+    fun benefitsList(): List<String> {
+        val raw = featuresCsv.trim()
+        if (raw.isEmpty()) return emptyList()
+        val sep = if (raw.contains('|')) '|' else ','
+        return raw.split(sep).map { it.trim() }.filter { it.isNotEmpty() }
+    }
+}
 
 @JsonClass(generateAdapter = true)
 data class SupportTicketDto(
@@ -442,7 +472,233 @@ data class SupportTicketDto(
     val category: String,
     val subject: String,
     val description: String,
-    val status: String = "OPEN",
+    val status: String = "OPEN", // "OPEN", "PENDING", "RESOLVED"
+    val createdAt: String,
+    val priority: String = "NORMAL", // "URGENT", "HIGH", "NORMAL", "LOW"
+    val requesterRole: String = "BUYER", // "BUYER", "SELLER"
+    val assignedTo: String = "",
+    val resolutionSummary: String = "",
+    val updatedAt: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class ReturnItemDto(
+    val productId: String,
+    val productName: String,
+    val productImageUrl: String = "",
+    val quantity: Int = 1,
+    val unitPrice: Double = 0.0
+)
+
+@JsonClass(generateAdapter = true)
+data class ReturnRequestDto(
+    val id: String,
+    val orderId: String,
+    val orderReference: String,
+    val shopId: String,
+    val shopName: String,
+    val customerUserId: String,
+    val customerName: String,
+    val items: List<ReturnItemDto>,
+    val refundAmount: Double,
+    val reason: String,
+    val comment: String = "",
+    val photos: List<String> = emptyList(),
+    val resolution: String = "REFUND", // "REFUND", "REPLACE"
+    val status: String = "REQUESTED", // "REQUESTED", "APPROVED", "REPLACEMENT_OFFERED", "SENT_BACK", "COMPLETED", "REJECTED"
+    val sellerNote: String = "",
+    val refundMethod: String = "Telebirr",
+    val createdAt: String,
+    val updatedAt: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class PayoutAccountDto(
+    val providerType: String = "TELEBIRR",
+    val bankName: String = "Telebirr",
+    val accountName: String = "",
+    val accountNumber: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class PayoutRequestDto(
+    val id: String,
+    val shopId: String,
+    val shopName: String,
+    val amount: Double,
+    val providerType: String,
+    val bankName: String,
+    val accountName: String,
+    val accountNumber: String,
+    val status: String = "PENDING", // "PENDING", "APPROVED", "PAID", "REJECTED"
+    val referenceCode: String = "",
+    val note: String = "",
+    val createdAt: String,
+    val processedAt: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class LedgerEntryDto(
+    val id: String,
+    val shopId: String,
+    val shopName: String,
+    val type: String, // "SALE", "COMMISSION", "SUBSCRIPTION", "REFUND", "PAYOUT"
+    val title: String,
+    val subtitle: String = "",
+    val amount: Double,
+    val grossAmount: Double = 0.0,
+    val feeAmount: Double = 0.0,
+    val orderRef: String = "",
+    val weekLabel: String = "",
+    val createdAt: String,
+    val status: String = "COMPLETED"
+)
+
+@JsonClass(generateAdapter = true)
+data class MonthlyStatementDto(
+    val monthKey: String,
+    val monthLabel: String,
+    val grossSales: Double,
+    val commissions: Double,
+    val refunds: Double,
+    val payouts: Double,
+    val netAmount: Double,
+    val ordersCount: Int
+)
+
+@JsonClass(generateAdapter = true)
+data class SellerEarningsSummaryDto(
+    val shopId: String,
+    val availableBalance: Double = 0.0,
+    val pendingBalance: Double = 0.0,
+    val minPayoutAmount: Double = 500.0,
+    val defaultCommissionRate: Double = 5.0,
+    val payoutAccount: PayoutAccountDto = PayoutAccountDto(),
+    val ledger: List<LedgerEntryDto> = emptyList(),
+    val statements: List<MonthlyStatementDto> = emptyList(),
+    val payoutRequests: List<PayoutRequestDto> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class CommissionRuleDto(
+    val id: String,
+    val categoryId: String,
+    val categoryName: String,
+    val ratePercent: Double,
+    val minPayoutAmount: Double = 500.0
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminFinanceOverviewDto(
+    val platformRevenue: Double = 0.0,
+    val commissionRevenue: Double = 0.0,
+    val subscriptionRevenue: Double = 0.0,
+    val pendingPayoutsTotal: Double = 0.0,
+    val pendingPayoutsCount: Int = 0,
+    val rules: List<CommissionRuleDto> = emptyList(),
+    val payoutRequests: List<PayoutRequestDto> = emptyList(),
+    val ledger: List<LedgerEntryDto> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class SubscriptionUpgradeDto(
+    val id: String,
+    val shopId: String,
+    val shopName: String,
+    val planId: String,
+    val planName: String,
+    val billingCycle: String = "MONTHLY", // "MONTHLY", "YEARLY"
+    val amount: Double,
+    val paymentMethodTitle: String = "Telebirr",
+    val transactionReference: String,
+    val receiptImageUri: String = "",
+    val status: String = "PENDING", // "PENDING", "APPROVED", "REJECTED"
+    val adminNote: String = "",
+    val createdAt: String,
+    val reviewedAt: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class FlashSaleDto(
+    val id: String,
+    val shopId: String,
+    val shopName: String,
+    val productId: String,
+    val productName: String,
+    val productImageUrl: String = "",
+    val categoryId: String = "",
+    val originalPrice: Double,
+    val salePrice: Double,
+    val discountPercent: Int,
+    val stockCap: Int,
+    val claimedCount: Int = 0,
+    val startAt: String = "",
+    val endAt: String = "",
+    val isActive: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
+data class SellerProductMetricDto(
+    val productId: String,
+    val productName: String,
+    val imageUrl: String = "",
+    val revenue: Double,
+    val unitsSold: Int,
+    val sparkline: List<Float> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class SellerAreaMetricDto(
+    val subCity: String,
+    val customersCount: Int,
+    val ordersCount: Int,
+    val revenue: Double
+)
+
+@JsonClass(generateAdapter = true)
+data class SellerAnalyticsDto(
+    val rangeDays: Int = 7,
+    val allowedMaxDays: Int = 7,
+    val isProLocked: Boolean = false,
+    val totalRevenue: Double = 0.0,
+    val totalOrders: Int = 0,
+    val productViews: Int = 0,
+    val cartAdds: Int = 0,
+    val completedOrders: Int = 0,
+    val revenueLabels: List<String> = emptyList(),
+    val revenueValues: List<Double> = emptyList(),
+    val statusLabels: List<String> = emptyList(),
+    val statusCounts: List<Double> = emptyList(),
+    val topProducts: List<SellerProductMetricDto> = emptyList(),
+    val customerAreas: List<SellerAreaMetricDto> = emptyList(),
+    val paymentSplit: List<OwnerChartSlice> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class SupportTicketMessageDto(
+    val id: String,
+    val ticketId: String,
+    val senderRole: String, // "BUYER", "SELLER", "ADMIN", "SYSTEM"
+    val senderName: String,
+    val message: String,
+    val isInternalNote: Boolean = false,
+    val createdAt: String
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminBroadcastDto(
+    val id: String,
+    val title: String,
+    val body: String,
+    val audience: String = "ALL",
+    val imageUrl: String = "",
+    val destinationType: String = "NONE",
+    val targetId: String = "",
+    val scheduledAt: String = "",
+    val status: String = "SENT", // "SENT", "SCHEDULED", "TEST", "TEMPLATE"
+    val sentCount: Int = 0,
+    val openedCount: Int = 0,
+    val isTemplate: Boolean = false,
     val createdAt: String
 )
 

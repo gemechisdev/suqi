@@ -68,7 +68,11 @@ data class ShopEntity(
     val returnPolicy: String = "",
     val deliveryNotesPolicy: String = "",
     val standardCutoffTime: String = "16:00",
-    val expressCutoffTime: String = "14:00"
+    val expressCutoffTime: String = "14:00",
+    val payoutProviderType: String = "",
+    val payoutBankName: String = "",
+    val payoutAccountName: String = "",
+    val payoutAccountNumber: String = ""
 )
 
 @Entity(tableName = "products")
@@ -191,7 +195,15 @@ data class PromoCodeEntity(
     val discountValue: Double,
     val minOrderAmount: Double,
     val validUntil: String,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val scopeType: String = "SHOP",
+    val scopeTargetIdsCsv: String = "",
+    val maxUsesTotal: Int = 0,
+    val usesCount: Int = 0,
+    val perCustomerLimit: Int = 1,
+    val startDate: String = "",
+    val ordersCount: Int = 0,
+    val revenueGenerated: Double = 0.0
 )
 
 @Entity(tableName = "reviews")
@@ -205,7 +217,14 @@ data class ReviewEntity(
     val rating: Double,
     val comment: String,
     val isVerifiedPurchase: Boolean = true,
-    val date: String
+    val date: String,
+    val tagsCsv: String = "",
+    val photosJson: String = "[]",
+    val isAnonymous: Boolean = false,
+    val helpfulCount: Int = 0,
+    val helpfulUserIdsCsv: String = "",
+    val sellerReply: String? = null,
+    val sellerReplyAt: String? = null
 )
 
 @Entity(tableName = "chat_messages")
@@ -279,7 +298,9 @@ data class AdminSettingsEntity(
     val activePlanName: String = "Pro Seller Plan",
     val activePlanPrice: Double = 299.0,
     val homeSectionsOrderCsv: String = "featured_shops,new_arrivals,popular,recommended,recently_viewed",
-    val hiddenHomeSectionsCsv: String = ""
+    val hiddenHomeSectionsCsv: String = "",
+    val isPilotMode: Boolean = true,
+    val pilotEndDate: String = "2026-12-31"
 )
 
 @Entity(tableName = "promo_banners")
@@ -321,7 +342,11 @@ data class FlaggedReviewEntity(
     val reason: String,
     val reviewText: String,
     val status: String = "REPORTED",
-    val createdAt: String
+    val createdAt: String,
+    val reviewId: String = "",
+    val productName: String = "",
+    val rating: Double = 0.0,
+    val moderatorNote: String = ""
 )
 
 @Entity(tableName = "product_questions")
@@ -345,7 +370,9 @@ data class SubscriptionPlanEntity(
     val maxProducts: Int,
     val featuresCsv: String,
     val isPopular: Boolean = false,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val maxPromoCodes: Int = 5,
+    val analyticsDays: Int = 7
 )
 
 @Entity(tableName = "support_tickets")
@@ -357,7 +384,12 @@ data class SupportTicketEntity(
     val subject: String,
     val description: String,
     val status: String = "OPEN",
-    val createdAt: String
+    val createdAt: String,
+    val priority: String = "NORMAL",
+    val requesterRole: String = "BUYER",
+    val assignedTo: String = "",
+    val resolutionSummary: String = "",
+    val updatedAt: String = ""
 )
 
 @Entity(
@@ -378,4 +410,117 @@ data class ShopFollowEntity(
     val userId: String,
     val shopId: String,
     val createdAt: String = ""
+)
+
+@Entity(tableName = "return_requests")
+data class ReturnRequestEntity(
+    @PrimaryKey val id: String,
+    val orderId: String,
+    val orderReference: String,
+    val shopId: String,
+    val shopName: String,
+    val customerUserId: String,
+    val customerName: String,
+    val itemsJson: String,
+    val refundAmount: Double,
+    val reason: String,
+    val comment: String = "",
+    val photosJson: String = "[]",
+    val resolution: String = "REFUND",
+    val status: String = "REQUESTED",
+    val sellerNote: String = "",
+    val refundMethod: String = "Telebirr",
+    val createdAt: String,
+    val updatedAt: String = ""
+)
+
+@Entity(tableName = "payout_requests")
+data class PayoutRequestEntity(
+    @PrimaryKey val id: String,
+    val shopId: String,
+    val shopName: String,
+    val amount: Double,
+    val providerType: String,
+    val bankName: String,
+    val accountName: String,
+    val accountNumber: String,
+    val status: String = "PENDING",
+    val referenceCode: String = "",
+    val note: String = "",
+    val createdAt: String,
+    val processedAt: String = ""
+)
+
+@Entity(tableName = "commission_configs")
+data class CommissionConfigEntity(
+    @PrimaryKey val id: String,
+    val categoryId: String,
+    val categoryName: String,
+    val ratePercent: Double,
+    val minPayoutAmount: Double = 500.0
+)
+
+@Entity(tableName = "subscription_upgrades")
+data class SubscriptionUpgradeEntity(
+    @PrimaryKey val id: String,
+    val shopId: String,
+    val shopName: String,
+    val planId: String,
+    val planName: String,
+    val billingCycle: String = "MONTHLY",
+    val amount: Double,
+    val paymentMethodTitle: String = "Telebirr",
+    val transactionReference: String,
+    val receiptImageUri: String = "",
+    val status: String = "PENDING",
+    val adminNote: String = "",
+    val createdAt: String,
+    val reviewedAt: String = ""
+)
+
+@Entity(tableName = "flash_sales")
+data class FlashSaleEntity(
+    @PrimaryKey val id: String,
+    val shopId: String,
+    val shopName: String,
+    val productId: String,
+    val productName: String,
+    val productImageUrl: String = "",
+    val categoryId: String = "",
+    val originalPrice: Double,
+    val salePrice: Double,
+    val discountPercent: Int,
+    val stockCap: Int,
+    val claimedCount: Int = 0,
+    val startAt: String = "",
+    val endAt: String = "",
+    val isActive: Boolean = true
+)
+
+@Entity(tableName = "support_ticket_messages")
+data class SupportTicketMessageEntity(
+    @PrimaryKey val id: String,
+    val ticketId: String,
+    val senderRole: String,
+    val senderName: String,
+    val message: String,
+    val isInternalNote: Boolean = false,
+    val createdAt: String
+)
+
+@Entity(tableName = "admin_broadcasts")
+data class AdminBroadcastEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val body: String,
+    val audience: String = "ALL",
+    val imageUrl: String = "",
+    val destinationType: String = "NONE",
+    val targetId: String = "",
+    val scheduledAt: String = "",
+    val status: String = "SENT",
+    val sentCount: Int = 0,
+    val openedCount: Int = 0,
+    val isTemplate: Boolean = false,
+    val createdAt: String
 )

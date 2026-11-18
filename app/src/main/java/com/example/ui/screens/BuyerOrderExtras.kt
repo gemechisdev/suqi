@@ -74,24 +74,59 @@ fun EstimatedDeliveryChip(order: OrderDto, modifier: Modifier = Modifier) {
     }
 }
 
-/** Disabled pill until the B-08 returns flow ships; always explains why. */
+/** B-08 returns pill: active within 7 days of delivery, or links to existing return status. */
 @Composable
-fun ReturnItemPill(order: OrderDto, modifier: Modifier = Modifier) {
+fun ReturnItemPill(
+    order: OrderDto,
+    modifier: Modifier = Modifier,
+    existingReturn: com.example.data.model.ReturnRequestDto? = null,
+    onRequestReturn: () -> Unit = {},
+    onViewReturnStatus: (com.example.data.model.ReturnRequestDto) -> Unit = {}
+) {
     val strings = suqiStrings()
     val colors = LocalSuqiColors.current
-    if (order.orderStatus != "Delivered") return
-    Column(modifier = modifier) {
-        OutlinedButton(
-            onClick = {},
-            enabled = false,
-            shape = RoundedCornerShape(999.dp),
-            modifier = Modifier.heightIn(min = 48.dp).testTag("order_return_pill")
-        ) {
-            Icon(LucideIcons.RotateCcw, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(strings.buyerWork.returnItemBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold)
+    if (!order.orderStatus.equals("Delivered", ignoreCase = true)) return
+    val ageHours = com.example.util.EthiopianMarketplaceUtils.computeElapsedHours(order.createdAt)
+    val within7Days = ageHours == null || ageHours <= 7.0 * 24.0
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        if (existingReturn != null) {
+            OutlinedButton(
+                onClick = { onViewReturnStatus(existingReturn) },
+                shape = RoundedCornerShape(999.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, SuqiPrimary),
+                modifier = Modifier.heightIn(min = 48.dp).testTag("order_return_pill")
+            ) {
+                Icon(LucideIcons.RotateCcw, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("${strings.phase5.viewReturnStatusBtn} (${existingReturn.status})", fontFamily = SuqiFontFamily, fontWeight = FontWeight.SemiBold, color = SuqiPrimary)
+            }
+        } else {
+            OutlinedButton(
+                onClick = onRequestReturn,
+                enabled = within7Days,
+                shape = RoundedCornerShape(999.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (within7Days) SuqiPrimary else colors.border),
+                modifier = Modifier.heightIn(min = 48.dp).testTag("order_return_pill")
+            ) {
+                Icon(LucideIcons.RotateCcw, contentDescription = null, tint = if (within7Days) SuqiPrimary else colors.mutedText, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    strings.buyerWork.returnItemBtn,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (within7Days) SuqiPrimary else colors.mutedText
+                )
+            }
+            if (!within7Days) {
+                Text(
+                    strings.phase5.returnWindowExpiredMsg,
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 11.sp,
+                    color = colors.mutedText,
+                    modifier = Modifier.padding(start = 8.dp, top = 2.dp).testTag("order_return_reason")
+                )
+            }
         }
-        Text(strings.buyerWork.returnSoonReason, fontFamily = SuqiFontFamily, fontSize = 11.sp, color = colors.mutedText, modifier = Modifier.padding(start = 8.dp, top = 2.dp).testTag("order_return_reason"))
     }
 }
 

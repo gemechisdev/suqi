@@ -138,8 +138,9 @@ fun CheckoutDeliveryScreen(
     val promo = viewModel.activeCheckoutShopPromoCode.value
 
     val subtotal = items.sumOf { it.unitPrice * it.quantity }
-    val discount = if (promo != null) {
-        if (promo.discountType == "PERCENTAGE") subtotal * (promo.discountValue / 100.0) else promo.discountValue
+    val isFreeDeliveryPromo = promo?.discountType.equals("FREE_DELIVERY", ignoreCase = true)
+    val discount = if (promo != null && !isFreeDeliveryPromo) {
+        if (promo.discountType.equals("PERCENTAGE", ignoreCase = true)) subtotal * (promo.discountValue / 100.0) else promo.discountValue
     } else 0.0
 
     LaunchedEffect(shopId) {
@@ -161,7 +162,7 @@ fun CheckoutDeliveryScreen(
         }
     }
 
-    val deliveryFee = selectedOption?.fee ?: 50.0
+    val deliveryFee = if (isFreeDeliveryPromo) 0.0 else (selectedOption?.fee ?: 50.0)
     val totalAmount = maxOf(0.0, subtotal + deliveryFee - discount)
 
     SuqiScreen(
@@ -546,10 +547,11 @@ fun CheckoutPaymentScreen(
     val deliveryAddress by viewModel.activeCheckoutDeliveryAddress.collectAsState()
 
     val subtotal = items.sumOf { it.unitPrice * it.quantity }
-    val discount = if (promo != null) {
-        if (promo.discountType == "PERCENTAGE") subtotal * (promo.discountValue / 100.0) else promo.discountValue
+    val isFreeDeliveryPromo = promo?.discountType.equals("FREE_DELIVERY", ignoreCase = true)
+    val discount = if (promo != null && !isFreeDeliveryPromo) {
+        if (promo.discountType.equals("PERCENTAGE", ignoreCase = true)) subtotal * (promo.discountValue / 100.0) else promo.discountValue
     } else 0.0
-    val deliveryFee = deliveryOption?.fee ?: 50.0
+    val deliveryFee = if (isFreeDeliveryPromo) 0.0 else (deliveryOption?.fee ?: 50.0)
     val totalAmount = maxOf(0.0, subtotal + deliveryFee - discount)
     var transferAmountInput by remember(totalAmount) { mutableStateOf(totalAmount.toLong().toString()) }
 

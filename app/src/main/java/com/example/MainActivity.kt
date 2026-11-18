@@ -296,9 +296,67 @@ fun SuqiAppRoot(
                             targetId = dest.targetId,
                             targetName = dest.targetName,
                             targetType = dest.targetType,
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            initialStarFilter = dest.initialStarFilter
                         )
                         is ScreenDestination.SellerSubscription -> SellerSubscriptionScreen(viewModel = viewModel)
+                        is ScreenDestination.ReturnRequest -> ReturnRequestScreen(
+                            orderId = dest.orderId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.ReturnStatus -> ReturnStatusScreen(
+                            returnId = dest.returnId,
+                            viewModel = viewModel
+                        )
+                        is ScreenDestination.Deals -> BuyerDealsScreen(viewModel = viewModel)
+                        is ScreenDestination.SellerReturns -> {
+                            if (!hasSellerAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.seller.sellerRestrictedTitle,
+                                    subtitle = strings.seller.sellerRestrictedSub,
+                                    primaryButtonText = if (activeRole == "GUEST") strings.signIn else strings.becomeSellerLabel,
+                                    onPrimaryClick = {
+                                        viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
+                                    },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "seller_restricted"
+                                )
+                            } else {
+                                SellerReturnsScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.SellerEarnings -> {
+                            if (!hasSellerAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.seller.sellerRestrictedTitle,
+                                    subtitle = strings.seller.sellerRestrictedSub,
+                                    primaryButtonText = if (activeRole == "GUEST") strings.signIn else strings.becomeSellerLabel,
+                                    onPrimaryClick = {
+                                        viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
+                                    },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "seller_restricted"
+                                )
+                            } else {
+                                SellerEarningsScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.SellerAnalytics -> {
+                            if (!hasSellerAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.seller.sellerRestrictedTitle,
+                                    subtitle = strings.seller.sellerRestrictedSub,
+                                    primaryButtonText = if (activeRole == "GUEST") strings.signIn else strings.becomeSellerLabel,
+                                    onPrimaryClick = {
+                                        viewModel.navigate(if (activeRole == "GUEST") ScreenDestination.Auth else ScreenDestination.BecomeSeller)
+                                    },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "seller_restricted"
+                                )
+                            } else {
+                                SellerAnalyticsScreen(viewModel = viewModel)
+                            }
+                        }
 
                         // Admin Console (Role-Gated A-01)
                         is ScreenDestination.AdminSignIn -> AdminSignInScreen(viewModel = viewModel)
@@ -338,6 +396,48 @@ fun SuqiAppRoot(
                         is ScreenDestination.AdminBanners -> AdminBannersScreen(viewModel = viewModel)
                         is ScreenDestination.AdminModeration -> AdminModerationScreen(viewModel = viewModel)
                         is ScreenDestination.AdminSubscriptionPlans -> AdminSubscriptionPlansScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminFinance -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminFinanceScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminSupportInbox -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminSupportInboxScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminBroadcast -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminBroadcastScreen(viewModel = viewModel)
+                            }
+                        }
                         is ScreenDestination.AdminDevTools -> AdminDevToolsScreen(viewModel = viewModel)
                         is ScreenDestination.AppSettings -> AppSettingsScreen(viewModel = viewModel)
                         is ScreenDestination.HelpLegal -> HelpLegalScreen(viewModel = viewModel)

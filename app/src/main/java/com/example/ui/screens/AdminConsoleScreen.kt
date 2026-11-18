@@ -114,6 +114,7 @@ fun AdminConsoleScreen(
     var flaggedReviews by remember { mutableStateOf(viewModel.cachedAdminFlaggedReviews) }
     var supportTickets by remember { mutableStateOf(viewModel.cachedAdminTickets) }
     var allOrders by remember { mutableStateOf(viewModel.cachedAdminAllOrders) }
+    var pendingPayoutsCount by remember { mutableIntStateOf(0) }
     var switchesExpanded by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
@@ -169,6 +170,11 @@ fun AdminConsoleScreen(
             if (ordersRes.success && ordersRes.data != null) {
                 allOrders = ordersRes.data
                 viewModel.cachedAdminAllOrders = ordersRes.data
+            }
+            val finRes = viewModel.repository.getAdminFinanceOverview()
+            if (finRes.success && finRes.data != null) {
+                viewModel.cachedAdminFinance = finRes.data
+                pendingPayoutsCount = finRes.data.pendingPayoutsCount
             }
         }
     }
@@ -364,16 +370,16 @@ fun AdminConsoleScreen(
                                     oldestAge = oldestAgeFor(openTickets.map { it.createdAt }),
                                     icon = LucideIcons.Headphones,
                                     accent = SuqiPrimary,
-                                    onClick = { selectedTab = "queues" }
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminSupportInbox) }
                                 ),
                                 QueueCardModel(
                                     key = "payout_requests",
                                     title = strings.adminGov.queuePayoutRequests,
-                                    count = payoutRequests.size,
+                                    count = pendingPayoutsCount,
                                     oldestAge = oldestAgeFor(payoutRequests.map { it.createdAt }),
                                     icon = LucideIcons.Wallet,
                                     accent = SuqiSuccess,
-                                    onClick = { selectedTab = "queues" }
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminFinance) }
                                 )
                             )
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -427,7 +433,7 @@ fun AdminConsoleScreen(
                                         key = "broadcast",
                                         label = strings.admin.broadcastTitle,
                                         icon = LucideIcons.Send,
-                                        onClick = { showBroadcastSheet = true }
+                                        onClick = { viewModel.navigate(ScreenDestination.AdminBroadcast) }
                                     ),
                                     QuickToolItem(
                                         key = "locations",
@@ -770,10 +776,30 @@ fun AdminConsoleScreen(
                                 )
                                 HorizontalDivider(color = colors.border)
                                 SuqiListRow(
+                                    icon = LucideIcons.Wallet,
+                                    title = strings.admin.financeTitle,
+                                    subtitle = strings.phase5.payoutQueueTab,
+                                    badge = if (pendingPayoutsCount > 0) pendingPayoutsCount.toString() else null,
+                                    badgeColor = SuqiWarning,
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminFinance) },
+                                    testTag = "manage_finance"
+                                )
+                                HorizontalDivider(color = colors.border)
+                                SuqiListRow(
+                                    icon = LucideIcons.Headphones,
+                                    title = strings.admin.supportInboxTitle,
+                                    subtitle = strings.phase5.inboxOpenTab,
+                                    badge = if (openTickets.isNotEmpty()) openTickets.size.toString() else null,
+                                    badgeColor = SuqiPrimary,
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminSupportInbox) },
+                                    testTag = "manage_support_inbox"
+                                )
+                                HorizontalDivider(color = colors.border)
+                                SuqiListRow(
                                     icon = LucideIcons.Send,
                                     title = strings.admin.broadcastTitle,
                                     subtitle = strings.adminGov.broadcastAudienceLabel,
-                                    onClick = { showBroadcastSheet = true },
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminBroadcast) },
                                     testTag = "manage_broadcast"
                                 )
                                 HorizontalDivider(color = colors.border)

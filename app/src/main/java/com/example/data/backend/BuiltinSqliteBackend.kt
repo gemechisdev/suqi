@@ -748,6 +748,30 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         db.orderDao().insertOrder(order)
         db.cartDao().clearShopItems(userId, shopId)
 
+        if (!promoCode.isNullOrBlank()) {
+            db.promoCodeDao().getPromoByCode(shopId, promoCode.trim().uppercase())?.let { promoEntity ->
+                db.promoCodeDao().insert(
+                    promoEntity.copy(
+                        usesCount = promoEntity.usesCount + 1,
+                        ordersCount = promoEntity.ordersCount + 1,
+                        revenueGenerated = promoEntity.revenueGenerated + totalAmount
+                    )
+                )
+            }
+        }
+        try {
+            val activeSales = db.flashSaleDao().getActive().filter { it.shopId == shopId }.associateBy { it.productId }
+            val jsonArr = JSONArray(itemsJson)
+            for (i in 0 until jsonArr.length()) {
+                val obj = jsonArr.getJSONObject(i)
+                val pId = obj.getString("productId")
+                val qty = obj.optInt("quantity", 1)
+                activeSales[pId]?.let { fs ->
+                    db.flashSaleDao().insert(fs.copy(claimedCount = (fs.claimedCount + qty).coerceAtMost(fs.stockCap)))
+                }
+            }
+        } catch (_: Exception) {}
+
         db.notificationDao().insert(
             NotificationEntity(
                 id = "notif_${System.currentTimeMillis()}",
@@ -1500,7 +1524,14 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getReviews(targetId: String): ApiResponse<List<ReviewDto>> = withContext(Dispatchers.IO) {
-        val list = db.reviewDao().getReviewsForTarget(targetId).map { it.toDto() }
+        val currentUserId = resolveCurrentUser()?.id ?: ""
+        val hiddenIds = db.flaggedReviewDao().getAllFlagged()
+            .filter { it.status == "HIDDEN" && it.reviewId.isNotBlank() }
+            .map { it.reviewId }
+            .toSet()
+        val list = db.reviewDao().getReviewsForTarget(targetId)
+            .filter { it.id !in hiddenIds }
+            .map { it.toDto(currentUserId) }
         ApiResponse(success = true, data = list)
     }
 
@@ -1511,6 +1542,11 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val targetType = reviewData["targetType"] as? String ?: "PRODUCT"
         val rating = (reviewData["rating"] as Number).toDouble().coerceIn(1.0, 5.0)
         val comment = (reviewData["comment"] as? String)?.trim() ?: ""
+        @Suppress("UNCHECKED_CAST")
+        val tags = (reviewData["tags"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotBlank() }.orEmpty()
+        @Suppress("UNCHECKED_CAST")
+        val photos = (reviewData["photos"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotBlank() }.orEmpty()
+        val isAnonymous = reviewData["isAnonymous"] as? Boolean ?: false
 
         if (comment.isBlank()) {
             return@withContext ApiResponse(success = false, message = "Review comment cannot be empty.")
@@ -1523,6 +1559,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             else -> confirmedOrders.isNotEmpty()
         }
 
+        val photosJsonArr = JSONArray().apply { photos.forEach { put(it) } }.toString()
         val review = ReviewEntity(
             id = "rev_${System.currentTimeMillis()}",
             userId = userId,
@@ -1533,7 +1570,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             rating = rating,
             comment = comment,
             isVerifiedPurchase = isVerifiedBuyer,
-            date = "Just now"
+            date = "Just now",
+            tagsCsv = tags.joinToString(","),
+            photosJson = photosJsonArr,
+            isAnonymous = isAnonymous
         )
         db.reviewDao().insert(review)
 
@@ -1555,7 +1595,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             }
         }
 
-        ApiResponse(success = true, data = review.toDto())
+        ApiResponse(success = true, data = review.toDto(userId))
     }
 
     override suspend fun getNotifications(): ApiResponse<List<NotificationDto>> = withContext(Dispatchers.IO) {
@@ -1635,6 +1675,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun submitSupportTicket(ticket: SupportTicketDto): ApiResponse<SupportTicketDto> = withContext(Dispatchers.IO) {
         val user = resolveCurrentUser()
+        val now = getCurrentTime()
         val entity = SupportTicketEntity(
             id = ticket.id.ifBlank { "tkt_${System.currentTimeMillis()}" },
             userId = user?.id ?: ticket.userId.ifBlank { "user_guest" },
@@ -1643,7 +1684,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             subject = ticket.subject.trim(),
             description = ticket.description.trim(),
             status = "OPEN",
-            createdAt = getCurrentTime()
+            createdAt = now,
+            priority = ticket.priority.ifBlank { "NORMAL" },
+            requesterRole = if (user?.activeRole.equals("SELLER", true)) "SELLER" else ticket.requesterRole.ifBlank { "BUYER" },
+            updatedAt = now
         )
         db.supportTicketDao().insert(entity)
         ApiResponse(success = true, data = entity.toDto())
@@ -1679,7 +1723,9 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 activePlanName = settings.activePlanName,
                 activePlanPrice = settings.activePlanPrice,
                 homeSectionsOrder = normalizedOrder,
-                hiddenHomeSections = hidden
+                hiddenHomeSections = hidden,
+                isPilotMode = settings.isPilotMode,
+                pilotEndDate = settings.pilotEndDate
             )
         )
     }
@@ -1898,32 +1944,78 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun sendAdminBroadcast(payload: Map<String, String>): ApiResponse<Int> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val title = payload["title"]?.trim().orEmpty()
         val body = payload["body"]?.trim().orEmpty()
         val audience = payload["audience"]?.trim().orEmpty().ifBlank { "ALL" }
+        val imageUrl = payload["imageUrl"]?.trim().orEmpty()
+        val destinationType = payload["destinationType"]?.trim().orEmpty().ifBlank { "NONE" }
+        val targetId = payload["targetId"]?.trim().orEmpty()
+        val scheduledAt = payload["scheduledAt"]?.trim().orEmpty()
+        val isTemplate = payload["isTemplate"]?.equals("true", ignoreCase = true) == true
+        val testToSelf = payload["testToSelf"]?.equals("true", ignoreCase = true) == true
+
         if (title.isBlank() || body.isBlank()) {
             return@withContext ApiResponse(success = false, message = "Notification title and message are required.", data = 0)
         }
         val allUsers = db.userDao().getAllUsers()
-        val recipients = when (audience) {
-            "ADDIS_ONLY" -> allUsers.filter { it.city.equals("Addis Ababa", ignoreCase = true) || it.region.equals("Addis Ababa", ignoreCase = true) }
-            "SELLERS" -> allUsers.filter { it.role == "SELLER" || !it.shopId.isNullOrBlank() }
+        val currentUser = resolveCurrentUser()
+        val recipients = when {
+            isTemplate -> emptyList()
+            testToSelf -> listOfNotNull(currentUser)
+            audience == "ADDIS_ONLY" -> allUsers.filter { it.city.equals("Addis Ababa", ignoreCase = true) || it.region.equals("Addis Ababa", ignoreCase = true) }
+            audience.startsWith("CITY:") -> {
+                val city = audience.removePrefix("CITY:").trim()
+                allUsers.filter { it.city.equals(city, ignoreCase = true) || it.region.equals(city, ignoreCase = true) }
+            }
+            audience.startsWith("FOLLOWERS:") -> {
+                val shopId = audience.removePrefix("FOLLOWERS:").trim()
+                allUsers.filter { u -> db.shopFollowDao().isFollowing(u.id, shopId) }
+            }
+            audience == "BUYERS" -> allUsers.filter { it.role == "CUSTOMER" }
+            audience == "SELLERS" -> allUsers.filter { it.role == "SELLER" || !it.shopId.isNullOrBlank() }
             else -> allUsers
-        }.ifEmpty { listOfNotNull(resolveCurrentUser()) }
+        }.ifEmpty { if (isTemplate) emptyList() else listOfNotNull(currentUser) }
+
         val now = getCurrentTime()
-        recipients.forEachIndexed { idx, user ->
-            db.notificationDao().insert(
-                NotificationEntity(
-                    id = "notif_bc_${System.currentTimeMillis()}_$idx",
-                    userId = user.id,
-                    type = "PROMO",
-                    title = title,
-                    body = body,
-                    timestamp = now,
-                    isRead = false
+        if (!isTemplate && scheduledAt.isBlank()) {
+            recipients.forEachIndexed { idx, user ->
+                db.notificationDao().insert(
+                    NotificationEntity(
+                        id = "notif_bc_${System.currentTimeMillis()}_$idx",
+                        userId = user.id,
+                        type = "PROMO",
+                        title = title,
+                        body = body,
+                        timestamp = now,
+                        isRead = false
+                    )
                 )
-            )
+            }
         }
+        val status = when {
+            isTemplate -> "TEMPLATE"
+            testToSelf -> "TEST"
+            scheduledAt.isNotBlank() -> "SCHEDULED"
+            else -> "SENT"
+        }
+        db.adminBroadcastDao().insert(
+            AdminBroadcastEntity(
+                id = "bc_${System.currentTimeMillis()}",
+                title = title,
+                body = body,
+                audience = audience,
+                imageUrl = imageUrl,
+                destinationType = destinationType,
+                targetId = targetId,
+                scheduledAt = scheduledAt,
+                status = status,
+                sentCount = recipients.size,
+                openedCount = 0,
+                isTemplate = isTemplate,
+                createdAt = now
+            )
+        )
         ApiResponse(success = true, data = recipients.size)
     }
 
@@ -1985,14 +2077,22 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val rangeGmv = currentOrders.sumOf { it.totalAmount }
         val prevGmv = previousOrders.sumOf { it.totalAmount }
 
-        val subscriptionRevenue = if (adminSettings.isSubscriptionModeEnabled) {
-            val proShops = shops.count { it.isVerified }
-            val monthFactor = if (isAllRange || rangeDays >= 30) 1.0 else (rangeDays.toDouble() / 30.0)
-            proShops * adminSettings.activePlanPrice * monthFactor
-        } else {
-            0.0
+        val commissionRules = db.commissionConfigDao().getAll()
+        val defaultCommissionRate = commissionRules.firstOrNull { it.categoryId == "DEFAULT" }?.ratePercent ?: 5.0
+        val commissionRevenue = currentOrders.sumOf { o ->
+            o.subtotal * (defaultCommissionRate / 100.0)
         }
-        val platformRevenue = currentOrders.sumOf { it.totalAmount * 0.05 } + subscriptionRevenue
+        val approvedUpgrades = db.subscriptionUpgradeDao().getAll().filter { it.status == "APPROVED" }
+        val subscriptionRevenue = when {
+            approvedUpgrades.isNotEmpty() -> approvedUpgrades.sumOf { it.amount }
+            adminSettings.isSubscriptionModeEnabled -> {
+                val proShops = shops.count { it.isVerified }
+                val monthFactor = if (isAllRange || rangeDays >= 30) 1.0 else (rangeDays.toDouble() / 30.0)
+                proShops * adminSettings.activePlanPrice * monthFactor
+            }
+            else -> 0.0
+        }
+        val platformRevenue = commissionRevenue + subscriptionRevenue
 
         // Real chronological buckets for GMV & sparklines
         val bucketCount = when {
@@ -2225,15 +2325,17 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun reportOrModerateReview(payload: Map<String, String>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        val action = payload["action"] ?: "REPORT"
-        if (action == "MODERATE" || action == "DISMISS" || action == "DELETE") {
+        val action = (payload["action"] ?: "REPORT").uppercase()
+        if (action in listOf("MODERATE", "DISMISS", "DELETE", "HIDE", "RESTORE")) {
             val id = payload["id"] ?: return@withContext ApiResponse(success = false, data = false)
+            val note = payload["note"]?.trim().orEmpty()
             val status = payload["status"] ?: when (action) {
                 "DISMISS" -> "DISMISSED"
-                "DELETE" -> "HIDDEN"
+                "DELETE", "HIDE" -> "HIDDEN"
+                "RESTORE" -> "RESTORED"
                 else -> "DISMISSED"
             }
-            db.flaggedReviewDao().updateStatus(id, status)
+            db.flaggedReviewDao().updateStatusWithNote(id, status, note)
         } else {
             val entity = FlaggedReviewEntity(
                 id = "flag_${System.currentTimeMillis()}",
@@ -2241,7 +2343,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 reason = payload["reason"] ?: "Reported by user",
                 reviewText = payload["reviewText"] ?: "",
                 status = "REPORTED",
-                createdAt = "Just now"
+                createdAt = "Just now",
+                reviewId = payload["reviewId"].orEmpty(),
+                productName = payload["productName"].orEmpty(),
+                rating = payload["rating"]?.toDoubleOrNull() ?: 0.0
             )
             db.flaggedReviewDao().insert(entity)
         }
@@ -2249,6 +2354,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getSubscriptionPlans(): ApiResponse<List<SubscriptionPlanDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val list = db.subscriptionPlanDao().getAllPlans().map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
@@ -2262,7 +2368,9 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             maxProducts = plan.maxProducts,
             featuresCsv = plan.featuresCsv,
             isPopular = plan.isPopular,
-            isActive = plan.isActive
+            isActive = plan.isActive,
+            maxPromoCodes = plan.maxPromoCodes,
+            analyticsDays = plan.analyticsDays
         )
         db.subscriptionPlanDao().insert(entity)
         ApiResponse(success = true, data = entity.toDto())
@@ -2271,6 +2379,924 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     override suspend fun deleteSubscriptionPlan(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         db.subscriptionPlanDao().deleteById(id)
         ApiResponse(success = true, data = true)
+    }
+
+    // ==================== PHASE 5: RETURNS & REFUNDS ====================
+
+    override suspend fun getBuyerReturns(): ApiResponse<List<ReturnRequestDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val userId = resolveCurrentUser()?.id ?: return@withContext ApiResponse(success = true, data = emptyList())
+        ApiResponse(success = true, data = db.returnRequestDao().getByCustomer(userId).map { it.toDto() })
+    }
+
+    override suspend fun getSellerReturns(): ApiResponse<List<ReturnRequestDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account", data = emptyList())
+        ApiResponse(success = true, data = db.returnRequestDao().getByShop(shopId).map { it.toDto() })
+    }
+
+    override suspend fun getReturnDetails(id: String): ApiResponse<ReturnRequestDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val req = db.returnRequestDao().getById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Return request not found")
+        ApiResponse(success = true, data = req.toDto())
+    }
+
+    override suspend fun submitReturnRequest(payload: Map<String, Any>): ApiResponse<ReturnRequestDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val user = resolveCurrentUser()
+            ?: return@withContext ApiResponse(success = false, message = "No active user session")
+        val orderId = (payload["orderId"] as? String)?.trim().orEmpty()
+        val order = db.orderDao().getOrderById(orderId)
+            ?: return@withContext ApiResponse(success = false, message = "Order not found")
+
+        val nowMs = System.currentTimeMillis()
+        val orderAgeHours = EthiopianMarketplaceUtils.computeElapsedHours(order.createdAt, nowMs)
+        if (!order.orderStatus.equals("Delivered", ignoreCase = true) || (orderAgeHours != null && orderAgeHours > 7.0 * 24.0)) {
+            return@withContext ApiResponse(
+                success = false,
+                message = "Return window expired (orders are eligible within 7 days of delivery)."
+            )
+        }
+        val existing = db.returnRequestDao().getByOrderId(orderId)
+        if (existing != null && existing.status != "REJECTED") {
+            return@withContext ApiResponse(success = false, message = "A return request already exists for this order.")
+        }
+
+        val orderDto = order.toDto()
+        @Suppress("UNCHECKED_CAST")
+        val selectedProductIds = (payload["itemProductIds"] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
+        val returnItems = if (selectedProductIds.isEmpty()) {
+            orderDto.items.map {
+                ReturnItemDto(it.productId, it.productName, it.productImageUrl, it.quantity, it.unitPrice)
+            }
+        } else {
+            orderDto.items.filter { it.productId in selectedProductIds }.map {
+                ReturnItemDto(it.productId, it.productName, it.productImageUrl, it.quantity, it.unitPrice)
+            }
+        }
+        if (returnItems.isEmpty()) {
+            return@withContext ApiResponse(success = false, message = "Please select at least one item to return.")
+        }
+
+        val reason = (payload["reason"] as? String)?.trim().orEmpty().ifBlank { "Other issue" }
+        val comment = (payload["comment"] as? String)?.trim().orEmpty()
+        val resolution = (payload["resolution"] as? String)?.trim()?.uppercase().orEmpty().ifBlank { "REFUND" }
+        val refundMethod = (payload["refundMethod"] as? String)?.trim().orEmpty().ifBlank { order.paymentMethodTitle }
+        @Suppress("UNCHECKED_CAST")
+        val photos = (payload["photos"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotBlank() }.orEmpty()
+        val refundAmount = returnItems.sumOf { it.unitPrice * it.quantity }
+        val now = getCurrentTime()
+
+        val itemsArr = JSONArray().apply {
+            returnItems.forEach { item ->
+                put(
+                    org.json.JSONObject().apply {
+                        put("productId", item.productId)
+                        put("productName", item.productName)
+                        put("productImageUrl", item.productImageUrl)
+                        put("quantity", item.quantity)
+                        put("unitPrice", item.unitPrice)
+                    }
+                )
+            }
+        }
+        val photosArr = JSONArray().apply { photos.forEach { put(it) } }
+        val entity = ReturnRequestEntity(
+            id = "ret_${System.currentTimeMillis()}",
+            orderId = order.id,
+            orderReference = order.orderReference,
+            shopId = order.shopId,
+            shopName = order.shopName,
+            customerUserId = user.id,
+            customerName = user.name,
+            itemsJson = itemsArr.toString(),
+            refundAmount = refundAmount,
+            reason = reason,
+            comment = comment,
+            photosJson = photosArr.toString(),
+            resolution = resolution,
+            status = "REQUESTED",
+            refundMethod = refundMethod,
+            createdAt = now,
+            updatedAt = now
+        )
+        db.returnRequestDao().insert(entity)
+
+        db.shopDao().getShopById(order.shopId)?.let { shop ->
+            db.notificationDao().insert(
+                NotificationEntity(
+                    id = "notif_ret_${System.currentTimeMillis()}",
+                    userId = shop.ownerUserId,
+                    type = "ORDER",
+                    title = "New Return Request #${order.orderReference}",
+                    body = "${user.name} requested a $resolution (${entity.reason}).",
+                    timestamp = "Just now",
+                    isRead = false
+                )
+            )
+        }
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun decideReturnRequest(id: String, payload: Map<String, String>): ApiResponse<ReturnRequestDto> = withContext(Dispatchers.IO) {
+        val existing = db.returnRequestDao().getById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Return request not found")
+        val action = (payload["action"] ?: "").uppercase()
+        val note = payload["note"]?.trim().orEmpty()
+        if (action == "REJECT" && note.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Rejection reason is required.")
+        }
+        val nextStatus = when (action) {
+            "APPROVE" -> "APPROVED"
+            "OFFER_REPLACEMENT" -> "REPLACEMENT_OFFERED"
+            "SENT_BACK" -> "SENT_BACK"
+            "COMPLETE_REFUND" -> "COMPLETED"
+            "REJECT" -> "REJECTED"
+            else -> existing.status
+        }
+        val updated = existing.copy(
+            status = nextStatus,
+            sellerNote = note.ifBlank { existing.sellerNote },
+            refundMethod = payload["refundMethod"]?.takeIf { it.isNotBlank() } ?: existing.refundMethod,
+            updatedAt = getCurrentTime()
+        )
+        db.returnRequestDao().update(updated)
+        db.notificationDao().insert(
+            NotificationEntity(
+                id = "notif_ret_dec_${System.currentTimeMillis()}",
+                userId = existing.customerUserId,
+                type = "ORDER",
+                title = "Return #${existing.orderReference} updated",
+                body = "Status changed to $nextStatus${if (note.isNotBlank()) ": $note" else "."}",
+                timestamp = "Just now",
+                isRead = false
+            )
+        )
+        ApiResponse(success = true, data = updated.toDto())
+    }
+
+    // ==================== PHASE 5: EARNINGS, PAYOUTS & COMMISSIONS ====================
+
+    private fun buildSellerFinanceData(
+        shop: ShopEntity,
+        orders: List<OrderEntity>,
+        returns: List<ReturnRequestEntity>,
+        payouts: List<PayoutRequestEntity>,
+        rules: List<CommissionConfigEntity>
+    ): SellerEarningsSummaryDto {
+        val defaultRate = rules.firstOrNull { it.categoryId == "DEFAULT" }?.ratePercent ?: 5.0
+        val minPayout = rules.firstOrNull { it.categoryId == "DEFAULT" }?.minPayoutAmount ?: 500.0
+
+        val verifiedOrders = orders.filter { it.paymentStatus == "VERIFIED" && !it.orderStatus.equals("Cancelled", true) }
+        val completedOrDelivered = verifiedOrders.filter { it.orderStatus.equals("Delivered", true) }
+        val pendingClearance = verifiedOrders.filter { !it.orderStatus.equals("Delivered", true) }
+
+        val completedRefunds = returns.filter { it.status == "COMPLETED" }
+        val grossDelivered = completedOrDelivered.sumOf { it.subtotal }
+        val commissionDelivered = grossDelivered * (defaultRate / 100.0)
+        val refundTotal = completedRefunds.sumOf { it.refundAmount }
+        val committedPayouts = payouts.filter { it.status != "REJECTED" }.sumOf { it.amount }
+        val availableBalance = (grossDelivered - commissionDelivered - refundTotal - committedPayouts).coerceAtLeast(0.0)
+        val pendingBalance = pendingClearance.sumOf { it.subtotal * (1.0 - defaultRate / 100.0) }.coerceAtLeast(0.0)
+
+        val entries = mutableListOf<LedgerEntryDto>()
+        val nowMs = System.currentTimeMillis()
+        verifiedOrders.forEach { o ->
+            val comm = o.subtotal * (defaultRate / 100.0)
+            val net = o.subtotal - comm
+            val weekLbl = EthiopianMarketplaceUtils.computeElapsedHours(o.createdAt, nowMs)?.let { h ->
+                if (h < 168.0) "This week" else "Earlier this month"
+            } ?: "Recent"
+            entries += LedgerEntryDto(
+                id = "led_sale_${o.id}",
+                shopId = shop.id,
+                shopName = shop.name,
+                type = "SALE",
+                title = "Order #${o.orderReference}",
+                subtitle = "${o.customerName} • ${o.paymentMethodTitle}",
+                amount = net,
+                grossAmount = o.subtotal,
+                feeAmount = comm,
+                orderRef = o.orderReference,
+                weekLabel = weekLbl,
+                createdAt = o.createdAt,
+                status = if (o.orderStatus.equals("Delivered", true)) "CLEARED" else "PENDING"
+            )
+            entries += LedgerEntryDto(
+                id = "led_comm_${o.id}",
+                shopId = shop.id,
+                shopName = shop.name,
+                type = "COMMISSION",
+                title = "Suqi Commission (${defaultRate.toInt()}%)",
+                subtitle = "Order #${o.orderReference}",
+                amount = -comm,
+                grossAmount = o.subtotal,
+                feeAmount = comm,
+                orderRef = o.orderReference,
+                weekLabel = weekLbl,
+                createdAt = o.createdAt,
+                status = "COMPLETED"
+            )
+        }
+        completedRefunds.forEach { r ->
+            entries += LedgerEntryDto(
+                id = "led_ref_${r.id}",
+                shopId = shop.id,
+                shopName = shop.name,
+                type = "REFUND",
+                title = "Refund • #${r.orderReference}",
+                subtitle = r.reason,
+                amount = -r.refundAmount,
+                grossAmount = r.refundAmount,
+                orderRef = r.orderReference,
+                weekLabel = "This week",
+                createdAt = r.updatedAt.ifBlank { r.createdAt },
+                status = "COMPLETED"
+            )
+        }
+        payouts.forEach { p ->
+            entries += LedgerEntryDto(
+                id = "led_pay_${p.id}",
+                shopId = shop.id,
+                shopName = shop.name,
+                type = "PAYOUT",
+                title = "Payout • ${p.bankName}",
+                subtitle = p.referenceCode.ifBlank { p.accountNumber },
+                amount = -p.amount,
+                grossAmount = p.amount,
+                weekLabel = "This week",
+                createdAt = p.createdAt,
+                status = p.status
+            )
+        }
+
+        val currentMonthFmt = SimpleDateFormat("yyyy-MM", Locale.US)
+        val labelMonthFmt = SimpleDateFormat("MMMM yyyy", Locale.US)
+        val cal = Calendar.getInstance()
+        val thisMonthKey = currentMonthFmt.format(cal.time)
+        val thisMonthLabel = labelMonthFmt.format(cal.time)
+        cal.add(Calendar.MONTH, -1)
+        val lastMonthKey = currentMonthFmt.format(cal.time)
+        val lastMonthLabel = labelMonthFmt.format(cal.time)
+
+        val statements = listOf(
+            MonthlyStatementDto(
+                monthKey = thisMonthKey,
+                monthLabel = thisMonthLabel,
+                grossSales = verifiedOrders.sumOf { it.subtotal },
+                commissions = verifiedOrders.sumOf { it.subtotal * (defaultRate / 100.0) },
+                refunds = refundTotal,
+                payouts = payouts.filter { it.status == "PAID" }.sumOf { it.amount },
+                netAmount = (verifiedOrders.sumOf { it.subtotal * (1.0 - defaultRate / 100.0) } - refundTotal),
+                ordersCount = verifiedOrders.size
+            ),
+            MonthlyStatementDto(
+                monthKey = lastMonthKey,
+                monthLabel = lastMonthLabel,
+                grossSales = 0.0,
+                commissions = 0.0,
+                refunds = 0.0,
+                payouts = 0.0,
+                netAmount = 0.0,
+                ordersCount = 0
+            )
+        )
+
+        return SellerEarningsSummaryDto(
+            shopId = shop.id,
+            availableBalance = availableBalance,
+            pendingBalance = pendingBalance,
+            minPayoutAmount = minPayout,
+            defaultCommissionRate = defaultRate,
+            payoutAccount = PayoutAccountDto(
+                providerType = shop.payoutProviderType.ifBlank { "TELEBIRR" },
+                bankName = shop.payoutBankName.ifBlank { "Telebirr" },
+                accountName = shop.payoutAccountName.ifBlank { shop.name },
+                accountNumber = shop.payoutAccountNumber
+            ),
+            ledger = entries,
+            statements = statements,
+            payoutRequests = payouts.map { it.toDto() }
+        )
+    }
+
+    override suspend fun getSellerEarningsSummary(): ApiResponse<SellerEarningsSummaryDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        val shop = db.shopDao().getShopById(shopId)
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        val orders = db.orderDao().getShopOrders(shopId)
+        val returns = db.returnRequestDao().getByShop(shopId)
+        val payouts = db.payoutRequestDao().getByShop(shopId)
+        val rules = db.commissionConfigDao().getAll()
+        ApiResponse(success = true, data = buildSellerFinanceData(shop, orders, returns, payouts, rules))
+    }
+
+    override suspend fun saveShopPayoutAccount(account: PayoutAccountDto): ApiResponse<PayoutAccountDto> = withContext(Dispatchers.IO) {
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        val shop = db.shopDao().getShopById(shopId)
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        if (account.accountNumber.isBlank() || account.accountName.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Account name and number are required")
+        }
+        db.shopDao().updateShop(
+            shop.copy(
+                payoutProviderType = account.providerType,
+                payoutBankName = account.bankName,
+                payoutAccountName = account.accountName.trim(),
+                payoutAccountNumber = account.accountNumber.trim()
+            )
+        )
+        ApiResponse(success = true, data = account)
+    }
+
+    override suspend fun requestSellerPayout(payload: Map<String, Any>): ApiResponse<PayoutRequestDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        val shop = db.shopDao().getShopById(shopId)
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        if (shop.payoutAccountNumber.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Save a payout account first.")
+        }
+        val amount = (payload["amount"] as? Number)?.toDouble() ?: 0.0
+        val rules = db.commissionConfigDao().getAll()
+        val minPayout = rules.firstOrNull { it.categoryId == "DEFAULT" }?.minPayoutAmount ?: 500.0
+        if (amount < minPayout) {
+            return@withContext ApiResponse(success = false, message = "Minimum payout is ETB ${minPayout.toInt()}.")
+        }
+        val summary = buildSellerFinanceData(
+            shop,
+            db.orderDao().getShopOrders(shopId),
+            db.returnRequestDao().getByShop(shopId),
+            db.payoutRequestDao().getByShop(shopId),
+            rules
+        )
+        if (amount > summary.availableBalance + 0.01) {
+            return@withContext ApiResponse(success = false, message = "Insufficient available balance.")
+        }
+        val entity = PayoutRequestEntity(
+            id = "payout_${System.currentTimeMillis()}",
+            shopId = shop.id,
+            shopName = shop.name,
+            amount = amount,
+            providerType = shop.payoutProviderType.ifBlank { "TELEBIRR" },
+            bankName = shop.payoutBankName.ifBlank { "Telebirr" },
+            accountName = shop.payoutAccountName.ifBlank { shop.name },
+            accountNumber = shop.payoutAccountNumber,
+            status = "PENDING",
+            createdAt = getCurrentTime()
+        )
+        db.payoutRequestDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun getAdminFinanceOverview(): ApiResponse<AdminFinanceOverviewDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val rules = db.commissionConfigDao().getAll().map { it.toDto() }
+        val defaultRate = rules.firstOrNull { it.categoryId == "DEFAULT" }?.ratePercent ?: 5.0
+        val allOrders = db.orderDao().getAllOrders().filter { it.paymentStatus == "VERIFIED" && !it.orderStatus.equals("Cancelled", true) }
+        val commissionRevenue = allOrders.sumOf { it.subtotal * (defaultRate / 100.0) }
+        val approvedUpgrades = db.subscriptionUpgradeDao().getAll().filter { it.status == "APPROVED" }
+        val subscriptionRevenue = approvedUpgrades.sumOf { it.amount }
+        val payouts = db.payoutRequestDao().getAll()
+        val pendingPayouts = payouts.filter { it.status in listOf("PENDING", "APPROVED") }
+
+        val ledger = mutableListOf<LedgerEntryDto>()
+        allOrders.forEach { o ->
+            val comm = o.subtotal * (defaultRate / 100.0)
+            ledger += LedgerEntryDto(
+                id = "adm_comm_${o.id}",
+                shopId = o.shopId,
+                shopName = o.shopName,
+                type = "COMMISSION",
+                title = "Commission • ${o.shopName}",
+                subtitle = "#${o.orderReference} (${defaultRate.toInt()}%)",
+                amount = comm,
+                grossAmount = o.subtotal,
+                feeAmount = comm,
+                orderRef = o.orderReference,
+                createdAt = o.createdAt,
+                status = "COMPLETED"
+            )
+        }
+        approvedUpgrades.forEach { u ->
+            ledger += LedgerEntryDto(
+                id = "adm_sub_${u.id}",
+                shopId = u.shopId,
+                shopName = u.shopName,
+                type = "SUBSCRIPTION",
+                title = "${u.planName} • ${u.shopName}",
+                subtitle = u.billingCycle,
+                amount = u.amount,
+                grossAmount = u.amount,
+                createdAt = u.reviewedAt.ifBlank { u.createdAt },
+                status = "COMPLETED"
+            )
+        }
+        payouts.forEach { p ->
+            ledger += LedgerEntryDto(
+                id = "adm_pay_${p.id}",
+                shopId = p.shopId,
+                shopName = p.shopName,
+                type = "PAYOUT",
+                title = "Payout to ${p.shopName}",
+                subtitle = p.referenceCode.ifBlank { p.bankName },
+                amount = -p.amount,
+                grossAmount = p.amount,
+                createdAt = p.processedAt.ifBlank { p.createdAt },
+                status = p.status
+            )
+        }
+
+        ApiResponse(
+            success = true,
+            data = AdminFinanceOverviewDto(
+                platformRevenue = commissionRevenue + subscriptionRevenue,
+                commissionRevenue = commissionRevenue,
+                subscriptionRevenue = subscriptionRevenue,
+                pendingPayoutsTotal = pendingPayouts.sumOf { it.amount },
+                pendingPayoutsCount = pendingPayouts.size,
+                rules = rules,
+                payoutRequests = payouts.map { it.toDto() },
+                ledger = ledger
+            )
+        )
+    }
+
+    override suspend fun saveCommissionConfig(rule: CommissionRuleDto): ApiResponse<CommissionRuleDto> = withContext(Dispatchers.IO) {
+        val entity = CommissionConfigEntity(
+            id = rule.id.ifBlank { "comm_${rule.categoryId.ifBlank { System.currentTimeMillis() }}" },
+            categoryId = rule.categoryId.ifBlank { "DEFAULT" },
+            categoryName = rule.categoryName.ifBlank { "All Categories" },
+            ratePercent = rule.ratePercent.coerceIn(0.0, 50.0),
+            minPayoutAmount = rule.minPayoutAmount.coerceAtLeast(100.0)
+        )
+        db.commissionConfigDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun decidePayoutRequest(id: String, payload: Map<String, String>): ApiResponse<PayoutRequestDto> = withContext(Dispatchers.IO) {
+        val existing = db.payoutRequestDao().getById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Payout request not found")
+        val decision = (payload["decision"] ?: "").uppercase()
+        val refCode = payload["referenceCode"]?.trim().orEmpty()
+        val note = payload["note"]?.trim().orEmpty()
+        if (decision == "MARK_PAID" && refCode.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Payout reference is required.")
+        }
+        val nextStatus = when (decision) {
+            "APPROVE" -> "APPROVED"
+            "MARK_PAID" -> "PAID"
+            "REJECT" -> "REJECTED"
+            else -> existing.status
+        }
+        val updated = existing.copy(
+            status = nextStatus,
+            referenceCode = refCode.ifBlank { existing.referenceCode },
+            note = note.ifBlank { existing.note },
+            processedAt = getCurrentTime()
+        )
+        db.payoutRequestDao().update(updated)
+        db.shopDao().getShopById(existing.shopId)?.let { shop ->
+            db.notificationDao().insert(
+                NotificationEntity(
+                    id = "notif_pay_${System.currentTimeMillis()}",
+                    userId = shop.ownerUserId,
+                    type = "PAYMENT",
+                    title = "Payout ETB ${existing.amount.toInt()} $nextStatus",
+                    body = if (refCode.isNotBlank()) "Reference: $refCode" else note.ifBlank { "Updated by Suqi Finance." },
+                    timestamp = "Just now",
+                    isRead = false
+                )
+            )
+        }
+        ApiResponse(success = true, data = updated.toDto())
+    }
+
+    // ==================== PHASE 5: SUBSCRIPTIONS & PILOT ====================
+
+    override suspend fun updatePilotConfig(payload: Map<String, Any>): ApiResponse<AdminSettingsDto> = withContext(Dispatchers.IO) {
+        val current = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
+        val isPilot = payload["isPilotMode"] as? Boolean ?: current.isPilotMode
+        val endDate = payload["pilotEndDate"] as? String ?: current.pilotEndDate
+        db.adminSettingsDao().insert(current.copy(isPilotMode = isPilot, pilotEndDate = endDate))
+        getAdminSettings()
+    }
+
+    override suspend fun getSubscriptionUpgrades(): ApiResponse<List<SubscriptionUpgradeDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val current = resolveCurrentUser()
+        val list = if (current?.role == "ADMIN") {
+            db.subscriptionUpgradeDao().getAll()
+        } else {
+            val shopId = resolveActiveSellerShopId()
+            if (shopId.isNullOrBlank()) emptyList() else db.subscriptionUpgradeDao().getByShop(shopId)
+        }
+        ApiResponse(success = true, data = list.map { it.toDto() })
+    }
+
+    override suspend fun submitSubscriptionUpgrade(payload: Map<String, Any>): ApiResponse<SubscriptionUpgradeDto> = withContext(Dispatchers.IO) {
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        val shop = db.shopDao().getShopById(shopId)
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        val planId = (payload["planId"] as? String)?.trim().orEmpty()
+        val plan = db.subscriptionPlanDao().getAllPlans().firstOrNull { it.id == planId }
+            ?: return@withContext ApiResponse(success = false, message = "Subscription plan not found")
+        val cycle = ((payload["billingCycle"] as? String) ?: "MONTHLY").uppercase()
+        val amount = if (cycle == "YEARLY") plan.yearlyPrice else plan.monthlyPrice
+        val ref = (payload["transactionReference"] as? String)?.trim().orEmpty()
+        if (ref.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Transaction reference is required")
+        }
+        val entity = SubscriptionUpgradeEntity(
+            id = "upg_${System.currentTimeMillis()}",
+            shopId = shop.id,
+            shopName = shop.name,
+            planId = plan.id,
+            planName = plan.name,
+            billingCycle = cycle,
+            amount = amount,
+            paymentMethodTitle = (payload["paymentMethodTitle"] as? String)?.ifBlank { "Telebirr" } ?: "Telebirr",
+            transactionReference = ref,
+            receiptImageUri = (payload["receiptImageUri"] as? String).orEmpty(),
+            status = "PENDING",
+            createdAt = getCurrentTime()
+        )
+        db.subscriptionUpgradeDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto(), message = "Upgrade request submitted for verification.")
+    }
+
+    override suspend fun decideSubscriptionUpgrade(id: String, payload: Map<String, String>): ApiResponse<SubscriptionUpgradeDto> = withContext(Dispatchers.IO) {
+        val existing = db.subscriptionUpgradeDao().getById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Upgrade request not found")
+        val decision = (payload["decision"] ?: "APPROVE").uppercase()
+        val nextStatus = if (decision == "APPROVE") "APPROVED" else "REJECTED"
+        val updated = existing.copy(
+            status = nextStatus,
+            adminNote = payload["note"]?.trim().orEmpty(),
+            reviewedAt = getCurrentTime()
+        )
+        db.subscriptionUpgradeDao().update(updated)
+        db.shopDao().getShopById(existing.shopId)?.let { shop ->
+            db.notificationDao().insert(
+                NotificationEntity(
+                    id = "notif_upg_${System.currentTimeMillis()}",
+                    userId = shop.ownerUserId,
+                    type = "SYSTEM",
+                    title = "${existing.planName} Upgrade $nextStatus",
+                    body = if (nextStatus == "APPROVED") "Your ${existing.planName} subscription is now active." else updated.adminNote.ifBlank { "Upgrade request rejected." },
+                    timestamp = "Just now",
+                    isRead = false
+                )
+            )
+        }
+        ApiResponse(success = true, data = updated.toDto())
+    }
+
+    override suspend fun cancelShopSubscription(): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, data = false)
+        val upgrades = db.subscriptionUpgradeDao().getByShop(shopId).filter { it.status == "APPROVED" }
+        upgrades.forEach {
+            db.subscriptionUpgradeDao().update(it.copy(status = "CANCELLED", reviewedAt = getCurrentTime()))
+        }
+        ApiResponse(success = true, data = true)
+    }
+
+    // ==================== PHASE 5: PROMOTIONS 2.0 & FLASH SALES ====================
+
+    override suspend fun validatePromoCode(payload: Map<String, Any>): ApiResponse<PromoCodeDto> = withContext(Dispatchers.IO) {
+        val shopId = (payload["shopId"] as? String)?.trim().orEmpty()
+        val code = (payload["code"] as? String)?.trim()?.uppercase().orEmpty()
+        val subtotal = (payload["subtotal"] as? Number)?.toDouble() ?: 0.0
+        @Suppress("UNCHECKED_CAST")
+        val productIds = (payload["productIds"] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
+
+        val promo = db.promoCodeDao().getPromoByCode(shopId, code)
+            ?: return@withContext ApiResponse(success = false, message = "Promo code expired or inactive.")
+        if (!promo.isActive) {
+            return@withContext ApiResponse(success = false, message = "Promo code expired or inactive.")
+        }
+        if (promo.maxUsesTotal > 0 && promo.usesCount >= promo.maxUsesTotal) {
+            return@withContext ApiResponse(success = false, message = "Promo usage limit reached.")
+        }
+        if (subtotal < promo.minOrderAmount) {
+            return@withContext ApiResponse(success = false, message = "Min spend ETB ${promo.minOrderAmount.toInt()} required")
+        }
+        val targets = promo.scopeTargetIdsCsv.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        if (promo.scopeType == "PRODUCTS" && targets.isNotEmpty() && productIds.isNotEmpty() && productIds.none { it in targets }) {
+            return@withContext ApiResponse(success = false, message = "Promo does not apply to items in cart.")
+        }
+        if (promo.scopeType == "CATEGORY" && targets.isNotEmpty() && productIds.isNotEmpty()) {
+            val cartCats = productIds.mapNotNull { db.productDao().getProductById(it)?.categoryId }.toSet()
+            if (cartCats.none { it in targets }) {
+                return@withContext ApiResponse(success = false, message = "Promo does not apply to items in cart.")
+            }
+        }
+        ApiResponse(success = true, data = promo.toDto())
+    }
+
+    override suspend fun getFlashSales(activeOnly: Boolean): ApiResponse<List<FlashSaleDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val list = (if (activeOnly) db.flashSaleDao().getActive() else db.flashSaleDao().getAll())
+            .map { it.toDto() }
+        ApiResponse(success = true, data = list)
+    }
+
+    override suspend fun saveFlashSale(flashSale: FlashSaleDto): ApiResponse<FlashSaleDto> = withContext(Dispatchers.IO) {
+        val shopId = flashSale.shopId.ifBlank { resolveActiveSellerShopId() }
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        val shop = db.shopDao().getShopById(shopId)
+        val prod = db.productDao().getProductById(flashSale.productId)
+            ?: return@withContext ApiResponse(success = false, message = "Product not found")
+        if (flashSale.salePrice <= 0.0 || flashSale.salePrice >= prod.price) {
+            return@withContext ApiResponse(success = false, message = "Sale price must be lower than original price.")
+        }
+        val discountPct = kotlin.math.round(((prod.price - flashSale.salePrice) / prod.price) * 100.0).toInt().coerceIn(1, 95)
+        val entity = FlashSaleEntity(
+            id = flashSale.id.ifBlank { "fs_${System.currentTimeMillis()}" },
+            shopId = shopId,
+            shopName = shop?.name ?: prod.shopName,
+            productId = prod.id,
+            productName = prod.name,
+            productImageUrl = prod.primaryImageUrl,
+            categoryId = prod.categoryId,
+            originalPrice = prod.price,
+            salePrice = flashSale.salePrice,
+            discountPercent = discountPct,
+            stockCap = flashSale.stockCap.coerceIn(1, maxOf(prod.stockQuantity, flashSale.stockCap)),
+            claimedCount = flashSale.claimedCount,
+            startAt = flashSale.startAt.ifBlank { System.currentTimeMillis().toString() },
+            endAt = flashSale.endAt.ifBlank { (System.currentTimeMillis() + 6L * 3600_000L).toString() },
+            isActive = flashSale.isActive
+        )
+        db.flashSaleDao().insert(entity)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deleteFlashSale(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.flashSaleDao().deleteById(id)
+        ApiResponse(success = true, data = true)
+    }
+
+    // ==================== PHASE 5: SELLER ANALYTICS ====================
+
+    override suspend fun getSellerAnalytics(rangeDays: Int): ApiResponse<SellerAnalyticsDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val shopId = resolveActiveSellerShopId()
+            ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        val settings = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
+        val upgrades = db.subscriptionUpgradeDao().getByShop(shopId)
+        val approvedUpgrade = upgrades.firstOrNull { it.status == "APPROVED" }
+        val plans = db.subscriptionPlanDao().getAllPlans()
+        val activePlan = approvedUpgrade?.let { u -> plans.firstOrNull { it.id == u.planId } }
+        val allowedMaxDays = when {
+            activePlan != null -> activePlan.analyticsDays
+            !settings.isSubscriptionModeEnabled || settings.isPilotMode -> 90
+            else -> plans.firstOrNull { it.monthlyPrice == 0.0 }?.analyticsDays ?: 7
+        }
+        val isProLocked = rangeDays > allowedMaxDays
+
+        val nowMs = System.currentTimeMillis()
+        val dayMs = 86_400_000L
+        val effectiveDays = minOf(rangeDays, allowedMaxDays).coerceAtLeast(1)
+        val windowStart = nowMs - effectiveDays.toLong() * dayMs
+
+        val allOrders = db.orderDao().getShopOrders(shopId)
+        val ordersInWindow = allOrders.filter { o ->
+            val ts = EthiopianMarketplaceUtils.resolveTimestampMillis(o.createdAt, nowMs) ?: nowMs
+            ts in windowStart..nowMs
+        }
+        val validOrders = ordersInWindow.filter { !it.orderStatus.equals("Cancelled", true) }
+        val verifiedRevenue = validOrders.filter { it.paymentStatus == "VERIFIED" }.sumOf { it.totalAmount }
+
+        val bucketCount = if (effectiveDays <= 7) 7 else 4
+        val bucketSpan = (effectiveDays.toLong() * dayMs / bucketCount).coerceAtLeast(1L)
+        val dayFmt = SimpleDateFormat("EEE", Locale.US)
+        val revLabels = (0 until bucketCount).map { idx ->
+            if (effectiveDays <= 7) dayFmt.format(Date(windowStart + idx * bucketSpan + bucketSpan / 2L)) else "W${idx + 1}"
+        }
+        val revBuckets = DoubleArray(bucketCount)
+        validOrders.forEach { o ->
+            val ts = EthiopianMarketplaceUtils.resolveTimestampMillis(o.createdAt, nowMs) ?: nowMs
+            val idx = (((ts - windowStart) / bucketSpan).toInt()).coerceIn(0, bucketCount - 1)
+            revBuckets[idx] += o.totalAmount
+        }
+
+        val statusGroups = listOf("Pending", "Confirmed", "Dispatched", "Delivered")
+        val statusCounts = statusGroups.map { g ->
+            ordersInWindow.count { o ->
+                when (g) {
+                    "Pending" -> o.paymentStatus == "PENDING_VERIFICATION" || o.orderStatus.contains("Awaiting", true)
+                    "Confirmed" -> o.orderStatus.equals("Confirmed", true) || o.orderStatus.equals("Processing", true)
+                    "Dispatched" -> o.orderStatus.equals("Dispatched", true) || o.orderStatus.contains("Delivery", true)
+                    else -> o.orderStatus.equals("Delivered", true)
+                }
+            }.toDouble()
+        }
+
+        val products = db.productDao().getProductsByShop(shopId)
+        val productRev = mutableMapOf<String, Double>()
+        val productUnits = mutableMapOf<String, Int>()
+        validOrders.forEach { o ->
+            try {
+                val arr = JSONArray(o.itemsJson)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val pId = obj.optString("productId")
+                    val qty = obj.optInt("quantity", 1)
+                    val rev = obj.optDouble("totalPrice", obj.optDouble("unitPrice", 0.0) * qty)
+                    productRev[pId] = (productRev[pId] ?: 0.0) + rev
+                    productUnits[pId] = (productUnits[pId] ?: 0) + qty
+                }
+            } catch (_: Exception) {}
+        }
+        val topProducts = products.map { p ->
+            val rev = productRev[p.id] ?: 0.0
+            val units = productUnits[p.id] ?: 0
+            SellerProductMetricDto(
+                productId = p.id,
+                productName = p.name,
+                imageUrl = p.primaryImageUrl,
+                revenue = rev,
+                unitsSold = units,
+                sparkline = listOf(0.2f, 0.4f, 0.35f, 0.7f, if (rev > 0) 1f else 0.3f)
+            )
+        }.sortedWith(compareByDescending<SellerProductMetricDto> { it.revenue }.thenByDescending { it.unitsSold }).take(5)
+
+        val areas = validOrders.groupBy { ord ->
+            ord.deliveryAddress.split(",").map { it.trim() }.firstOrNull { part ->
+                part.equals("Bole", true) || part.equals("Kirkos", true) || part.equals("Yeka", true) ||
+                    part.equals("Arada", true) || part.equals("Lideta", true) || part.equals("Nifas Silk", true)
+            } ?: ord.deliveryAddress.substringAfterLast(",").trim().ifBlank { "Addis Ababa" }
+        }.map { (area, list) ->
+            SellerAreaMetricDto(
+                subCity = area,
+                customersCount = list.map { it.customerUserId }.distinct().size,
+                ordersCount = list.size,
+                revenue = list.sumOf { it.totalAmount }
+            )
+        }.sortedByDescending { it.revenue }.take(5)
+
+        val paymentSplit = validOrders.groupBy { it.paymentMethodTitle.ifBlank { it.paymentMethodType } }
+            .map { (title, list) -> OwnerChartSlice(title, title, list.sumOf { it.totalAmount }) }
+
+        val cartAdds = db.cartDao().getAllUsersPlaceholderCount(shopId, products.size, validOrders.size)
+        val completedCount = validOrders.count { it.paymentStatus == "VERIFIED" }
+
+        ApiResponse(
+            success = true,
+            data = SellerAnalyticsDto(
+                rangeDays = rangeDays,
+                allowedMaxDays = allowedMaxDays,
+                isProLocked = isProLocked,
+                totalRevenue = verifiedRevenue,
+                totalOrders = ordersInWindow.size,
+                productViews = maxOf(products.size * 38 + validOrders.size * 24, 0),
+                cartAdds = cartAdds,
+                completedOrders = completedCount,
+                revenueLabels = revLabels,
+                revenueValues = revBuckets.toList(),
+                statusLabels = statusGroups,
+                statusCounts = statusCounts,
+                topProducts = topProducts,
+                customerAreas = areas,
+                paymentSplit = paymentSplit
+            )
+        )
+    }
+
+    private fun CartDao.getAllUsersPlaceholderCount(shopId: String, productsCount: Int, ordersCount: Int): Int {
+        return maxOf(ordersCount * 3 + productsCount * 2, ordersCount)
+    }
+
+    // ==================== PHASE 5: REVIEWS 2.0 & MODERATION 2.0 ====================
+
+    override suspend fun toggleReviewHelpful(reviewId: String): ApiResponse<ReviewDto> = withContext(Dispatchers.IO) {
+        val currentUserId = resolveCurrentUser()?.id ?: "user_guest"
+        val review = db.reviewDao().getById(reviewId)
+            ?: return@withContext ApiResponse(success = false, message = "Review not found")
+        val voters = review.helpfulUserIdsCsv.split(",").map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
+        val nextCount = if (voters.contains(currentUserId)) {
+            voters.remove(currentUserId)
+            maxOf(0, review.helpfulCount - 1)
+        } else {
+            voters.add(currentUserId)
+            review.helpfulCount + 1
+        }
+        val updated = review.copy(helpfulCount = nextCount, helpfulUserIdsCsv = voters.joinToString(","))
+        db.reviewDao().update(updated)
+        ApiResponse(success = true, data = updated.toDto(currentUserId))
+    }
+
+    override suspend fun replyToReview(reviewId: String, payload: Map<String, String>): ApiResponse<ReviewDto> = withContext(Dispatchers.IO) {
+        val currentUserId = resolveCurrentUser()?.id ?: ""
+        val reply = payload["reply"]?.trim().orEmpty()
+        if (reply.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Reply cannot be empty.")
+        }
+        val review = db.reviewDao().getById(reviewId)
+            ?: return@withContext ApiResponse(success = false, message = "Review not found")
+        val updated = review.copy(sellerReply = reply, sellerReplyAt = "Just now")
+        db.reviewDao().update(updated)
+        ApiResponse(success = true, data = updated.toDto(currentUserId))
+    }
+
+    override suspend fun bulkModerateReviews(payload: Map<String, Any>): ApiResponse<Int> = withContext(Dispatchers.IO) {
+        @Suppress("UNCHECKED_CAST")
+        val ids = (payload["ids"] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
+        val action = (payload["action"] as? String)?.uppercase().orEmpty()
+        val note = (payload["note"] as? String)?.trim().orEmpty()
+        val status = when (action) {
+            "HIDE", "DELETE" -> "HIDDEN"
+            "RESTORE" -> "RESTORED"
+            else -> "DISMISSED"
+        }
+        ids.forEach { id ->
+            db.flaggedReviewDao().updateStatusWithNote(id, status, note)
+        }
+        ApiResponse(success = true, data = ids.size)
+    }
+
+    // ==================== PHASE 5: SUPPORT INBOX & BROADCASTS ====================
+
+    override suspend fun getTicketMessages(ticketId: String): ApiResponse<List<SupportTicketMessageDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val currentUser = resolveCurrentUser()
+        val isAdmin = currentUser?.role == "ADMIN"
+        val messages = db.supportTicketMessageDao().getByTicket(ticketId)
+            .filter { isAdmin || !it.isInternalNote }
+            .map { it.toDto() }
+        ApiResponse(success = true, data = messages)
+    }
+
+    override suspend fun sendTicketMessage(ticketId: String, payload: Map<String, Any>): ApiResponse<SupportTicketMessageDto> = withContext(Dispatchers.IO) {
+        val currentUser = resolveCurrentUser()
+        val text = (payload["message"] as? String)?.trim().orEmpty()
+        if (text.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Message cannot be empty.")
+        }
+        val isInternalNote = payload["isInternalNote"] as? Boolean ?: false
+        val senderRole = (payload["senderRole"] as? String)?.takeIf { it.isNotBlank() }
+            ?: when {
+                currentUser?.role == "ADMIN" -> "ADMIN"
+                currentUser?.activeRole == "SELLER" -> "SELLER"
+                else -> "BUYER"
+            }
+        val now = getCurrentTime()
+        val entity = SupportTicketMessageEntity(
+            id = "tmsg_${System.currentTimeMillis()}",
+            ticketId = ticketId,
+            senderRole = senderRole,
+            senderName = currentUser?.name ?: if (senderRole == "ADMIN") "Suqi Support" else "Customer",
+            message = text,
+            isInternalNote = isInternalNote && senderRole == "ADMIN",
+            createdAt = now
+        )
+        db.supportTicketMessageDao().insert(entity)
+        db.supportTicketDao().getById(ticketId)?.let { ticket ->
+            val nextStatus = if (senderRole == "ADMIN" && !isInternalNote && ticket.status == "OPEN") "PENDING" else ticket.status
+            db.supportTicketDao().update(ticket.copy(status = nextStatus, updatedAt = now))
+        }
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun updateSupportTicket(ticketId: String, payload: Map<String, String>): ApiResponse<SupportTicketDto> = withContext(Dispatchers.IO) {
+        val ticket = db.supportTicketDao().getById(ticketId)
+            ?: return@withContext ApiResponse(success = false, message = "Support ticket not found")
+        val updated = ticket.copy(
+            status = payload["status"]?.takeIf { it.isNotBlank() } ?: ticket.status,
+            priority = payload["priority"]?.takeIf { it.isNotBlank() } ?: ticket.priority,
+            assignedTo = payload["assignedTo"] ?: ticket.assignedTo,
+            resolutionSummary = payload["resolutionSummary"] ?: ticket.resolutionSummary,
+            updatedAt = getCurrentTime()
+        )
+        db.supportTicketDao().update(updated)
+        if (updated.status == "RESOLVED") {
+            db.notificationDao().insert(
+                NotificationEntity(
+                    id = "notif_tkt_${System.currentTimeMillis()}",
+                    userId = ticket.userId,
+                    type = "SYSTEM",
+                    title = "Support Ticket Resolved",
+                    body = "${ticket.subject}: ${updated.resolutionSummary.ifBlank { "Marked as resolved by Suqi Support." }}",
+                    timestamp = "Just now",
+                    isRead = false
+                )
+            )
+        }
+        ApiResponse(success = true, data = updated.toDto())
+    }
+
+    override suspend fun getAdminBroadcasts(): ApiResponse<List<AdminBroadcastDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        ApiResponse(success = true, data = db.adminBroadcastDao().getAll().map { it.toDto() })
     }
 }
 
@@ -2389,20 +3415,60 @@ fun ShopDeliveryOptionEntity.toDto() = ShopDeliveryOptionDto(
 fun PromoCodeEntity.toDto() = PromoCodeDto(
     id = id, shopId = shopId, code = code, discountType = discountType,
     discountValue = discountValue, minOrderAmount = minOrderAmount,
-    validUntil = validUntil, isActive = isActive
+    validUntil = validUntil, isActive = isActive,
+    scopeType = scopeType,
+    scopeTargetIds = if (scopeTargetIdsCsv.isBlank()) emptyList() else scopeTargetIdsCsv.split(",").map { it.trim() }.filter { it.isNotBlank() },
+    maxUsesTotal = maxUsesTotal,
+    usesCount = usesCount,
+    perCustomerLimit = perCustomerLimit,
+    startDate = startDate,
+    ordersCount = ordersCount,
+    revenueGenerated = revenueGenerated
 )
 
 fun PromoCodeDto.toEntity() = PromoCodeEntity(
-    id = id, shopId = shopId, code = code, discountType = discountType,
+    id = id, shopId = shopId, code = code.trim().uppercase(), discountType = discountType,
     discountValue = discountValue, minOrderAmount = minOrderAmount,
-    validUntil = validUntil, isActive = isActive
+    validUntil = validUntil, isActive = isActive,
+    scopeType = scopeType,
+    scopeTargetIdsCsv = scopeTargetIds.filter { it.isNotBlank() }.joinToString(","),
+    maxUsesTotal = maxUsesTotal,
+    usesCount = usesCount,
+    perCustomerLimit = perCustomerLimit,
+    startDate = startDate,
+    ordersCount = ordersCount,
+    revenueGenerated = revenueGenerated
 )
 
-fun ReviewEntity.toDto() = ReviewDto(
-    id = id, userId = userId, userName = userName, userAvatar = userAvatar,
-    targetType = targetType, targetId = targetId, rating = rating,
-    comment = comment, isVerifiedPurchase = isVerifiedPurchase, date = date
-)
+fun ReviewEntity.toDto(currentUserId: String = ""): ReviewDto {
+    val photos = mutableListOf<String>()
+    try {
+        val arr = JSONArray(photosJson)
+        for (i in 0 until arr.length()) {
+            arr.optString(i).takeIf { it.isNotBlank() }?.let { photos.add(it) }
+        }
+    } catch (_: Exception) {}
+    val voters = helpfulUserIdsCsv.split(",").map { it.trim() }.filter { it.isNotBlank() }
+    return ReviewDto(
+        id = id,
+        userId = userId,
+        userName = if (isAnonymous) "Verified Shopper" else userName,
+        userAvatar = if (isAnonymous) "" else userAvatar,
+        targetType = targetType,
+        targetId = targetId,
+        rating = rating,
+        comment = comment,
+        isVerifiedPurchase = isVerifiedPurchase,
+        date = date,
+        tags = if (tagsCsv.isBlank()) emptyList() else tagsCsv.split(",").map { it.trim() }.filter { it.isNotBlank() },
+        photos = photos,
+        isAnonymous = isAnonymous,
+        helpfulCount = helpfulCount,
+        isHelpfulByCurrentUser = currentUserId.isNotBlank() && currentUserId in voters,
+        sellerReply = sellerReply,
+        sellerReplyAt = sellerReplyAt
+    )
+}
 
 fun ChatMessageEntity.toDto() = ChatMessageDto(
     id = id, conversationId = conversationId, shopId = shopId,
@@ -2448,7 +3514,8 @@ fun ItemTypeEntity.toDto() = ItemTypeDto(
 
 fun FlaggedReviewEntity.toDto() = FlaggedReviewDto(
     id = id, authorName = authorName, reason = reason, reviewText = reviewText,
-    status = status, createdAt = createdAt
+    status = status, createdAt = createdAt,
+    reviewId = reviewId, productName = productName, rating = rating, moderatorNote = moderatorNote
 )
 
 fun ProductQuestionEntity.toDto() = ProductQuestionDto(
@@ -2458,10 +3525,81 @@ fun ProductQuestionEntity.toDto() = ProductQuestionDto(
 
 fun SubscriptionPlanEntity.toDto() = SubscriptionPlanDto(
     id = id, name = name, monthlyPrice = monthlyPrice, yearlyPrice = yearlyPrice,
-    maxProducts = maxProducts, featuresCsv = featuresCsv, isPopular = isPopular, isActive = isActive
+    maxProducts = maxProducts, featuresCsv = featuresCsv, isPopular = isPopular, isActive = isActive,
+    maxPromoCodes = maxPromoCodes, analyticsDays = analyticsDays
 )
 
 fun SupportTicketEntity.toDto() = SupportTicketDto(
     id = id, userId = userId, orderId = orderId, category = category,
-    subject = subject, description = description, status = status, createdAt = createdAt
+    subject = subject, description = description, status = status, createdAt = createdAt,
+    priority = priority, requesterRole = requesterRole, assignedTo = assignedTo,
+    resolutionSummary = resolutionSummary, updatedAt = updatedAt
+)
+
+fun ReturnRequestEntity.toDto(): ReturnRequestDto {
+    val parsedItems = mutableListOf<ReturnItemDto>()
+    try {
+        val arr = JSONArray(itemsJson)
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            parsedItems += ReturnItemDto(
+                productId = o.optString("productId"),
+                productName = o.optString("productName"),
+                productImageUrl = o.optString("productImageUrl"),
+                quantity = o.optInt("quantity", 1),
+                unitPrice = o.optDouble("unitPrice", 0.0)
+            )
+        }
+    } catch (_: Exception) {}
+    val parsedPhotos = mutableListOf<String>()
+    try {
+        val arr = JSONArray(photosJson)
+        for (i in 0 until arr.length()) {
+            arr.optString(i).takeIf { it.isNotBlank() }?.let { parsedPhotos += it }
+        }
+    } catch (_: Exception) {}
+    return ReturnRequestDto(
+        id = id, orderId = orderId, orderReference = orderReference, shopId = shopId, shopName = shopName,
+        customerUserId = customerUserId, customerName = customerName, items = parsedItems,
+        refundAmount = refundAmount, reason = reason, comment = comment, photos = parsedPhotos,
+        resolution = resolution, status = status, sellerNote = sellerNote, refundMethod = refundMethod,
+        createdAt = createdAt, updatedAt = updatedAt
+    )
+}
+
+fun PayoutRequestEntity.toDto() = PayoutRequestDto(
+    id = id, shopId = shopId, shopName = shopName, amount = amount, providerType = providerType,
+    bankName = bankName, accountName = accountName, accountNumber = accountNumber,
+    status = status, referenceCode = referenceCode, note = note, createdAt = createdAt, processedAt = processedAt
+)
+
+fun CommissionConfigEntity.toDto() = CommissionRuleDto(
+    id = id, categoryId = categoryId, categoryName = categoryName,
+    ratePercent = ratePercent, minPayoutAmount = minPayoutAmount
+)
+
+fun SubscriptionUpgradeEntity.toDto() = SubscriptionUpgradeDto(
+    id = id, shopId = shopId, shopName = shopName, planId = planId, planName = planName,
+    billingCycle = billingCycle, amount = amount, paymentMethodTitle = paymentMethodTitle,
+    transactionReference = transactionReference, receiptImageUri = receiptImageUri,
+    status = status, adminNote = adminNote, createdAt = createdAt, reviewedAt = reviewedAt
+)
+
+fun FlashSaleEntity.toDto() = FlashSaleDto(
+    id = id, shopId = shopId, shopName = shopName, productId = productId, productName = productName,
+    productImageUrl = productImageUrl, categoryId = categoryId, originalPrice = originalPrice,
+    salePrice = salePrice, discountPercent = discountPercent, stockCap = stockCap,
+    claimedCount = claimedCount, startAt = startAt, endAt = endAt, isActive = isActive
+)
+
+fun SupportTicketMessageEntity.toDto() = SupportTicketMessageDto(
+    id = id, ticketId = ticketId, senderRole = senderRole, senderName = senderName,
+    message = message, isInternalNote = isInternalNote, createdAt = createdAt
+)
+
+fun AdminBroadcastEntity.toDto() = AdminBroadcastDto(
+    id = id, title = title, body = body, audience = audience, imageUrl = imageUrl,
+    destinationType = destinationType, targetId = targetId, scheduledAt = scheduledAt,
+    status = status, sentCount = sentCount, openedCount = openedCount,
+    isTemplate = isTemplate, createdAt = createdAt
 )

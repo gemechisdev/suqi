@@ -77,6 +77,12 @@ class BuyerPreferencesStore(context: Context) {
         prefs.edit().putBoolean(KEY_DATA_SAVER, enabled).apply()
     }
 
+    fun loadDealsDropNotify(): Boolean = prefs.getBoolean(KEY_DEALS_DROP_NOTIFY, false)
+
+    fun saveDealsDropNotify(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DEALS_DROP_NOTIFY, enabled).apply()
+    }
+
     /**
      * Wipes the stored recent searches. The search screen seeds demo terms once, so the
      * "initialized" flag is set to keep them from coming back after a clear.
@@ -105,6 +111,7 @@ class BuyerPreferencesStore(context: Context) {
         private const val KEY_QUIET_START = "quiet_hours_start"
         private const val KEY_QUIET_END = "quiet_hours_end"
         private const val KEY_DATA_SAVER = "data_saver"
+        private const val KEY_DEALS_DROP_NOTIFY = "deals_drop_notify"
         private const val KEY_REMEMBER_VIEWED = "privacy_remember_viewed"
         private const val KEY_SAVE_SEARCH = "privacy_save_search"
     }

@@ -355,7 +355,7 @@ fun HomeScreen(
                                     }
                                 }
                                 "DEALS" -> {
-                                    viewModel.navigate(ScreenDestination.CategoryListing("all", strings.dealsTitle))
+                                    viewModel.navigate(ScreenDestination.Deals)
                                 }
                                 "URL" -> {
                                     if (resolvedTarget.isNotBlank()) {
@@ -404,6 +404,41 @@ fun HomeScreen(
                                 onClick = { viewModel.navigate(ScreenDestination.Categories) }
                             )
                         }
+                    }
+                }
+
+                // Flash Deals B-12 Entry Banner
+                item(key = "home_flash_deals_entry") {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(colors.primaryTint)
+                            .clickable { viewModel.navigate(ScreenDestination.Deals) }
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                            .testTag("home_flash_deals_entry")
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Icon(LucideIcons.Flame, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = strings.phase5.flashDealsHeaderTitle,
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = colors.primaryText
+                            )
+                        }
+                        Text(
+                            text = strings.seeAllArrow,
+                            fontFamily = SuqiFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = SuqiPrimary
+                        )
                     }
                 }
 

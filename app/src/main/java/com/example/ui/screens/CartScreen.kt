@@ -155,6 +155,14 @@ fun CartScreen(
                                     refreshCart()
                                 }
                             },
+                            onValidatePromo = { code ->
+                                viewModel.repository.validatePromoCode(
+                                    shopId = shopId,
+                                    code = code,
+                                    subtotal = shopSubtotal,
+                                    productIds = itemsInShop.map { it.productId }
+                                )
+                            },
                             onCheckoutShop = { promoCodeDto ->
                                 viewModel.requireSignedInOrPrompt(strings.extras.gateCompleteCheckout) {
                                     viewModel.activeCheckoutShopId.value = shopId
@@ -256,15 +264,18 @@ fun ShopCartGroupCard(
     onProductClick: (String) -> Unit = {},
     onUpdateQty: (Long, Int) -> Unit,
     onRemoveItem: (Long) -> Unit,
+    onValidatePromo: (suspend (String) -> ApiResponse<PromoCodeDto>)? = null,
     onCheckoutShop: (PromoCodeDto?) -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
     val strings = com.example.ui.i18n.suqiStrings()
     var promoCodeInput by remember { mutableStateOf("") }
     var appliedPromo by remember { mutableStateOf<PromoCodeDto?>(null) }
     var promoError by remember { mutableStateOf<String?>(null) }
 
-    val discountAmount = if (appliedPromo != null) {
+    val isFreeDelivery = appliedPromo?.discountType.equals("FREE_DELIVERY", ignoreCase = true)
+    val discountAmount = if (appliedPromo != null && !isFreeDelivery) {
         if (appliedPromo!!.discountType.equals("PERCENTAGE", ignoreCase = true)) {
             (subtotal * (appliedPromo!!.discountValue / 100.0))
         } else {
@@ -443,37 +454,49 @@ fun ShopCartGroupCard(
                         promoError = strings.checkout.enterPromoFirstToast
                         return@Button
                     }
-                    val matched = availablePromos.firstOrNull {
-                        it.code.equals(code, ignoreCase = true) && it.isActive
-                    } ?: when {
-                        code.equals("SUMMER25", ignoreCase = true) -> PromoCodeDto(
-                            id = "promo_1",
-                            shopId = shopId,
-                            code = "SUMMER25",
-                            discountType = "PERCENTAGE",
-                            discountValue = 25.0,
-                            minOrderAmount = 1000.0,
-                            validUntil = "Dec 31, 2026",
-                            isActive = true
-                        )
-                        code.equals("TECH10", ignoreCase = true) -> PromoCodeDto(
-                            id = "promo_2",
-                            shopId = shopId,
-                            code = "TECH10",
-                            discountType = "PERCENTAGE",
-                            discountValue = 10.0,
-                            minOrderAmount = 500.0,
-                            validUntil = "Dec 31, 2026",
-                            isActive = true
-                        )
-                        else -> null
-                    }
-                    when {
-                        matched == null -> promoError = strings.checkout.invalidPromoToast
-                        subtotal < matched.minOrderAmount -> promoError = strings.checkout.minOrderPromoTemplate.format(formatEtb(matched.minOrderAmount))
-                        else -> {
-                            appliedPromo = matched
-                            promoError = null
+                    if (onValidatePromo != null) {
+                        coroutineScope.launch {
+                            val res = onValidatePromo(code)
+                            if (res.success && res.data != null) {
+                                appliedPromo = res.data
+                                promoError = null
+                            } else {
+                                promoError = res.message ?: strings.checkout.invalidPromoToast
+                            }
+                        }
+                    } else {
+                        val matched = availablePromos.firstOrNull {
+                            it.code.equals(code, ignoreCase = true) && it.isActive
+                        } ?: when {
+                            code.equals("SUMMER25", ignoreCase = true) -> PromoCodeDto(
+                                id = "promo_1",
+                                shopId = shopId,
+                                code = "SUMMER25",
+                                discountType = "PERCENTAGE",
+                                discountValue = 25.0,
+                                minOrderAmount = 1000.0,
+                                validUntil = "Dec 31, 2026",
+                                isActive = true
+                            )
+                            code.equals("TECH10", ignoreCase = true) -> PromoCodeDto(
+                                id = "promo_2",
+                                shopId = shopId,
+                                code = "TECH10",
+                                discountType = "PERCENTAGE",
+                                discountValue = 10.0,
+                                minOrderAmount = 500.0,
+                                validUntil = "Dec 31, 2026",
+                                isActive = true
+                            )
+                            else -> null
+                        }
+                        when {
+                            matched == null -> promoError = strings.checkout.invalidPromoToast
+                            subtotal < matched.minOrderAmount -> promoError = strings.checkout.minOrderPromoTemplate.format(formatEtb(matched.minOrderAmount))
+                            else -> {
+                                appliedPromo = matched
+                                promoError = null
+                            }
                         }
                     }
                 },
@@ -501,8 +524,13 @@ fun ShopCartGroupCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(LucideIcons.Check, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
+                    val promoText = if (isFreeDelivery) {
+                        "${strings.checkout.promoAppliedTemplate.format(appliedPromo!!.code)} (${strings.phase5.freeDeliveryOption})"
+                    } else {
+                        "${strings.checkout.promoAppliedTemplate.format(appliedPromo!!.code)} (-${formatEtb(discountAmount)})"
+                    }
                     Text(
-                        text = "${strings.checkout.promoAppliedTemplate.format(appliedPromo!!.code)} (-${formatEtb(discountAmount)})",
+                        text = promoText,
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,

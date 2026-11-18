@@ -263,6 +263,98 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun saveSubscriptionPlan(plan: SubscriptionPlanDto) = api.saveSubscriptionPlan(plan)
     suspend fun deleteSubscriptionPlan(id: String) = api.deleteSubscriptionPlan(id)
 
+    // Phase 5: Returns & Refunds
+    suspend fun getBuyerReturns() = api.getBuyerReturns()
+    suspend fun getSellerReturns() = api.getSellerReturns()
+    suspend fun getReturnDetails(id: String) = api.getReturnDetails(id)
+    suspend fun submitReturnRequest(payload: Map<String, Any>) = api.submitReturnRequest(payload)
+    suspend fun decideReturnRequest(id: String, action: String, note: String = "", refundMethod: String = "Telebirr") =
+        api.decideReturnRequest(id, mapOf("action" to action, "note" to note, "refundMethod" to refundMethod))
+
+    // Phase 5: Earnings, Payouts & Commissions
+    suspend fun getSellerEarningsSummary() = api.getSellerEarningsSummary()
+    suspend fun saveShopPayoutAccount(account: PayoutAccountDto) = api.saveShopPayoutAccount(account)
+    suspend fun requestSellerPayout(amount: Double) = api.requestSellerPayout(mapOf("amount" to amount))
+    suspend fun getAdminFinanceOverview() = api.getAdminFinanceOverview()
+    suspend fun saveCommissionConfig(rule: CommissionRuleDto) = api.saveCommissionConfig(rule)
+    suspend fun decidePayoutRequest(id: String, decision: String, referenceCode: String = "", note: String = "") =
+        api.decidePayoutRequest(id, mapOf("decision" to decision, "referenceCode" to referenceCode, "note" to note))
+
+    // Phase 5: Subscriptions & Pilot
+    suspend fun updatePilotConfig(isPilotMode: Boolean, pilotEndDate: String) =
+        api.updatePilotConfig(mapOf("isPilotMode" to isPilotMode, "pilotEndDate" to pilotEndDate))
+    suspend fun getSubscriptionUpgrades() = api.getSubscriptionUpgrades()
+    suspend fun submitSubscriptionUpgrade(
+        planId: String,
+        billingCycle: String,
+        paymentMethodTitle: String,
+        transactionReference: String,
+        receiptImageUri: String
+    ) = api.submitSubscriptionUpgrade(
+        mapOf(
+            "planId" to planId,
+            "billingCycle" to billingCycle,
+            "paymentMethodTitle" to paymentMethodTitle,
+            "transactionReference" to transactionReference,
+            "receiptImageUri" to receiptImageUri
+        )
+    )
+    suspend fun decideSubscriptionUpgrade(id: String, decision: String, note: String = "") =
+        api.decideSubscriptionUpgrade(id, mapOf("decision" to decision, "note" to note))
+    suspend fun cancelShopSubscription() = api.cancelShopSubscription()
+
+    // Phase 5: Promotions 2.0 & Flash Sales
+    suspend fun validatePromoCode(shopId: String, code: String, subtotal: Double, productIds: List<String> = emptyList()) =
+        api.validatePromoCode(
+            mapOf(
+                "shopId" to shopId,
+                "code" to code,
+                "subtotal" to subtotal,
+                "productIds" to productIds
+            )
+        )
+    suspend fun getFlashSales(activeOnly: Boolean = true) = api.getFlashSales(activeOnly)
+    suspend fun saveFlashSale(flashSale: FlashSaleDto) = api.saveFlashSale(flashSale)
+    suspend fun deleteFlashSale(id: String) = api.deleteFlashSale(id)
+
+    // Phase 5: Seller Analytics
+    suspend fun getSellerAnalytics(rangeDays: Int = 7) = api.getSellerAnalytics(rangeDays)
+
+    // Phase 5: Reviews 2.0 & Moderation 2.0
+    suspend fun toggleReviewHelpful(reviewId: String) = api.toggleReviewHelpful(reviewId)
+    suspend fun replyToReview(reviewId: String, reply: String) = api.replyToReview(reviewId, mapOf("reply" to reply))
+    suspend fun bulkModerateReviews(ids: List<String>, action: String, note: String = "") =
+        api.bulkModerateReviews(mapOf("ids" to ids, "action" to action, "note" to note))
+
+    // Phase 5: Support Inbox & Broadcast 2.0
+    suspend fun getTicketMessages(ticketId: String) = api.getTicketMessages(ticketId)
+    suspend fun sendTicketMessage(ticketId: String, message: String, isInternalNote: Boolean = false, senderRole: String? = null) =
+        api.sendTicketMessage(
+            ticketId,
+            buildMap {
+                put("message", message)
+                put("isInternalNote", isInternalNote)
+                if (!senderRole.isNullOrBlank()) put("senderRole", senderRole)
+            }
+        )
+    suspend fun updateSupportTicket(
+        ticketId: String,
+        status: String? = null,
+        priority: String? = null,
+        assignedTo: String? = null,
+        resolutionSummary: String? = null
+    ) = api.updateSupportTicket(
+        ticketId,
+        buildMap {
+            if (status != null) put("status", status)
+            if (priority != null) put("priority", priority)
+            if (assignedTo != null) put("assignedTo", assignedTo)
+            if (resolutionSummary != null) put("resolutionSummary", resolutionSummary)
+        }
+    )
+    suspend fun getAdminBroadcasts() = api.getAdminBroadcasts()
+    suspend fun sendAdminBroadcastExtended(payload: Map<String, String>) = api.sendAdminBroadcast(payload)
+
     companion object {
         @Volatile
         private var INSTANCE: SuqiRepository? = null

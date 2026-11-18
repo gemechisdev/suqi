@@ -84,6 +84,28 @@ data class SuqiTabItem(
 @Composable
 fun SuqiTabs(
     tabs: List<SuqiTabItem>,
+    selectedKey: String,
+    onSelectTab: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    style: SuqiTabStyle = SuqiTabStyle.Underline,
+    scrollable: Boolean = false,
+    testTagPrefix: String = "suqi_tab"
+) {
+    val selectedIdx = tabs.indexOfFirst { it.key == selectedKey }.coerceAtLeast(0)
+    SuqiTabs(
+        tabs = tabs,
+        selectedIndex = selectedIdx,
+        onSelectTab = { idx -> tabs.getOrNull(idx)?.let { onSelectTab(it.key) } },
+        modifier = modifier,
+        style = style,
+        scrollable = scrollable,
+        testTagPrefix = testTagPrefix
+    )
+}
+
+@Composable
+fun SuqiTabs(
+    tabs: List<SuqiTabItem>,
     selectedIndex: Int,
     onSelectTab: (Int) -> Unit,
     modifier: Modifier = Modifier,

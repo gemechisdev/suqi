@@ -142,7 +142,11 @@ object SeedData {
                 isVacationMode = false,
                 acceptsOrders = true,
                 isFollowing = true,
-                createdAt = daysAgoTimestamp(60)
+                createdAt = daysAgoTimestamp(60),
+                payoutProviderType = "TELEBIRR",
+                payoutBankName = "Telebirr",
+                payoutAccountName = "Tech Hub Trading PLC",
+                payoutAccountNumber = "+251 912 345 678"
             ),
             ShopEntity(
                 id = "shop_fashionworld",
@@ -765,6 +769,58 @@ object SeedData {
                 orderStatus = "Delivered",
                 createdAt = daysAgoTimestamp(45),
                 transferredAmount = 9999.0
+            ),
+            OrderEntity(
+                id = "ord_4",
+                orderReference = "SUQ-2026-001235",
+                customerUserId = "user_fitsum",
+                customerName = "Fitsum Gebre",
+                customerPhone = "+251 912 345 678",
+                deliveryAddress = "Behind Edna Mall, House 412, Bole, Addis Ababa",
+                shopId = "shop_techhub",
+                shopName = "Tech Hub",
+                itemsJson = "[{\"productId\":\"prod_airpods_pro\",\"productName\":\"Wireless Earbuds Pro\",\"productImageUrl\":\"https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600\",\"variation\":\"White • USB-C MagSafe\",\"unitPrice\":2800.0,\"quantity\":1,\"totalPrice\":2800.0}]",
+                subtotal = 2800.0,
+                deliveryFee = 50.0,
+                discountAmount = 0.0,
+                totalAmount = 2850.0,
+                deliveryOptionTitle = "Standard Delivery",
+                deliveryOptionType = "STANDARD",
+                deliveryEstimatedDays = "1-3 days",
+                paymentMethodTitle = "Telebirr",
+                paymentMethodType = "TELEBIRR",
+                paymentMethodAccount = "+251 912 345 678",
+                transactionReference = "TXN-TB-9910421",
+                paymentStatus = "VERIFIED",
+                orderStatus = "Delivered",
+                createdAt = daysAgoTimestamp(2),
+                transferredAmount = 2850.0
+            ),
+            OrderEntity(
+                id = "ord_5",
+                orderReference = "SUQ-2026-001236",
+                customerUserId = "user_dawit",
+                customerName = "Dawit Bekele",
+                customerPhone = "+251 911 554 433",
+                deliveryAddress = "Bole Atlas, Addis Ababa",
+                shopId = "shop_techhub",
+                shopName = "Tech Hub",
+                itemsJson = "[{\"productId\":\"prod_phone_samsung\",\"productName\":\"Samsung Galaxy A15\",\"productImageUrl\":\"https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=600\",\"variation\":\"Blue Black • 128GB\",\"unitPrice\":13499.0,\"quantity\":1,\"totalPrice\":13499.0}]",
+                subtotal = 13499.0,
+                deliveryFee = 50.0,
+                discountAmount = 0.0,
+                totalAmount = 13549.0,
+                deliveryOptionTitle = "Standard Delivery",
+                deliveryOptionType = "STANDARD",
+                deliveryEstimatedDays = "1-3 days",
+                paymentMethodTitle = "Telebirr",
+                paymentMethodType = "TELEBIRR",
+                paymentMethodAccount = "+251 912 345 678",
+                transactionReference = "TXN-TB-9910882",
+                paymentStatus = "VERIFIED",
+                orderStatus = "Delivered",
+                createdAt = daysAgoTimestamp(3),
+                transferredAmount = 13549.0
             )
         )
         db.orderDao().insertAll(orders)
@@ -782,7 +838,12 @@ object SeedData {
                     rating = 5.0,
                     comment = "Excellent laptop! Genuine HP with warranty card. Booted up super fast and battery lasts 8 hours. Highly recommend Tech Hub.",
                     isVerifiedPurchase = true,
-                    date = "2 days ago"
+                    date = "2 days ago",
+                    tagsCsv = "Authentic,Fast Delivery,Great Battery",
+                    photosJson = "[\"https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400\"]",
+                    helpfulCount = 12,
+                    sellerReply = "Thank you Dawit! We appreciate your trust in Tech Hub.",
+                    sellerReplyAt = "1 day ago"
                 ),
                 ReviewEntity(
                     id = "rev_2",
@@ -1041,7 +1102,8 @@ object SeedData {
                 )
             )
         }
-        if (db.subscriptionPlanDao().getAllPlans().isEmpty()) {
+        val existingPlans = db.subscriptionPlanDao().getAllPlans()
+        if (existingPlans.isEmpty()) {
             db.subscriptionPlanDao().insertAll(
                 listOf(
                     SubscriptionPlanEntity(
@@ -1050,9 +1112,11 @@ object SeedData {
                         monthlyPrice = 0.0,
                         yearlyPrice = 0.0,
                         maxProducts = 25,
-                        featuresCsv = "Up to 25 products,Standard listing,Telebirr & CBE checkout",
+                        featuresCsv = "Up to 25 products|Standard listing|Telebirr & CBE checkout|7-day analytics",
                         isPopular = false,
-                        isActive = true
+                        isActive = true,
+                        maxPromoCodes = 3,
+                        analyticsDays = 7
                     ),
                     SubscriptionPlanEntity(
                         id = "plan_pro",
@@ -1060,9 +1124,11 @@ object SeedData {
                         monthlyPrice = 299.0,
                         yearlyPrice = 2990.0,
                         maxProducts = 500,
-                        featuresCsv = "Up to 500 products,Verified shop badge boost,Promo codes & vouchers,Priority seller analytics",
+                        featuresCsv = "Up to 500 products|Verified shop badge boost|Up to 25 promo codes & flash sales|90-day analytics & CSV export",
                         isPopular = true,
-                        isActive = true
+                        isActive = true,
+                        maxPromoCodes = 25,
+                        analyticsDays = 90
                     ),
                     SubscriptionPlanEntity(
                         id = "plan_enterprise",
@@ -1070,12 +1136,23 @@ object SeedData {
                         monthlyPrice = 899.0,
                         yearlyPrice = 8990.0,
                         maxProducts = 5000,
-                        featuresCsv = "Unlimited listings,Multi-staff verification,Featured homepage placement,Dedicated Addis support",
+                        featuresCsv = "Unlimited listings|Unlimited promo codes|Featured homepage placement|365-day analytics & priority support",
                         isPopular = false,
-                        isActive = true
+                        isActive = true,
+                        maxPromoCodes = 999,
+                        analyticsDays = 365
                     )
                 )
             )
+        } else {
+            val pro = existingPlans.firstOrNull { it.id == "plan_pro" }
+            if (pro != null && pro.analyticsDays == 7) {
+                db.subscriptionPlanDao().insert(pro.copy(maxPromoCodes = 25, analyticsDays = 90))
+            }
+            val ent = existingPlans.firstOrNull { it.id == "plan_enterprise" }
+            if (ent != null && ent.analyticsDays == 7) {
+                db.subscriptionPlanDao().insert(ent.copy(maxPromoCodes = 999, analyticsDays = 365))
+            }
         }
         if (db.flaggedReviewDao().getAllFlagged().isEmpty()) {
             db.flaggedReviewDao().insertAll(
@@ -1086,7 +1163,9 @@ object SeedData {
                         reason = "Contains external contact link",
                         reviewText = "Message me on WhatsApp 0911xxx to get this item cheaper direct!",
                         status = "REPORTED",
-                        createdAt = "Today"
+                        createdAt = "Today",
+                        productName = "HP Laptop 15.6\" Core i5",
+                        rating = 2.0
                     ),
                     FlaggedReviewEntity(
                         id = "flag_2",
@@ -1094,7 +1173,31 @@ object SeedData {
                         reason = "Suspicious promotional spam",
                         reviewText = "Visit bit.ly/free-etb-promo for 1000 ETB cashback coupon now!",
                         status = "REPORTED",
-                        createdAt = "Yesterday"
+                        createdAt = "Yesterday",
+                        productName = "Sony Wireless Headphones",
+                        rating = 1.0
+                    ),
+                    FlaggedReviewEntity(
+                        id = "flag_3",
+                        authorName = "Beka G.",
+                        reason = "Abusive language",
+                        reviewText = "Fake spam message removed during routine moderation.",
+                        status = "HIDDEN",
+                        createdAt = "3 days ago",
+                        productName = "Men's Premium T-Shirt",
+                        rating = 1.0,
+                        moderatorNote = "Hidden for policy violation"
+                    ),
+                    FlaggedReviewEntity(
+                        id = "flag_4",
+                        authorName = "Tigist H.",
+                        reason = "Reported as competitor bias",
+                        reviewText = "Delivery took 3 days instead of 1, but the charger works properly.",
+                        status = "RESTORED",
+                        createdAt = "4 days ago",
+                        productName = "Wireless Earbuds Pro",
+                        rating = 3.5,
+                        moderatorNote = "Genuine buyer feedback"
                     )
                 )
             )
@@ -1121,6 +1224,359 @@ object SeedData {
                         answer = "Up to 24 hours combined playback with ANC on.",
                         answeredByShop = true,
                         createdAt = "5 days ago"
+                    )
+                )
+            )
+        }
+
+        // Phase 5 idempotent seeds (support both fresh DB and v9 -> v10 migrations)
+        db.shopDao().getShopById("shop_techhub")?.let { techHub ->
+            if (techHub.payoutAccountNumber.isBlank()) {
+                db.shopDao().updateShop(
+                    techHub.copy(
+                        payoutProviderType = "TELEBIRR",
+                        payoutBankName = "Telebirr",
+                        payoutAccountName = "Tech Hub Trading PLC",
+                        payoutAccountNumber = "+251 912 345 678"
+                    )
+                )
+            }
+        }
+        if (db.orderDao().getOrderById("ord_4") == null) {
+            db.orderDao().insertOrder(
+                OrderEntity(
+                    id = "ord_4",
+                    orderReference = "SUQ-2026-001235",
+                    customerUserId = "user_fitsum",
+                    customerName = "Fitsum Gebre",
+                    customerPhone = "+251 912 345 678",
+                    deliveryAddress = "Behind Edna Mall, House 412, Bole, Addis Ababa",
+                    shopId = "shop_techhub",
+                    shopName = "Tech Hub",
+                    itemsJson = "[{\"productId\":\"prod_airpods_pro\",\"productName\":\"Wireless Earbuds Pro\",\"productImageUrl\":\"https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600\",\"variation\":\"White • USB-C MagSafe\",\"unitPrice\":2800.0,\"quantity\":1,\"totalPrice\":2800.0}]",
+                    subtotal = 2800.0,
+                    deliveryFee = 50.0,
+                    discountAmount = 0.0,
+                    totalAmount = 2850.0,
+                    deliveryOptionTitle = "Standard Delivery",
+                    deliveryOptionType = "STANDARD",
+                    deliveryEstimatedDays = "1-3 days",
+                    paymentMethodTitle = "Telebirr",
+                    paymentMethodType = "TELEBIRR",
+                    paymentMethodAccount = "+251 912 345 678",
+                    transactionReference = "TXN-TB-9910421",
+                    paymentStatus = "VERIFIED",
+                    orderStatus = "Delivered",
+                    createdAt = daysAgoTimestamp(2),
+                    transferredAmount = 2850.0
+                )
+            )
+        }
+        if (db.orderDao().getOrderById("ord_5") == null) {
+            db.orderDao().insertOrder(
+                OrderEntity(
+                    id = "ord_5",
+                    orderReference = "SUQ-2026-001236",
+                    customerUserId = "user_dawit",
+                    customerName = "Dawit Bekele",
+                    customerPhone = "+251 911 554 433",
+                    deliveryAddress = "Bole Atlas, Addis Ababa",
+                    shopId = "shop_techhub",
+                    shopName = "Tech Hub",
+                    itemsJson = "[{\"productId\":\"prod_phone_samsung\",\"productName\":\"Samsung Galaxy A15\",\"productImageUrl\":\"https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=600\",\"variation\":\"Blue Black • 128GB\",\"unitPrice\":13499.0,\"quantity\":1,\"totalPrice\":13499.0}]",
+                    subtotal = 13499.0,
+                    deliveryFee = 50.0,
+                    discountAmount = 0.0,
+                    totalAmount = 13549.0,
+                    deliveryOptionTitle = "Standard Delivery",
+                    deliveryOptionType = "STANDARD",
+                    deliveryEstimatedDays = "1-3 days",
+                    paymentMethodTitle = "Telebirr",
+                    paymentMethodType = "TELEBIRR",
+                    paymentMethodAccount = "+251 912 345 678",
+                    transactionReference = "TXN-TB-9910882",
+                    paymentStatus = "VERIFIED",
+                    orderStatus = "Delivered",
+                    createdAt = daysAgoTimestamp(3),
+                    transferredAmount = 13549.0
+                )
+            )
+        }
+        if (db.commissionConfigDao().getAll().isEmpty()) {
+            db.commissionConfigDao().insertAll(
+                listOf(
+                    CommissionConfigEntity(
+                        id = "comm_default",
+                        categoryId = "DEFAULT",
+                        categoryName = "All Categories",
+                        ratePercent = 5.0,
+                        minPayoutAmount = 500.0
+                    ),
+                    CommissionConfigEntity(
+                        id = "comm_electronics",
+                        categoryId = "cat_electronics",
+                        categoryName = "Electronics",
+                        ratePercent = 4.0,
+                        minPayoutAmount = 500.0
+                    ),
+                    CommissionConfigEntity(
+                        id = "comm_fashion",
+                        categoryId = "cat_fashion",
+                        categoryName = "Fashion",
+                        ratePercent = 6.0,
+                        minPayoutAmount = 500.0
+                    )
+                )
+            )
+        }
+        if (db.payoutRequestDao().getAll().isEmpty()) {
+            db.payoutRequestDao().insertAll(
+                listOf(
+                    PayoutRequestEntity(
+                        id = "payout_1",
+                        shopId = "shop_techhub",
+                        shopName = "Tech Hub",
+                        amount = 6500.0,
+                        providerType = "TELEBIRR",
+                        bankName = "Telebirr",
+                        accountName = "Tech Hub Trading PLC",
+                        accountNumber = "+251 912 345 678",
+                        status = "PAID",
+                        referenceCode = "FT26119PAY01",
+                        note = "Settled via Telebirr",
+                        createdAt = daysAgoTimestamp(5),
+                        processedAt = daysAgoTimestamp(4)
+                    ),
+                    PayoutRequestEntity(
+                        id = "payout_2",
+                        shopId = "shop_fashionworld",
+                        shopName = "Fashion World",
+                        amount = 3200.0,
+                        providerType = "BANK_TRANSFER",
+                        bankName = "Awash Bank",
+                        accountName = "Fashion World Apparel",
+                        accountNumber = "01320495867300",
+                        status = "PENDING",
+                        createdAt = daysAgoTimestamp(1)
+                    )
+                )
+            )
+        }
+        if (db.returnRequestDao().getAll().isEmpty()) {
+            db.returnRequestDao().insert(
+                ReturnRequestEntity(
+                    id = "ret_seed_1",
+                    orderId = "ord_5",
+                    orderReference = "SUQ-2026-001236",
+                    shopId = "shop_techhub",
+                    shopName = "Tech Hub",
+                    customerUserId = "user_dawit",
+                    customerName = "Dawit Bekele",
+                    itemsJson = "[{\"productId\":\"prod_phone_samsung\",\"productName\":\"Samsung Galaxy A15\",\"productImageUrl\":\"https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=600\",\"quantity\":1,\"unitPrice\":13499.0}]",
+                    refundAmount = 13499.0,
+                    reason = "Damaged or defective item",
+                    comment = "Screen flickers on low brightness out of the box.",
+                    photosJson = "[\"https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=400\"]",
+                    resolution = "REPLACE",
+                    status = "REQUESTED",
+                    refundMethod = "Telebirr",
+                    createdAt = daysAgoTimestamp(1),
+                    updatedAt = daysAgoTimestamp(1)
+                )
+            )
+        }
+        if (db.subscriptionUpgradeDao().getAll().isEmpty()) {
+            db.subscriptionUpgradeDao().insert(
+                SubscriptionUpgradeEntity(
+                    id = "upg_seed_1",
+                    shopId = "shop_fashionworld",
+                    shopName = "Fashion World",
+                    planId = "plan_pro",
+                    planName = "Pro Seller Plan",
+                    billingCycle = "MONTHLY",
+                    amount = 299.0,
+                    paymentMethodTitle = "Telebirr",
+                    transactionReference = "TXN-UPG-554120",
+                    receiptImageUri = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600",
+                    status = "PENDING",
+                    createdAt = daysAgoTimestamp(1)
+                )
+            )
+        }
+        if (db.flashSaleDao().getAll().isEmpty()) {
+            val endMillis = (System.currentTimeMillis() + 6L * 3600_000L).toString()
+            val startMillis = System.currentTimeMillis().toString()
+            db.flashSaleDao().insertAll(
+                listOf(
+                    FlashSaleEntity(
+                        id = "fs_1",
+                        shopId = "shop_techhub",
+                        shopName = "Tech Hub",
+                        productId = "prod_airpods_pro",
+                        productName = "Wireless Earbuds Pro",
+                        productImageUrl = "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600",
+                        categoryId = "cat_electronics",
+                        originalPrice = 2800.0,
+                        salePrice = 1999.0,
+                        discountPercent = 29,
+                        stockCap = 20,
+                        claimedCount = 14,
+                        startAt = startMillis,
+                        endAt = endMillis,
+                        isActive = true
+                    ),
+                    FlashSaleEntity(
+                        id = "fs_2",
+                        shopId = "shop_fashionworld",
+                        shopName = "Fashion World",
+                        productId = "prod_tshirt_mens",
+                        productName = "Men's Premium T-Shirt",
+                        productImageUrl = "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600",
+                        categoryId = "cat_fashion",
+                        originalPrice = 799.0,
+                        salePrice = 549.0,
+                        discountPercent = 31,
+                        stockCap = 40,
+                        claimedCount = 27,
+                        startAt = startMillis,
+                        endAt = endMillis,
+                        isActive = true
+                    ),
+                    FlashSaleEntity(
+                        id = "fs_3",
+                        shopId = "shop_fashionworld",
+                        shopName = "Fashion World",
+                        productId = "prod_backpack",
+                        productName = "Travel Backpack Pro",
+                        productImageUrl = "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600",
+                        categoryId = "cat_bags",
+                        originalPrice = 9999.0,
+                        salePrice = 7499.0,
+                        discountPercent = 25,
+                        stockCap = 15,
+                        claimedCount = 9,
+                        startAt = startMillis,
+                        endAt = endMillis,
+                        isActive = true
+                    )
+                )
+            )
+        }
+        if (db.supportTicketDao().getAllTickets().isEmpty()) {
+            db.supportTicketDao().insertAll(
+                listOf(
+                    SupportTicketEntity(
+                        id = "tkt_1",
+                        userId = "user_fitsum",
+                        orderId = "SUQ-2025-001234",
+                        category = "Payment Issue",
+                        subject = "Telebirr verification pending over 2 hours",
+                        description = "I submitted TXN-TB-9823145 for my HP Laptop order and wanted to confirm receipt status.",
+                        status = "OPEN",
+                        createdAt = daysAgoTimestamp(1),
+                        priority = "HIGH",
+                        requesterRole = "BUYER",
+                        updatedAt = daysAgoTimestamp(1)
+                    ),
+                    SupportTicketEntity(
+                        id = "tkt_2",
+                        userId = "user_fashion",
+                        orderId = "",
+                        category = "Account / Shop",
+                        subject = "Payout bank account verification",
+                        description = "Our Awash Bank payout request is pending settlement approval.",
+                        status = "PENDING",
+                        createdAt = daysAgoTimestamp(2),
+                        priority = "NORMAL",
+                        requesterRole = "SELLER",
+                        assignedTo = "Abebe Kebede",
+                        updatedAt = daysAgoTimestamp(1)
+                    ),
+                    SupportTicketEntity(
+                        id = "tkt_3",
+                        userId = "user_fitsum",
+                        orderId = "SUQ-2025-001233",
+                        category = "Delivery Delay",
+                        subject = "Updated Bole delivery landmark",
+                        description = "Shared building gate note with courier.",
+                        status = "RESOLVED",
+                        createdAt = daysAgoTimestamp(6),
+                        priority = "LOW",
+                        requesterRole = "BUYER",
+                        assignedTo = "Support Team",
+                        resolutionSummary = "Courier confirmed delivery landmark update.",
+                        updatedAt = daysAgoTimestamp(5)
+                    )
+                )
+            )
+        }
+        if (db.supportTicketMessageDao().getByTicket("tkt_1").isEmpty()) {
+            db.supportTicketMessageDao().insertAll(
+                listOf(
+                    SupportTicketMessageEntity(
+                        id = "tmsg_1",
+                        ticketId = "tkt_1",
+                        senderRole = "ADMIN",
+                        senderName = "Suqi Support",
+                        message = "Thank you Fitsum! We notified Tech Hub to prioritize TXN-TB-9823145 verification.",
+                        isInternalNote = false,
+                        createdAt = "Today"
+                    ),
+                    SupportTicketMessageEntity(
+                        id = "tmsg_2",
+                        ticketId = "tkt_1",
+                        senderRole = "ADMIN",
+                        senderName = "Abebe Kebede",
+                        message = "Internal note: Check receipt timestamp against Telebirr batch log.",
+                        isInternalNote = true,
+                        createdAt = "Today"
+                    ),
+                    SupportTicketMessageEntity(
+                        id = "tmsg_3",
+                        ticketId = "tkt_2",
+                        senderRole = "ADMIN",
+                        senderName = "Suqi Finance",
+                        message = "Awash Bank account digits validated; queued for morning payout run.",
+                        isInternalNote = false,
+                        createdAt = "Yesterday"
+                    )
+                )
+            )
+        }
+        if (db.adminBroadcastDao().getAll().isEmpty()) {
+            db.adminBroadcastDao().insertAll(
+                listOf(
+                    AdminBroadcastEntity(
+                        id = "bc_1",
+                        title = "Weekend Flash Deals Live in Addis!",
+                        body = "Save up to 31% on verified electronics and Ethiopian fashion until midnight.",
+                        audience = "ADDIS_ONLY",
+                        destinationType = "DEALS",
+                        status = "SENT",
+                        sentCount = 1240,
+                        openedCount = 812,
+                        isTemplate = false,
+                        createdAt = daysAgoTimestamp(2)
+                    ),
+                    AdminBroadcastEntity(
+                        id = "bc_2",
+                        title = "Seller Payout Window Reminder",
+                        body = "Ensure your Telebirr or CBE payout account is saved in Seller Studio before Friday settlement.",
+                        audience = "SELLERS",
+                        status = "SENT",
+                        sentCount = 148,
+                        openedCount = 119,
+                        isTemplate = false,
+                        createdAt = daysAgoTimestamp(5)
+                    ),
+                    AdminBroadcastEntity(
+                        id = "bc_tpl_1",
+                        title = "Holiday Shopping Reminder",
+                        body = "Order early for same-day delivery across Addis Ababa from verified Suqi shops!",
+                        audience = "ALL",
+                        status = "TEMPLATE",
+                        isTemplate = true,
+                        createdAt = daysAgoTimestamp(7)
                     )
                 )
             )

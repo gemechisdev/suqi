@@ -437,6 +437,25 @@ fun ReviewsScreen(
     targetName: String,
     targetType: String,
     viewModel: SuqiViewModel,
+    initialStarFilter: Int? = null,
+    modifier: Modifier = Modifier
+) {
+    ReviewsV2Screen(
+        targetId = targetId,
+        targetName = targetName,
+        targetType = targetType,
+        initialStarFilter = initialStarFilter,
+        viewModel = viewModel,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun LegacyReviewsScreen(
+    targetId: String,
+    targetName: String,
+    targetType: String,
+    viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -887,6 +906,14 @@ fun AdminModerationScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
+    AdminModerationV2Screen(viewModel = viewModel, modifier = modifier)
+}
+
+@Composable
+private fun LegacyAdminModerationScreen(
+    viewModel: SuqiViewModel,
+    modifier: Modifier = Modifier
+) {
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
@@ -1007,6 +1034,14 @@ fun AdminModerationScreen(
 // ==========================================
 @Composable
 fun AdminSubscriptionPlansScreen(
+    viewModel: SuqiViewModel,
+    modifier: Modifier = Modifier
+) {
+    AdminPlansV2Screen(viewModel = viewModel, modifier = modifier)
+}
+
+@Composable
+private fun LegacyAdminSubscriptionPlansScreen(
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {

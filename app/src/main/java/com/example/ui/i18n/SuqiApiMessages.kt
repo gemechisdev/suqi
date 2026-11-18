@@ -50,6 +50,18 @@ object SuqiApiMessages {
         r("^Bulk update applied\\.?", "የጅምላ ማሻሻያ ተተግብሯል።", "Haaromsi jumlaa hojiirra ooleera."),
         r("^Product duplicated\\.?", "ምርቱ ተቀድቷል።", "Oomishni garagalfameera."),
         r("^Select at least one product\\.?", "ቢያንስ አንድ ምርት ይምረጡ።", "Yoo xiqqaate oomisha tokko filadhaa."),
+        r("^Return window expired.*", "የ7 ቀን የመመለሻ ጊዜ አልፏል።", "Yeroon deebisuu guyyaa 7 darbeera."),
+        r("^A return request already exists.*", "ለዚህ ትዕዛዝ የመመለሻ ጥያቄ አስቀድሞ ገብቷል።", "Ajaja kanaaf gaaffiin deebisuu duraan galmeeffameera."),
+        r("^Please select at least one item to return\\.?", "እባክዎ ለመመለስ ቢያንስ አንድ እቃ ይምረጡ።", "Maaloo deebisuuf yoo xiqqaate meeshaa tokko filadhaa."),
+        r("^Minimum payout is ETB ([0-9,.]+)\\.?", "ዝቅተኛው የክፍያ መጠን ETB $1 ነው።", "Kaffaltiin xiqqaan ETB $1 dha."),
+        r("^Insufficient available balance\\.?", "በቂ የሚወጣ ቀሪ ሂሳብ የለም።", "Hafteen baafamu gahaa miti."),
+        r("^Save a payout account first\\.?", "መጀመሪያ የክፍያ መቀበያ መለያዎን ያስቀምጡ።", "Dura herrega kaffaltii olkaa'aa."),
+        r("^Payout reference is required\\.?", "የክፍያ ማጣቀሻ ቁጥር ያስፈልጋል።", "Lakkoofsi wabii kaffaltii barbaachisaa dha."),
+        r("^Promo code expired or inactive\\.?", "የማስተዋወቂያ ኮዱ ጊዜው አልፏል ወይም አይሰራም።", "Koodiin beeksisaa yeroon isaa darbeera ykn hin hojjetu."),
+        r("^Promo usage limit reached\\.?", "የማስተዋወቂያ ኮዱ የአጠቃቀም ገደብ ላይ ደርሷል።", "Daangaan itti fayyadama koodii guutameera."),
+        r("^Promo does not apply to items in cart\\.?", "ኮዱ በጋሪው ውስጥ ላሉ እቃዎች አይሰራም።", "Koodichi meeshaalee gaarii keessatti hin hojjetu."),
+        r("^Sale price must be lower than original price\\.?", "የቅናሽ ዋጋ ከመጀመሪያው ዋጋ ያነሰ መሆን አለበት።", "Gatiin hir'ifame gatii duraa gadi ta'uu qaba."),
+        r("^Upgrade request submitted for verification\\.?", "የዕቅድ ማሻሻያ ጥያቄ ለማረጋገጫ ቀርቧል።", "Gaaffiin olguddisuu karooraa mirkaneessaaf dhiyaateera."),
         r("^(.+) is required\\.?", "$1 ያስፈልጋል።", "$1 barbaachisaa dha.")
     )
 

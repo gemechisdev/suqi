@@ -58,8 +58,19 @@ sealed class ScreenDestination {
     data object SavedAddresses : ScreenDestination()
     data object Wishlist : ScreenDestination()
     data object Following : ScreenDestination()
-    data class Reviews(val targetId: String, val targetName: String, val targetType: String) : ScreenDestination()
+    data class Reviews(
+        val targetId: String,
+        val targetName: String,
+        val targetType: String,
+        val initialStarFilter: Int? = null
+    ) : ScreenDestination()
     data object SellerSubscription : ScreenDestination()
+    data class ReturnRequest(val orderId: String) : ScreenDestination()
+    data class ReturnStatus(val returnId: String) : ScreenDestination()
+    data object Deals : ScreenDestination()
+    data object SellerReturns : ScreenDestination()
+    data object SellerEarnings : ScreenDestination()
+    data object SellerAnalytics : ScreenDestination()
     data object AdminSignIn : ScreenDestination()
     data object AdminConsole : ScreenDestination()
     data object OwnerDashboard : ScreenDestination()
@@ -69,6 +80,9 @@ sealed class ScreenDestination {
     data object AdminBanners : ScreenDestination()
     data object AdminModeration : ScreenDestination()
     data object AdminSubscriptionPlans : ScreenDestination()
+    data object AdminFinance : ScreenDestination()
+    data object AdminSupportInbox : ScreenDestination()
+    data object AdminBroadcast : ScreenDestination()
     data object AdminDevTools : ScreenDestination()
     data object AppSettings : ScreenDestination()
     data object HelpLegal : ScreenDestination()
@@ -206,6 +220,9 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
             ScreenDestination.AdminBanners,
             ScreenDestination.AdminModeration,
             ScreenDestination.AdminSubscriptionPlans,
+            ScreenDestination.AdminFinance,
+            ScreenDestination.AdminSupportInbox,
+            ScreenDestination.AdminBroadcast,
             ScreenDestination.AdminDevTools
         )
         val currentList = _navStack.value.toMutableList()
@@ -299,6 +316,14 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     var cachedAdminItemTypes: List<ItemTypeDto> = emptyList()
     var cachedAdminPlans: List<SubscriptionPlanDto> = emptyList()
     val cachedOwnerMetrics: MutableMap<Int, OwnerDashboardMetricsDto> = mutableMapOf()
+    var cachedBuyerReturns: List<ReturnRequestDto> = emptyList()
+    var cachedSellerReturns: List<ReturnRequestDto> = emptyList()
+    var cachedFlashSales: List<FlashSaleDto> = emptyList()
+    val cachedSellerAnalytics: MutableMap<Int, SellerAnalyticsDto> = mutableMapOf()
+    var cachedSellerEarnings: SellerEarningsSummaryDto? = null
+    var cachedAdminFinance: AdminFinanceOverviewDto? = null
+    var cachedAdminBroadcasts: List<AdminBroadcastDto> = emptyList()
+    var cachedSubscriptionUpgrades: List<SubscriptionUpgradeDto> = emptyList()
 
     fun clearUserCaches() {
         cachedHomeProducts = emptyList()
@@ -337,6 +362,14 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         cachedAdminItemTypes = emptyList()
         cachedAdminPlans = emptyList()
         cachedOwnerMetrics.clear()
+        cachedBuyerReturns = emptyList()
+        cachedSellerReturns = emptyList()
+        cachedFlashSales = emptyList()
+        cachedSellerAnalytics.clear()
+        cachedSellerEarnings = null
+        cachedAdminFinance = null
+        cachedAdminBroadcasts = emptyList()
+        cachedSubscriptionUpgrades = emptyList()
 
         _recentlyViewed.value = emptyList()
         unreadNotificationCount.value = 0
