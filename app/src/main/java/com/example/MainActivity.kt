@@ -309,6 +309,9 @@ fun SuqiAppRoot(
                             viewModel = viewModel
                         )
                         is ScreenDestination.Deals -> BuyerDealsScreen(viewModel = viewModel)
+                        is ScreenDestination.BuyerWishlist -> BuyerWishlistScreen(viewModel = viewModel)
+                        is ScreenDestination.BuyerCoupons -> BuyerCouponsScreen(viewModel = viewModel)
+                        is ScreenDestination.BuyerCompare -> BuyerCompareScreen(viewModel = viewModel)
                         is ScreenDestination.SellerReturns -> {
                             if (!hasSellerAccess) {
                                 SuqiRestrictedState(
