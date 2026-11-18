@@ -196,13 +196,20 @@ interface SuqiApiService {
     suspend fun getChatConversations(): ApiResponse<List<ChatMessageDto>>
 
     @GET(SuqiEndpoints.CHAT_MESSAGES)
-    suspend fun getChatMessages(@Path("shopId") shopId: String): ApiResponse<List<ChatMessageDto>>
+    suspend fun getChatMessages(
+        @Path("shopId") shopId: String,
+        @Query("conversationId") conversationId: String? = null
+    ): ApiResponse<List<ChatMessageDto>>
 
     @POST(SuqiEndpoints.CHAT_MESSAGES)
     suspend fun sendChatMessage(@Path("shopId") shopId: String, @Body messageData: Map<String, Any>): ApiResponse<ChatMessageDto>
 
     @PUT(SuqiEndpoints.CHAT_MARK_READ)
-    suspend fun markChatConversationRead(@Path("shopId") shopId: String, @Query("isRead") isRead: Boolean): ApiResponse<Boolean>
+    suspend fun markChatConversationRead(
+        @Path("shopId") shopId: String,
+        @Query("isRead") isRead: Boolean,
+        @Query("conversationId") conversationId: String? = null
+    ): ApiResponse<Boolean>
 
     @GET(SuqiEndpoints.REVIEWS)
     suspend fun getReviews(@Query("targetId") targetId: String): ApiResponse<List<ReviewDto>>

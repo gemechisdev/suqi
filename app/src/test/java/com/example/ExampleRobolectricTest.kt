@@ -25,6 +25,11 @@ class ExampleRobolectricTest {
 
     @Before
     fun setup() {
+        runCatching {
+            val field = androidx.core.content.FileProvider::class.java.getDeclaredField("sCache")
+            field.isAccessible = true
+            (field.get(null) as? MutableMap<*, *>)?.clear()
+        }
         context = ApplicationProvider.getApplicationContext<Context>()
         backend = BuiltinSqliteBackend(context)
     }

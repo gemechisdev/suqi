@@ -230,6 +230,11 @@ object SeedData {
             )
         )
         db.shopDao().insertAll(shops)
+        db.shopFollowDao().insertAll(
+            listOf(
+                ShopFollowEntity(userId = "user_fitsum", shopId = "shop_techhub")
+            )
+        )
 
         // Products
         val products = listOf(
@@ -513,6 +518,13 @@ object SeedData {
             )
         )
         db.productDao().insertAll(products.map { withDemoDetails(it) })
+        db.wishlistDao().insertAll(
+            listOf(
+                WishlistItemEntity(userId = "user_fitsum", productId = "prod_laptop_hp"),
+                WishlistItemEntity(userId = "user_fitsum", productId = "prod_headphones_sony"),
+                WishlistItemEntity(userId = "user_fitsum", productId = "prod_nike_af1")
+            )
+        )
 
         // Shop Payment Methods
         val paymentMethods = listOf(
@@ -804,27 +816,29 @@ object SeedData {
             listOf(
                 ChatMessageEntity(
                     id = "msg_1",
-                    conversationId = "conv_techhub",
+                    conversationId = "conv_techhub_user_fitsum",
                     shopId = "shop_techhub",
                     shopName = "TechAddis",
                     senderType = "SHOP",
                     message = "Hello! 👋\nThanks for contacting us.\nHow can we help you today?",
                     timestamp = "9:20 AM",
-                    isRead = true
+                    isRead = true,
+                    customerUserId = "user_fitsum"
                 ),
                 ChatMessageEntity(
                     id = "msg_2",
-                    conversationId = "conv_techhub",
+                    conversationId = "conv_techhub_user_fitsum",
                     shopId = "shop_techhub",
                     shopName = "TechAddis",
                     senderType = "CUSTOMER",
                     message = "Is this product available in Addis Ababa?",
                     timestamp = "9:22 AM",
-                    isRead = true
+                    isRead = true,
+                    customerUserId = "user_fitsum"
                 ),
                 ChatMessageEntity(
                     id = "msg_3",
-                    conversationId = "conv_techhub",
+                    conversationId = "conv_techhub_user_fitsum",
                     shopId = "shop_techhub",
                     shopName = "TechAddis",
                     senderType = "SHOP",
@@ -833,11 +847,12 @@ object SeedData {
                     productContextName = "Wireless Earbuds Pro",
                     productContextPrice = "ETB 2,800",
                     productContextImage = "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600",
-                    isRead = true
+                    isRead = true,
+                    customerUserId = "user_fitsum"
                 ),
                 ChatMessageEntity(
                     id = "msg_4",
-                    conversationId = "conv_techhub",
+                    conversationId = "conv_techhub_user_fitsum",
                     shopId = "shop_techhub",
                     shopName = "Tech Hub",
                     senderType = "CUSTOMER",
@@ -847,18 +862,20 @@ object SeedData {
                     orderContextRef = "SUQ-2025-001234",
                     orderContextStatus = "Awaiting Payment Confirmation",
                     orderContextTotal = "ETB 25,049",
-                    threadCategory = "ORDER"
+                    threadCategory = "ORDER",
+                    customerUserId = "user_fitsum"
                 ),
                 ChatMessageEntity(
                     id = "msg_fw_1",
-                    conversationId = "conv_fashionworld",
+                    conversationId = "conv_fashionworld_user_fitsum",
                     shopId = "shop_fashionworld",
                     shopName = "Fashion World",
                     senderType = "CUSTOMER",
                     message = "Do you have Nike Air Force 1 in EU 43 ready in Bole?",
                     timestamp = "Yesterday",
                     isRead = true,
-                    threadCategory = "QUESTION"
+                    threadCategory = "QUESTION",
+                    customerUserId = "user_fitsum"
                 )
             )
         )

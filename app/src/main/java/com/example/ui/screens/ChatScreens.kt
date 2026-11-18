@@ -109,7 +109,7 @@ fun ChatListScreen(
                 items(conversations, key = { it.id }) { conv ->
                     SuqiSectionCard(
                         padding = 14.dp,
-                        onClick = { viewModel.navigate(ScreenDestination.ChatThread(conv.shopId)) },
+                        onClick = { viewModel.navigate(ScreenDestination.ChatThread(conv.shopId, conversationId = conv.conversationId)) },
                         modifier = Modifier.testTag("chat_thread_${conv.shopId}")
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -185,6 +185,7 @@ fun ChatThreadScreen(
     productContextName: String? = null,
     productContextPrice: String? = null,
     productContextImage: String? = null,
+    conversationId: String? = null,
     viewModel: SuqiViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -248,7 +249,7 @@ fun ChatThreadScreen(
 
     fun loadMessages() {
         coroutineScope.launch {
-            val res = viewModel.repository.getChatMessages(shopId)
+            val res = viewModel.repository.getChatMessages(shopId, conversationId)
             if (res.success && res.data != null) {
                 messages = res.data
                 if (res.data.isNotEmpty()) {
@@ -258,8 +259,8 @@ fun ChatThreadScreen(
         }
     }
 
-    LaunchedEffect(shopId, isSellerThread) {
-        viewModel.repository.markChatConversationRead(shopId, true)
+    LaunchedEffect(shopId, conversationId, isSellerThread) {
+        viewModel.repository.markChatConversationRead(shopId, true, conversationId)
         val shopDetail = viewModel.repository.getShopDetails(shopId)
         if (shopDetail.success && shopDetail.data != null) {
             shopTitle = shopDetail.data.name
@@ -597,20 +598,24 @@ fun ChatThreadScreen(
                                         val threadCat = if (ordRef.isNotBlank()) "ORDER" else "QUESTION"
                                         inputMessage = ""
                                         coroutineScope.launch {
+                                            val payload = buildMap<String, Any> {
+                                                put("senderType", if (isSellerThread) "SHOP" else "CUSTOMER")
+                                                put("message", text)
+                                                put("productContextName", prodName)
+                                                put("productContextPrice", prodPrice)
+                                                put("productContextImage", prodImg)
+                                                put("imageUrl", photoString)
+                                                put("orderContextRef", ordRef)
+                                                put("orderContextStatus", ordStatus)
+                                                put("orderContextTotal", ordTotal)
+                                                put("threadCategory", threadCat)
+                                                if (!conversationId.isNullOrBlank()) {
+                                                    put("conversationId", conversationId)
+                                                }
+                                            }
                                             viewModel.repository.sendChatMessage(
                                                 shopId = shopId,
-                                                messageData = mapOf(
-                                                    "senderType" to (if (isSellerThread) "SHOP" else "CUSTOMER"),
-                                                    "message" to text,
-                                                    "productContextName" to prodName,
-                                                    "productContextPrice" to prodPrice,
-                                                    "productContextImage" to prodImg,
-                                                    "imageUrl" to photoString,
-                                                    "orderContextRef" to ordRef,
-                                                    "orderContextStatus" to ordStatus,
-                                                    "orderContextTotal" to ordTotal,
-                                                    "threadCategory" to threadCat
-                                                )
+                                                messageData = payload
                                             )
                                             pendingProductName = null
                                             pendingProductPrice = null

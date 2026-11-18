@@ -283,6 +283,7 @@ fun SuqiAppRoot(
                             productContextName = dest.productContextName,
                             productContextPrice = dest.productContextPrice,
                             productContextImage = dest.productContextImage,
+                            conversationId = dest.conversationId,
                             viewModel = viewModel
                         )
                         is ScreenDestination.Notifications -> NotificationsScreen(viewModel = viewModel)

@@ -225,7 +225,8 @@ data class ChatMessageEntity(
     val orderContextRef: String? = null,
     val orderContextStatus: String? = null,
     val orderContextTotal: String? = null,
-    val threadCategory: String = "QUESTION"
+    val threadCategory: String = "QUESTION",
+    val customerUserId: String = ""
 )
 
 @Entity(tableName = "notifications")
@@ -357,4 +358,24 @@ data class SupportTicketEntity(
     val description: String,
     val status: String = "OPEN",
     val createdAt: String
+)
+
+@Entity(
+    tableName = "wishlist_items",
+    primaryKeys = ["userId", "productId"]
+)
+data class WishlistItemEntity(
+    val userId: String,
+    val productId: String,
+    val createdAt: String = ""
+)
+
+@Entity(
+    tableName = "shop_follows",
+    primaryKeys = ["userId", "shopId"]
+)
+data class ShopFollowEntity(
+    val userId: String,
+    val shopId: String,
+    val createdAt: String = ""
 )

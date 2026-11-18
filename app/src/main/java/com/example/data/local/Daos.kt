@@ -58,9 +58,6 @@ interface ShopDao {
 
     @Update
     suspend fun updateShop(shop: ShopEntity)
-
-    @Query("UPDATE shops SET isFollowing = 0")
-    suspend fun clearAllFollowing()
 }
 
 @Dao
@@ -91,12 +88,6 @@ interface ProductDao {
 
     @Query("UPDATE products SET detailsJson = :json WHERE id = :id")
     suspend fun updateDetailsJson(id: String, json: String)
-
-    @Query("UPDATE products SET isWishlisted = :isWishlisted WHERE id = :id")
-    suspend fun updateWishlist(id: String, isWishlisted: Boolean)
-
-    @Query("UPDATE products SET isWishlisted = 0")
-    suspend fun clearAllWishlist()
 
     @Query("UPDATE products SET stockQuantity = stockQuantity - :qty WHERE id = :id AND stockQuantity >= :qty")
     suspend fun decrementStock(id: String, qty: Int): Int
@@ -248,13 +239,19 @@ interface ReviewDao {
 
 @Dao
 interface ChatDao {
-    @Query("SELECT * FROM chat_messages WHERE conversationId = :convId ORDER BY timestamp ASC")
+    @Query("SELECT * FROM chat_messages WHERE conversationId = :convId ORDER BY rowid ASC")
     suspend fun getMessages(convId: String): List<ChatMessageEntity>
 
-    @Query("SELECT * FROM chat_messages WHERE shopId = :shopId ORDER BY timestamp ASC")
+    @Query("SELECT * FROM chat_messages WHERE shopId = :shopId ORDER BY rowid ASC")
     suspend fun getMessagesForShop(shopId: String): List<ChatMessageEntity>
 
-    @Query("SELECT * FROM chat_messages ORDER BY timestamp DESC")
+    @Query("SELECT * FROM chat_messages WHERE shopId = :shopId ORDER BY rowid DESC")
+    suspend fun getMessagesForShopDesc(shopId: String): List<ChatMessageEntity>
+
+    @Query("SELECT * FROM chat_messages WHERE customerUserId = :userId ORDER BY rowid DESC")
+    suspend fun getMessagesForCustomerDesc(userId: String): List<ChatMessageEntity>
+
+    @Query("SELECT * FROM chat_messages ORDER BY rowid DESC")
     suspend fun getAllMessages(): List<ChatMessageEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -266,8 +263,53 @@ interface ChatDao {
     @Query("UPDATE chat_messages SET isRead = :isRead WHERE conversationId = :convId")
     suspend fun setConversationRead(convId: String, isRead: Boolean)
 
-    @Query("DELETE FROM chat_messages")
-    suspend fun deleteAllMessages()
+    @Query("DELETE FROM chat_messages WHERE customerUserId = :userId")
+    suspend fun deleteByCustomerUserId(userId: String)
+}
+
+@Dao
+interface WishlistDao {
+    @Query("SELECT productId FROM wishlist_items WHERE userId = :userId")
+    suspend fun getProductIdsForUser(userId: String): List<String>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM wishlist_items WHERE userId = :userId AND productId = :productId)")
+    suspend fun isWishlisted(userId: String, productId: String): Boolean
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(item: WishlistItemEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(items: List<WishlistItemEntity>)
+
+    @Query("DELETE FROM wishlist_items WHERE userId = :userId AND productId = :productId")
+    suspend fun delete(userId: String, productId: String)
+
+    @Query("DELETE FROM wishlist_items WHERE userId = :userId")
+    suspend fun deleteByUserId(userId: String)
+
+    @Query("DELETE FROM wishlist_items WHERE productId = :productId")
+    suspend fun deleteByProductId(productId: String)
+}
+
+@Dao
+interface ShopFollowDao {
+    @Query("SELECT shopId FROM shop_follows WHERE userId = :userId")
+    suspend fun getShopIdsForUser(userId: String): List<String>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM shop_follows WHERE userId = :userId AND shopId = :shopId)")
+    suspend fun isFollowing(userId: String, shopId: String): Boolean
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(item: ShopFollowEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(items: List<ShopFollowEntity>)
+
+    @Query("DELETE FROM shop_follows WHERE userId = :userId AND shopId = :shopId")
+    suspend fun delete(userId: String, shopId: String)
+
+    @Query("DELETE FROM shop_follows WHERE userId = :userId")
+    suspend fun deleteByUserId(userId: String)
 }
 
 @Dao

@@ -55,15 +55,35 @@ class Phase4ComposeUiTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    @org.junit.Before
+    fun clearFileProviderCache() {
+        runCatching {
+            val field = androidx.core.content.FileProvider::class.java.getDeclaredField("sCache")
+            field.isAccessible = true
+            (field.get(null) as? MutableMap<*, *>)?.clear()
+        }
+    }
+
+    private fun awaitMainLooper(timeoutMs: Long = 5_000L, predicate: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (!predicate() && System.currentTimeMillis() < deadline) {
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(15)
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+    }
+
     private fun newViewModel(signIn: Boolean = false, phone: String = "+251 912 345 678", name: String = ""): SuqiViewModel {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val vm = SuqiViewModel(app)
         shadowOf(Looper.getMainLooper()).idle()
         vm.buyerPrefs.clearAll()
         if (signIn) {
-            runBlocking { vm.repository.loginWithPhoneOtp(phone, "123456", name) }
+            val user = runBlocking { vm.repository.loginWithPhoneOtp(phone, "123456", name).data!! }
             vm.refreshSession()
-            shadowOf(Looper.getMainLooper()).idle()
+            awaitMainLooper { vm.currentUser.value?.id == user.id }
+        } else {
+            awaitMainLooper { vm.currentUser.value != null }
         }
         return vm
     }

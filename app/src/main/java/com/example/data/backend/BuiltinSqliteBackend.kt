@@ -32,6 +32,57 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         return db.shopDao().getShopByOwner(user.id)?.id
     }
 
+    private suspend fun currentWishlistedProductIds(): Set<String> {
+        val userId = resolveCurrentUser()?.id ?: return emptySet()
+        return db.wishlistDao().getProductIdsForUser(userId).toSet()
+    }
+
+    private suspend fun currentFollowedShopIds(): Set<String> {
+        val userId = resolveCurrentUser()?.id ?: return emptySet()
+        return db.shopFollowDao().getShopIdsForUser(userId).toSet()
+    }
+
+    private data class ResolvedChatContext(
+        val conversationId: String,
+        val customerUserId: String
+    )
+
+    private suspend fun resolveChatContext(
+        shopId: String,
+        explicitConvId: String? = null,
+        senderTypeHint: String? = null
+    ): ResolvedChatContext {
+        val current = resolveCurrentUser()
+        val currentUserId = current?.id ?: "user_guest"
+        val sellerShopId = resolveActiveSellerShopId()
+        val isSellerForShop = sellerShopId == shopId && (
+            senderTypeHint.equals("SHOP", ignoreCase = true) ||
+                current?.activeRole.equals("SELLER", ignoreCase = true) ||
+                (current?.activeRole.isNullOrBlank() && current?.role.equals("SELLER", ignoreCase = true))
+            )
+        if (!explicitConvId.isNullOrBlank()) {
+            val existingCustomer = db.chatDao().getMessages(explicitConvId)
+                .firstOrNull { it.customerUserId.isNotBlank() }?.customerUserId
+            val resolvedCustomer = existingCustomer ?: if (isSellerForShop) {
+                explicitConvId.removePrefix("conv_${shopId.replace("shop_", "")}_").ifBlank { currentUserId }
+            } else {
+                currentUserId
+            }
+            return ResolvedChatContext(conversationId = explicitConvId, customerUserId = resolvedCustomer)
+        }
+        if (isSellerForShop) {
+            val latestMsg = db.chatDao().getMessagesForShopDesc(shopId).firstOrNull()
+            if (latestMsg != null) {
+                return ResolvedChatContext(
+                    conversationId = latestMsg.conversationId,
+                    customerUserId = latestMsg.customerUserId.ifBlank { currentUserId }
+                )
+            }
+        }
+        val convId = "conv_${shopId.replace("shop_", "")}_$currentUserId"
+        return ResolvedChatContext(conversationId = convId, customerUserId = currentUserId)
+    }
+
     override suspend fun loginWithTelegram(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
         db.ensureSeeded()
         val name = payload["name"]?.trim()?.takeIf { it.isNotBlank() } ?: "Telegram Shopper"
@@ -250,12 +301,18 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 message = "Accounts that own a shop cannot be deleted while the shop is active."
             )
         }
+        val followedShopIds = db.shopFollowDao().getShopIdsForUser(current.id)
+        followedShopIds.forEach { shopId ->
+            db.shopDao().getShopById(shopId)?.let { shop ->
+                db.shopDao().updateShop(shop.copy(followersCount = maxOf(0, shop.followersCount - 1)))
+            }
+        }
         db.cartDao().clearAll(current.id)
         db.savedAddressDao().deleteByUserId(current.id)
         db.notificationDao().deleteByUserId(current.id)
-        db.productDao().clearAllWishlist()
-        db.shopDao().clearAllFollowing()
-        db.chatDao().deleteAllMessages()
+        db.wishlistDao().deleteByUserId(current.id)
+        db.shopFollowDao().deleteByUserId(current.id)
+        db.chatDao().deleteByCustomerUserId(current.id)
         db.supportTicketDao().deleteByUserId(current.id)
         db.reviewDao().anonymizeByUserId(current.id)
         db.orderDao().anonymizeByCustomerId(current.id)
@@ -330,7 +387,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             )
         )
 
-        ApiResponse(success = true, data = newShop.toDto())
+        ApiResponse(success = true, data = newShop.toDto(isFollowing = false))
     }
 
     override suspend fun getProducts(
@@ -382,20 +439,32 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             else -> list
         }
 
-        ApiResponse(success = true, data = sorted.map { it.toDto() })
+        val wishlistedIds = currentWishlistedProductIds()
+        ApiResponse(success = true, data = sorted.map { it.toDto(isWishlisted = it.id in wishlistedIds) })
     }
 
     override suspend fun getProductDetails(id: String): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
         val prod = db.productDao().getProductById(id)
-        if (prod != null) ApiResponse(success = true, data = prod.toDto())
-        else ApiResponse(success = false, message = "Product not found")
+        if (prod != null) {
+            val userId = resolveCurrentUser()?.id
+            val isWishlisted = if (userId != null) db.wishlistDao().isWishlisted(userId, id) else false
+            ApiResponse(success = true, data = prod.toDto(isWishlisted = isWishlisted))
+        } else {
+            ApiResponse(success = false, message = "Product not found")
+        }
     }
 
     override suspend fun toggleWishlist(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         val prod = db.productDao().getProductById(id)
         if (prod != null) {
-            val newState = !prod.isWishlisted
-            db.productDao().updateWishlist(id, newState)
+            val userId = resolveCurrentUser()?.id ?: "user_guest"
+            val wasWishlisted = db.wishlistDao().isWishlisted(userId, id)
+            val newState = !wasWishlisted
+            if (newState) {
+                db.wishlistDao().insert(WishlistItemEntity(userId = userId, productId = id, createdAt = getCurrentTime()))
+            } else {
+                db.wishlistDao().delete(userId, id)
+            }
             ApiResponse(success = true, data = newState)
         } else {
             ApiResponse(success = false, data = false)
@@ -446,29 +515,41 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             list = list.filter { it.category.equals(category, ignoreCase = true) }
         }
 
+        val followedIds = currentFollowedShopIds()
         list = when (filter.uppercase()) {
             "VERIFIED" -> list.filter { it.isVerified }
             "TOP_RATED" -> list.filter { it.rating >= 4.7 }
-            "FOLLOWING" -> list.filter { it.isFollowing }
+            "FOLLOWING" -> list.filter { it.id in followedIds }
             "NEARBY" -> list.filter { it.subCity.equals("Bole", ignoreCase = true) }
             else -> list
         }
 
-        ApiResponse(success = true, data = list.map { it.toDto() })
+        ApiResponse(success = true, data = list.map { it.toDto(isFollowing = it.id in followedIds) })
     }
 
     override suspend fun getShopDetails(id: String): ApiResponse<ShopDto> = withContext(Dispatchers.IO) {
         val shop = db.shopDao().getShopById(id)
-        if (shop != null) ApiResponse(success = true, data = shop.toDto())
-        else ApiResponse(success = false, message = "Shop not found")
+        if (shop != null) {
+            val userId = resolveCurrentUser()?.id
+            val isFollowing = if (userId != null) db.shopFollowDao().isFollowing(userId, id) else false
+            ApiResponse(success = true, data = shop.toDto(isFollowing = isFollowing))
+        } else {
+            ApiResponse(success = false, message = "Shop not found")
+        }
     }
 
     override suspend fun toggleFollowShop(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         val shop = db.shopDao().getShopById(id)
         if (shop != null) {
-            val newState = !shop.isFollowing
+            val userId = resolveCurrentUser()?.id ?: "user_guest"
+            val newState = !db.shopFollowDao().isFollowing(userId, id)
+            if (newState) {
+                db.shopFollowDao().insert(ShopFollowEntity(userId = userId, shopId = id, createdAt = getCurrentTime()))
+            } else {
+                db.shopFollowDao().delete(userId, id)
+            }
             val newCount = if (newState) shop.followersCount + 1 else maxOf(0, shop.followersCount - 1)
-            db.shopDao().updateShop(shop.copy(isFollowing = newState, followersCount = newCount))
+            db.shopDao().updateShop(shop.copy(followersCount = newCount))
             ApiResponse(success = true, data = newState)
         } else {
             ApiResponse(success = false, data = false)
@@ -816,7 +897,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     override suspend fun getSellerProducts(): ApiResponse<List<ProductDto>> = withContext(Dispatchers.IO) {
         val shopId = resolveActiveSellerShopId()
             ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account", data = emptyList())
-        val list = db.productDao().getProductsByShop(shopId).map { it.toDto() }
+        val wishlistedIds = currentWishlistedProductIds()
+        val list = db.productDao().getProductsByShop(shopId).map { it.toDto(isWishlisted = it.id in wishlistedIds) }
         ApiResponse(success = true, data = list)
     }
 
@@ -838,7 +920,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         if (shop != null) {
             db.shopDao().updateShop(shop.copy(productCount = db.productDao().getProductsByShop(shopId).size))
         }
-        ApiResponse(success = true, data = product.toDto())
+        ApiResponse(success = true, data = product.toDto(isWishlisted = false))
     }
 
     override suspend fun updateProduct(id: String, productData: Map<String, Any>): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
@@ -849,13 +931,16 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
         val product = buildProductEntity(id, existing.shopId, null, productData, existing)
         db.productDao().updateProduct(product)
-        ApiResponse(success = true, data = product.toDto())
+        val userId = resolveCurrentUser()?.id
+        val isWishlisted = if (userId != null) db.wishlistDao().isWishlisted(userId, id) else false
+        ApiResponse(success = true, data = product.toDto(isWishlisted = isWishlisted))
     }
 
     override suspend fun deleteProduct(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         val existing = db.productDao().getProductById(id)
             ?: return@withContext ApiResponse(success = false, data = false, message = "Product not found")
         db.productDao().deleteById(id)
+        db.wishlistDao().deleteByProductId(id)
         db.shopDao().getShopById(existing.shopId)?.let { shop ->
             db.shopDao().updateShop(shop.copy(productCount = db.productDao().getProductsByShop(shop.id).size))
         }
@@ -946,7 +1031,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             colorsCsv = colorsCsv,
             specsCsv = specsCsv,
             status = data["status"] as? String ?: existing?.status ?: "ACTIVE",
-            isWishlisted = existing?.isWishlisted ?: false,
+            isWishlisted = false,
             detailsJson = details?.toJson() ?: existing?.detailsJson ?: ""
         )
     }
@@ -986,7 +1071,9 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             detailsJson = detailsJson
         )
         db.productDao().updateProduct(updated)
-        ApiResponse(success = true, data = updated.toDto())
+        val userId = resolveCurrentUser()?.id
+        val isWishlisted = if (userId != null) db.wishlistDao().isWishlisted(userId, id) else false
+        ApiResponse(success = true, data = updated.toDto(isWishlisted = isWishlisted))
     }
 
     override suspend fun bulkUpdateProducts(payload: Map<String, Any>): ApiResponse<Int> = withContext(Dispatchers.IO) {
@@ -1017,6 +1104,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 }
                 "DELETE" -> {
                     db.productDao().deleteById(id)
+                    db.wishlistDao().deleteByProductId(id)
                     affected++
                 }
                 "OUT_OF_STOCK" -> {
@@ -1089,7 +1177,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         db.shopDao().getShopById(existing.shopId)?.let { shop ->
             db.shopDao().updateShop(shop.copy(productCount = db.productDao().getProductsByShop(existing.shopId).size))
         }
-        ApiResponse(success = true, data = copy.toDto(), message = "Product duplicated")
+        ApiResponse(success = true, data = copy.toDto(isWishlisted = false), message = "Product duplicated")
     }
 
     override suspend fun getSellerOrders(): ApiResponse<List<OrderDto>> = withContext(Dispatchers.IO) {
@@ -1344,21 +1432,34 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getChatConversations(): ApiResponse<List<ChatMessageDto>> = withContext(Dispatchers.IO) {
-        val list = db.chatDao().getAllMessages().distinctBy { it.conversationId }.map { it.toDto() }
+        val current = resolveCurrentUser()
+            ?: return@withContext ApiResponse(success = true, data = emptyList())
+        val isSellerMode = current.activeRole.equals("SELLER", ignoreCase = true) ||
+            (current.activeRole.isBlank() && current.role.equals("SELLER", ignoreCase = true))
+        val sellerShopId = if (isSellerMode) resolveActiveSellerShopId() else null
+        val messages = if (!sellerShopId.isNullOrBlank()) {
+            db.chatDao().getMessagesForShopDesc(sellerShopId)
+        } else {
+            db.chatDao().getMessagesForCustomerDesc(current.id)
+        }
+        val list = messages.distinctBy { it.conversationId }.map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
 
-    override suspend fun getChatMessages(shopId: String): ApiResponse<List<ChatMessageDto>> = withContext(Dispatchers.IO) {
-        val convId = "conv_${shopId.replace("shop_", "")}"
-        val list = db.chatDao().getMessages(convId).map { it.toDto() }
+    override suspend fun getChatMessages(shopId: String, conversationId: String?): ApiResponse<List<ChatMessageDto>> = withContext(Dispatchers.IO) {
+        val ctx = resolveChatContext(shopId = shopId, explicitConvId = conversationId)
+        val list = db.chatDao().getMessages(ctx.conversationId).map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
 
     override suspend fun sendChatMessage(shopId: String, messageData: Map<String, Any>): ApiResponse<ChatMessageDto> = withContext(Dispatchers.IO) {
-        val convId = "conv_${shopId.replace("shop_", "")}"
+        val explicitConvId = (messageData["conversationId"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+        val senderType = (messageData["senderType"] as? String)?.takeIf { it.isNotBlank() } ?: "CUSTOMER"
+        val ctx = resolveChatContext(shopId = shopId, explicitConvId = explicitConvId, senderTypeHint = senderType)
+        val customerUserId = (messageData["customerUserId"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            ?: ctx.customerUserId
         val text = (messageData["message"] as? String)?.trim().orEmpty()
         val imageUrl = (messageData["imageUrl"] as? String)?.trim().orEmpty()
-        val senderType = (messageData["senderType"] as? String)?.takeIf { it.isNotBlank() } ?: "CUSTOMER"
         val orderRef = (messageData["orderContextRef"] as? String)?.trim()?.takeIf { it.isNotBlank() }
         val orderStatus = (messageData["orderContextStatus"] as? String)?.trim()?.takeIf { it.isNotBlank() }
         val orderTotal = (messageData["orderContextTotal"] as? String)?.trim()?.takeIf { it.isNotBlank() }
@@ -1371,7 +1472,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
         val msg = ChatMessageEntity(
             id = "msg_${System.currentTimeMillis()}",
-            conversationId = convId,
+            conversationId = ctx.conversationId,
             shopId = shopId,
             shopName = shop?.name ?: "Shop",
             senderType = senderType,
@@ -1385,15 +1486,16 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             orderContextRef = orderRef,
             orderContextStatus = orderStatus,
             orderContextTotal = orderTotal,
-            threadCategory = threadCategory
+            threadCategory = threadCategory,
+            customerUserId = customerUserId
         )
         db.chatDao().insert(msg)
         ApiResponse(success = true, data = msg.toDto())
     }
 
-    override suspend fun markChatConversationRead(shopId: String, isRead: Boolean): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        val convId = "conv_${shopId.replace("shop_", "")}"
-        db.chatDao().setConversationRead(convId, isRead)
+    override suspend fun markChatConversationRead(shopId: String, isRead: Boolean, conversationId: String?): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val ctx = resolveChatContext(shopId = shopId, explicitConvId = conversationId)
+        db.chatDao().setConversationRead(ctx.conversationId, isRead)
         ApiResponse(success = true, data = true)
     }
 
@@ -1600,7 +1702,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val pending = db.shopDao().getAllShops().filter {
             it.verificationStatus in listOf("PENDING_REVIEW", "RESUBMITTED", "CHANGES_REQUESTED")
         }
-        ApiResponse(success = true, data = pending.map { it.toDto() })
+        val followedIds = currentFollowedShopIds()
+        ApiResponse(success = true, data = pending.map { it.toDto(isFollowing = it.id in followedIds) })
     }
 
     override suspend fun adminVerifySellerDecision(
@@ -2180,7 +2283,7 @@ fun UserEntity.toDto() = UserDto(
     activeRole = activeRole.ifBlank { role }, isActiveSession = isActiveSession, createdAt = createdAt
 )
 
-fun ShopEntity.toDto() = ShopDto(
+fun ShopEntity.toDto(isFollowing: Boolean = this.isFollowing) = ShopDto(
     id = id, ownerUserId = ownerUserId, name = name, slug = slug, logoUrl = logoUrl,
     coverUrl = coverUrl, category = category, shopType = shopType, description = description,
     rating = rating, reviewCount = reviewCount, isVerified = isVerified,
@@ -2198,7 +2301,7 @@ fun ShopEntity.toDto() = ShopDto(
     standardCutoffTime = standardCutoffTime, expressCutoffTime = expressCutoffTime
 )
 
-fun ProductEntity.toDto() = ProductDto(
+fun ProductEntity.toDto(isWishlisted: Boolean = this.isWishlisted) = ProductDto(
     id = id, shopId = shopId, shopName = shopName, shopVerified = shopVerified,
     name = name, nameAmharic = nameAmharic, nameAfaanOromo = nameAfaanOromo,
     description = description, descriptionAmharic = descriptionAmharic,
@@ -2308,7 +2411,8 @@ fun ChatMessageEntity.toDto() = ChatMessageDto(
     productContextPrice = productContextPrice, productContextImage = productContextImage,
     isRead = isRead, imageUrl = imageUrl,
     orderContextRef = orderContextRef, orderContextStatus = orderContextStatus,
-    orderContextTotal = orderContextTotal, threadCategory = threadCategory
+    orderContextTotal = orderContextTotal, threadCategory = threadCategory,
+    customerUserId = customerUserId
 )
 
 fun NotificationEntity.toDto() = NotificationDto(

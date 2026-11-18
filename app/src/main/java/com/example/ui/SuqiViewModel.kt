@@ -48,7 +48,8 @@ sealed class ScreenDestination {
         val shopId: String,
         val productContextName: String? = null,
         val productContextPrice: String? = null,
-        val productContextImage: String? = null
+        val productContextImage: String? = null,
+        val conversationId: String? = null
     ) : ScreenDestination()
     data object Notifications : ScreenDestination()
     data object NotificationPrefs : ScreenDestination()

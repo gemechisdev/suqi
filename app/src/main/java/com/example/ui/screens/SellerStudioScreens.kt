@@ -2632,7 +2632,7 @@ fun SellerInboxScreen(
                         SuqiSwipeRow(
                             onSwipeRightAction = {
                                 coroutineScope.launch {
-                                    val res = viewModel.repository.markChatConversationRead(conv.shopId, nextRead)
+                                    val res = viewModel.repository.markChatConversationRead(conv.shopId, nextRead, conv.conversationId)
                                     if (res.success) {
                                         conversations = conversations.map {
                                             if (it.conversationId == conv.conversationId) it.copy(isRead = nextRead) else it
@@ -2646,12 +2646,12 @@ fun SellerInboxScreen(
                                 onClick = {
                                     coroutineScope.launch {
                                         if (!conv.isRead) {
-                                            viewModel.repository.markChatConversationRead(conv.shopId, true)
+                                            viewModel.repository.markChatConversationRead(conv.shopId, true, conv.conversationId)
                                             conversations = conversations.map {
                                                 if (it.conversationId == conv.conversationId) it.copy(isRead = true) else it
                                             }
                                         }
-                                        viewModel.navigate(ScreenDestination.ChatThread(conv.shopId))
+                                        viewModel.navigate(ScreenDestination.ChatThread(conv.shopId, conversationId = conv.conversationId))
                                     }
                                 },
                                 modifier = Modifier.testTag("seller_inbox_item_${conv.shopId}")
@@ -2746,7 +2746,7 @@ fun SellerInboxScreen(
                                     IconButton(
                                         onClick = {
                                             coroutineScope.launch {
-                                                val res = viewModel.repository.markChatConversationRead(conv.shopId, nextRead)
+                                                val res = viewModel.repository.markChatConversationRead(conv.shopId, nextRead, conv.conversationId)
                                                 if (res.success) {
                                                     conversations = conversations.map {
                                                         if (it.conversationId == conv.conversationId) it.copy(isRead = nextRead) else it

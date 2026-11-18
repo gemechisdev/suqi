@@ -155,6 +155,17 @@ class Phase4LogicTest {
         val vm = SuqiViewModel(app)
         shadowOf(Looper.getMainLooper()).idle()
 
+        // Create a second independent buyer who also wishlists, follows, and chats with Tech Hub
+        val otherBuyer = runBlocking {
+            vm.repository.loginWithPhoneOtp("+251 911 666 777", "123456", "Other Buyer").data!!
+        }
+        runBlocking {
+            vm.repository.toggleWishlist("prod_laptop_hp")
+            vm.repository.toggleFollowShop("shop_fashionworld")
+            vm.repository.sendChatMessage("shop_techhub", mapOf("message" to "Keep this seller inbox thread"))
+        }
+        val fashionFollowersWithOther = runBlocking { db.shopDao().getShopById("shop_fashionworld")!!.followersCount }
+
         val buyer = runBlocking {
             vm.repository.loginWithPhoneOtp("+251 911 777 888", "123456", "Cleanup Buyer").data!!
         }
@@ -182,7 +193,8 @@ class Phase4LogicTest {
                     isRead = false
                 )
             )
-            db.productDao().updateWishlist("prod_laptop_hp", true)
+            vm.repository.toggleWishlist("prod_laptop_hp")
+            vm.repository.toggleFollowShop("shop_fashionworld")
             vm.repository.sendChatMessage("shop_techhub", mapOf("message" to "Hello from buyer"))
             vm.repository.submitSupportTicket(
                 SupportTicketDto(id = "", userId = buyer.id, category = "Account", subject = "Help", description = "Need help", status = "OPEN", createdAt = "")
@@ -241,10 +253,19 @@ class Phase4LogicTest {
             assertTrue(db.cartDao().getCartItems(buyer.id).isEmpty())
             assertTrue(db.savedAddressDao().getAddresses(buyer.id).isEmpty())
             assertTrue(db.notificationDao().getNotifications(buyer.id).isEmpty())
-            assertTrue(db.productDao().getAllProducts().none { it.isWishlisted })
-            assertTrue(db.shopDao().getAllShops().none { it.isFollowing })
-            assertTrue(db.chatDao().getAllMessages().isEmpty())
+            assertTrue(db.wishlistDao().getProductIdsForUser(buyer.id).isEmpty())
+            assertTrue(db.shopFollowDao().getShopIdsForUser(buyer.id).isEmpty())
+            assertTrue(db.chatDao().getMessagesForCustomerDesc(buyer.id).isEmpty())
             assertTrue(db.supportTicketDao().getTicketsForUser(buyer.id).isEmpty())
+
+            // Deleting buyer must NOT wipe seeded user_fitsum or otherBuyer data, nor seller inbox
+            assertTrue(db.wishlistDao().isWishlisted("user_fitsum", "prod_laptop_hp"))
+            assertTrue(db.wishlistDao().isWishlisted(otherBuyer.id, "prod_laptop_hp"))
+            assertTrue(db.shopFollowDao().isFollowing("user_fitsum", "shop_techhub"))
+            assertTrue(db.shopFollowDao().isFollowing(otherBuyer.id, "shop_fashionworld"))
+            assertEquals(fashionFollowersWithOther, db.shopDao().getShopById("shop_fashionworld")!!.followersCount)
+            assertTrue(db.chatDao().getMessagesForCustomerDesc(otherBuyer.id).any { it.message == "Keep this seller inbox thread" })
+            assertTrue(db.chatDao().getMessagesForShop("shop_techhub").any { it.customerUserId == otherBuyer.id })
 
             val anonymizedRev = db.reviewDao().getReviewsForTarget("prod_laptop_hp").firstOrNull { it.id == reviewId }
             assertNotNull(anonymizedRev)
@@ -259,6 +280,58 @@ class Phase4LogicTest {
             assertEquals("", anonymizedOrder.customerPhone)
             assertEquals("Removed", anonymizedOrder.deliveryAddress)
             assertEquals("", anonymizedOrder.payerIdentifier)
+        }
+    }
+
+    @Test
+    fun perUserIsolation_wishlistFollowingAndChatsAreScopedToActiveUser() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = SuqiViewModel(app)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val buyerA = runBlocking {
+            vm.repository.loginWithPhoneOtp("+251 911 200 100", "123456", "Buyer A").data!!
+        }
+        runBlocking {
+            vm.repository.toggleWishlist("prod_laptop_lenovo")
+            vm.repository.toggleFollowShop("shop_homeplus")
+            vm.repository.sendChatMessage("shop_techhub", mapOf("message" to "Question from Buyer A"))
+        }
+
+        val buyerB = runBlocking {
+            vm.repository.loginWithPhoneOtp("+251 911 200 200", "123456", "Buyer B").data!!
+        }
+        runBlocking {
+            val prodsForB = vm.repository.getProducts().data.orEmpty()
+            assertFalse(prodsForB.first { it.id == "prod_laptop_lenovo" }.isWishlisted)
+            assertTrue(vm.repository.getShops(filter = "FOLLOWING").data.orEmpty().isEmpty())
+            assertTrue(vm.repository.getChatConversations().data.orEmpty().isEmpty())
+            assertTrue(vm.repository.getChatMessages("shop_techhub").data.orEmpty().isEmpty())
+
+            vm.repository.sendChatMessage("shop_techhub", mapOf("message" to "Question from Buyer B"))
+            val msgsForB = vm.repository.getChatMessages("shop_techhub").data.orEmpty()
+            assertEquals(listOf("Question from Buyer B"), msgsForB.map { it.message })
+        }
+
+        // Seller of shop_techhub sees both Buyer A and Buyer B conversations in Seller Inbox and can reply per conversation
+        runBlocking {
+            vm.repository.loginWithPhoneOtp("+251 912 345 678", "123456")
+            vm.repository.updateUserProfile(mapOf("activeRole" to "SELLER"))
+            val inbox = vm.repository.getChatConversations().data.orEmpty()
+            val convA = inbox.firstOrNull { it.customerUserId == buyerA.id }
+            val convB = inbox.firstOrNull { it.customerUserId == buyerB.id }
+            assertNotNull(convA)
+            assertNotNull(convB)
+
+            vm.repository.sendChatMessage(
+                "shop_techhub",
+                mapOf("senderType" to "SHOP", "message" to "Reply only to A", "conversationId" to convA!!.conversationId)
+            )
+
+            vm.repository.loginWithPhoneOtp("+251 911 200 100", "123456")
+            val msgsA = vm.repository.getChatMessages("shop_techhub").data.orEmpty().map { it.message }
+            assertTrue("Reply only to A" in msgsA)
+            assertFalse("Question from Buyer B" in msgsA)
         }
     }
 

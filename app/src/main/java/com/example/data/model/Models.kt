@@ -235,7 +235,8 @@ data class ChatMessageDto(
     val orderContextRef: String? = null,
     val orderContextStatus: String? = null,
     val orderContextTotal: String? = null,
-    val threadCategory: String = "QUESTION"
+    val threadCategory: String = "QUESTION",
+    val customerUserId: String = ""
 )
 
 @JsonClass(generateAdapter = true)

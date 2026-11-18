@@ -37,9 +37,11 @@ import kotlinx.coroutines.sync.withLock
         ProductQuestionEntity::class,
         SubscriptionPlanEntity::class,
         SupportTicketEntity::class,
-        ItemTypeEntity::class
+        ItemTypeEntity::class,
+        WishlistItemEntity::class,
+        ShopFollowEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -63,6 +65,8 @@ abstract class SuqiDatabase : RoomDatabase() {
     abstract fun subscriptionPlanDao(): SubscriptionPlanDao
     abstract fun supportTicketDao(): SupportTicketDao
     abstract fun itemTypeDao(): ItemTypeDao
+    abstract fun wishlistDao(): WishlistDao
+    abstract fun shopFollowDao(): ShopFollowDao
 
     private val seedMutex = Mutex()
     @Volatile
@@ -305,25 +309,81 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v9: per-user wishlist_items, shop_follows, and chat_messages.customerUserId. */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `wishlist_items` (
+                        `userId` TEXT NOT NULL,
+                        `productId` TEXT NOT NULL,
+                        `createdAt` TEXT NOT NULL DEFAULT '',
+                        PRIMARY KEY(`userId`, `productId`)
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `shop_follows` (
+                        `userId` TEXT NOT NULL,
+                        `shopId` TEXT NOT NULL,
+                        `createdAt` TEXT NOT NULL DEFAULT '',
+                        PRIMARY KEY(`userId`, `shopId`)
+                    )"""
+                )
+                db.execSQL(
+                    """INSERT OR IGNORE INTO wishlist_items (userId, productId)
+                        SELECT 'user_fitsum', id FROM products WHERE isWishlisted = 1"""
+                )
+                db.execSQL(
+                    """INSERT OR IGNORE INTO shop_follows (userId, shopId)
+                        SELECT 'user_fitsum', id FROM shops WHERE isFollowing = 1"""
+                )
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN customerUserId TEXT NOT NULL DEFAULT 'user_fitsum'")
+                db.execSQL(
+                    """UPDATE chat_messages
+                        SET conversationId = conversationId || '_user_fitsum'
+                        WHERE conversationId IN ('conv_techhub', 'conv_fashionworld')"""
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
+        @Volatile
+        private var INSTANCE_DIR: String? = null
+
         fun getInstance(context: Context): SuqiDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    SuqiDatabase::class.java,
-                    "suqi_marketplace.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).addCallback(object : Callback() {
-                    override fun onOpen(db: SupportSQLiteDatabase) {
-                        super.onOpen(db)
-                        CoroutineScope(Dispatchers.IO).launch {
-                            getInstance(context).ensureSeeded()
+            val appContext = context.applicationContext
+            val dir = runCatching { appContext.filesDir.absolutePath }.getOrDefault("")
+            val existing = INSTANCE
+            if (existing != null && INSTANCE_DIR == dir) {
+                return existing
+            }
+            return synchronized(this) {
+                val current = INSTANCE
+                if (current != null && INSTANCE_DIR == dir) {
+                    current
+                } else {
+                    runCatching { current?.close() }
+                    val instance = Room.databaseBuilder(
+                        appContext,
+                        SuqiDatabase::class.java,
+                        "suqi_marketplace.db"
+                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).addCallback(object : Callback() {
+                        override fun onOpen(db: SupportSQLiteDatabase) {
+                            super.onOpen(db)
+                            CoroutineScope(Dispatchers.IO).launch {
+                                runCatching {
+                                    if (INSTANCE_DIR == dir) {
+                                        INSTANCE?.ensureSeeded()
+                                    }
+                                }
+                            }
                         }
-                    }
-                }).build()
-                INSTANCE = instance
-                instance
+                    }).build()
+                    INSTANCE = instance
+                    INSTANCE_DIR = dir
+                    instance
+                }
             }
         }
     }

@@ -216,9 +216,10 @@ class SuqiRepository private constructor(context: Context) {
 
     // Chat, Reviews, Notifications, Addresses, Support
     suspend fun getChatConversations() = api.getChatConversations()
-    suspend fun getChatMessages(shopId: String) = api.getChatMessages(shopId)
+    suspend fun getChatMessages(shopId: String, conversationId: String? = null) = api.getChatMessages(shopId, conversationId)
     suspend fun sendChatMessage(shopId: String, messageData: Map<String, Any>) = api.sendChatMessage(shopId, messageData)
-    suspend fun markChatConversationRead(shopId: String, isRead: Boolean) = api.markChatConversationRead(shopId, isRead)
+    suspend fun markChatConversationRead(shopId: String, isRead: Boolean, conversationId: String? = null) =
+        api.markChatConversationRead(shopId, isRead, conversationId)
     suspend fun getReviews(targetId: String) = api.getReviews(targetId)
     suspend fun submitReview(data: Map<String, Any>) = api.submitReview(data)
     suspend fun getNotifications() = api.getNotifications()
@@ -266,9 +267,26 @@ class SuqiRepository private constructor(context: Context) {
         @Volatile
         private var INSTANCE: SuqiRepository? = null
 
+        @Volatile
+        private var INSTANCE_DIR: String? = null
+
         fun getInstance(context: Context): SuqiRepository {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: SuqiRepository(context.applicationContext).also { INSTANCE = it }
+            val appContext = context.applicationContext
+            val dir = runCatching { appContext.filesDir.absolutePath }.getOrDefault("")
+            val existing = INSTANCE
+            if (existing != null && INSTANCE_DIR == dir) {
+                return existing
+            }
+            return synchronized(this) {
+                val current = INSTANCE
+                if (current != null && INSTANCE_DIR == dir) {
+                    current
+                } else {
+                    SuqiRepository(appContext).also {
+                        INSTANCE = it
+                        INSTANCE_DIR = dir
+                    }
+                }
             }
         }
     }
