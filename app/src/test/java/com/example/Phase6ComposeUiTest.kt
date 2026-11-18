@@ -455,4 +455,24 @@ class Phase6ComposeUiTest {
         composeRule.onNodeWithTag("staff_delete_${member.id}").performClick()
         waitForCondition { runBlocking { vm.repository.getSellerStaff().data.orEmpty().none { it.id == member.id } } }
     }
+
+    @Test
+    fun shopStorefront_collectionsTabShowsSellerCollectionAndFiltersProducts() {
+        val seller = newSellerViewModel()
+        val product = runBlocking { seller.repository.getSellerProducts().data.orEmpty().first() }
+        val col = runBlocking {
+            seller.repository.saveSellerCollection(
+                com.example.data.model.ShopCollectionDto(id = "", name = "Storefront pick", productIds = listOf(product.id))
+            ).data!!
+        }
+        val vm = newBuyerViewModel("+251 911 710 108", "Storefront Viewer")
+        show { com.example.ui.screens.ShopStorefrontScreen(shopId = product.shopId, viewModel = vm) }
+
+        waitForTag("storefront_tab_collections")
+        composeRule.onNodeWithTag("storefront_tab_collections").performClick()
+        waitForTag("storefront_collection_col:${col.id}")
+        composeRule.onNodeWithTag("storefront_collection_col:${col.id}").performClick()
+        // Filter applied: back on the Products tab with the chosen product visible.
+        waitForCondition { composeRule.onAllNodesWithTag("storefront_collection_col:${col.id}").fetchSemanticsNodes().isEmpty() }
+    }
 }

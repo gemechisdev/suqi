@@ -439,6 +439,9 @@ interface SuqiApiService {
     suspend fun getAuditLog(): ApiResponse<List<AuditLogEntryDto>>
 
     // Phase 6: seller collections & staff
+    @GET(SuqiEndpoints.SHOP_COLLECTIONS)
+    suspend fun getShopCollections(@Path("id") shopId: String): ApiResponse<List<ShopCollectionDto>>
+
     @GET(SuqiEndpoints.SELLER_COLLECTIONS)
     suspend fun getSellerCollections(): ApiResponse<List<ShopCollectionDto>>
 

@@ -3756,6 +3756,17 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         return resolveActiveSellerShopId()
     }
 
+    /** Public storefront read: only visible, non-empty collections of the given shop. */
+    override suspend fun getShopCollections(shopId: String): ApiResponse<List<ShopCollectionDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val liveProducts = db.productDao().getAllProducts().filter { it.shopId == shopId }.map { it.id }.toSet()
+        val list = db.shopCollectionDao().getByShop(shopId)
+            .filter { it.isVisible }
+            .map { it.toDto().let { d -> d.copy(productIds = d.productIds.filter { id -> id in liveProducts }) } }
+            .filter { it.productIds.isNotEmpty() }
+        ApiResponse(success = true, data = list)
+    }
+
     override suspend fun getSellerCollections(): ApiResponse<List<ShopCollectionDto>> = withContext(Dispatchers.IO) {
         db.ensureSeeded()
         val shopId = requireSellerShop()

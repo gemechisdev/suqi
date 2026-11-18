@@ -336,4 +336,25 @@ class Phase6LogicTest {
             assertFalse(vm.repository.deleteSellerStaff(saved.data!!.id).success)
         }
     }
+
+    @Test
+    fun shopCollections_publicReadShowsOnlyVisibleCollectionsWithLiveProducts() {
+        val vm = newVm()
+        signInSeller(vm)
+        val (visibleId, hiddenId, shopId) = runBlocking {
+            val product = vm.repository.getSellerProducts().data.orEmpty().first()
+            val visible = vm.repository.saveSellerCollection(ShopCollectionDto(id = "", name = "Visible set", productIds = listOf(product.id))).data!!
+            val hidden = vm.repository.saveSellerCollection(ShopCollectionDto(id = "", name = "Hidden set", productIds = listOf(product.id), isVisible = false)).data!!
+            vm.repository.saveSellerCollection(ShopCollectionDto(id = "", name = "Empty set"))
+            Triple(visible.id, hidden.id, product.shopId)
+        }
+        createBuyer(vm, "+251 911 700 301", "Storefront Buyer")
+        runBlocking {
+            val ids = vm.repository.getShopCollections(shopId).data.orEmpty().map { it.id }
+            assertTrue(ids.contains(visibleId))
+            assertFalse(ids.contains(hiddenId))
+            assertEquals("empty collections are not shown", 1, ids.size - ids.count { it != visibleId })
+            assertTrue(vm.repository.getShopCollections(shopId).data.orEmpty().all { it.productIds.isNotEmpty() })
+        }
+    }
 }

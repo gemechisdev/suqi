@@ -357,6 +357,7 @@ fun ShopStorefrontScreen(
     var activeCollectionFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var shopSearchQuery by rememberSaveable { mutableStateOf("") }
     var showShareSheet by remember { mutableStateOf(false) }
+    var sellerCollections by remember { mutableStateOf<List<com.example.data.model.ShopCollectionDto>>(emptyList()) }
     val storefrontListState = rememberLazyListState()
 
     BackHandler(enabled = showShareSheet) {
@@ -379,6 +380,8 @@ fun ShopStorefrontScreen(
             reviews = rRes.data
             viewModel.cachedShopReviews[shopId] = rRes.data
         }
+        val cRes = viewModel.repository.getShopCollections(shopId)
+        if (cRes.success && cRes.data != null) sellerCollections = cRes.data
         val dRes = viewModel.repository.getShopDeliveryOptions(shopId)
         if (dRes.success && dRes.data != null) deliveryOptions = dRes.data
         val pmRes = viewModel.repository.getShopPaymentMethods(shopId)
@@ -403,7 +406,12 @@ fun ShopStorefrontScreen(
         return
     }
 
-    fun collectionDisplayTitle(key: String): String = when (key) {
+    fun collectionDisplayTitle(key: String): String = when {
+        key.startsWith("col:") -> sellerCollections.firstOrNull { it.id == key.removePrefix("col:") }?.name.orEmpty()
+        else -> builtinCollectionTitle(key)
+    }
+
+    fun builtinCollectionTitle(key: String): String = when (key) {
         "Best Sellers" -> strings.popularNow
         "Discount Deals" -> strings.hotDeals
         "In Stock Ready" -> strings.inStock
@@ -722,11 +730,14 @@ fun ShopStorefrontScreen(
             }
 
             if (selectedTab == 0) {
-                val collectionFiltered = when (activeCollectionFilter) {
-                    "Best Sellers" -> products.sortedByDescending { it.rating }
-                    "Discount Deals" -> products.filter { it.discountPercent > 0 }
-                    "In Stock Ready" -> products.filter { it.stockQuantity > 0 }
-                    "Premium Picks" -> products.filter { it.price >= 5000.0 }.ifEmpty { products }
+                val sellerFilter = activeCollectionFilter?.takeIf { it.startsWith("col:") }
+                    ?.let { key -> sellerCollections.firstOrNull { it.id == key.removePrefix("col:") } }
+                val collectionFiltered = when {
+                    sellerFilter != null -> products.filter { it.id in sellerFilter.productIds }
+                    activeCollectionFilter == "Best Sellers" -> products.sortedByDescending { it.rating }
+                    activeCollectionFilter == "Discount Deals" -> products.filter { it.discountPercent > 0 }
+                    activeCollectionFilter == "In Stock Ready" -> products.filter { it.stockQuantity > 0 }
+                    activeCollectionFilter == "Premium Picks" -> products.filter { it.price >= 5000.0 }.ifEmpty { products }
                     else -> products
                 }
                 val filteredProducts = if (shopSearchQuery.isBlank()) {
@@ -796,14 +807,22 @@ fun ShopStorefrontScreen(
                     Triple("Premium Picks", strings.recommendedForYou, products.maxByOrNull { it.price }?.primaryImageUrl ?: currentShop.coverUrl)
                 )
 
-                items(collections) { (key, title, img) ->
+                val sellerRows = sellerCollections.map { c ->
+                    Triple(
+                        "col:${c.id}",
+                        c.name,
+                        products.firstOrNull { it.id in c.productIds }?.primaryImageUrl ?: currentShop.coverUrl
+                    )
+                }
+
+                items(sellerRows + collections) { (key, title, img) ->
                     SuqiSectionCard(
                         padding = 14.dp,
                         onClick = {
                             activeCollectionFilter = key
                             selectedTab = 0
                         },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp).testTag("storefront_collection_$key")
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(

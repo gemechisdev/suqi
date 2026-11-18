@@ -370,6 +370,7 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun getAuditLog() = api.getAuditLog()
 
     // Phase 6: seller collections & staff
+    suspend fun getShopCollections(shopId: String) = api.getShopCollections(shopId)
     suspend fun getSellerCollections() = api.getSellerCollections()
     suspend fun saveSellerCollection(collection: ShopCollectionDto) = api.saveSellerCollection(collection)
     suspend fun deleteSellerCollection(id: String) = api.deleteSellerCollection(id)

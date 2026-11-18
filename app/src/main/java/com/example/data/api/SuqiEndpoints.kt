@@ -117,6 +117,7 @@ object SuqiEndpoints {
     const val ADMIN_AUDIT_LOG = "admin/audit-log"
 
     // Phase 6: admin ops & config
+    const val SHOP_COLLECTIONS = "shops/{id}/collections"
     const val SELLER_COLLECTIONS = "seller/collections"
     const val SELLER_STAFF = "seller/staff"
     const val ADMIN_LOCATIONS = "admin/locations"
