@@ -1596,7 +1596,7 @@ fun AdminDevToolsScreen(
                         }
                         Spacer(modifier = Modifier.weight(1f))
                         SuqiButton(
-                            text = strings.openLabel,
+                            text = "Open",
                             onClick = { viewModel.showToast("Design gallery not yet wired") },
                             modifier = Modifier.heightIn(min = 40.dp),
                             isPrimary = false
