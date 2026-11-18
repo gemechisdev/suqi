@@ -357,4 +357,40 @@ class Phase6LogicTest {
             assertTrue(vm.repository.getShopCollections(shopId).data.orEmpty().all { it.productIds.isNotEmpty() })
         }
     }
+
+    @Test
+    fun staff_signInLinksToShopAndRolesLimitWhatTheyCanDo() {
+        val vm = newVm()
+        signInSeller(vm)
+        val phone = "+251 911 800 401"
+        val (ordersStaff, managerStaff, productId) = runBlocking {
+            val product = vm.repository.getSellerProducts().data.orEmpty().first()
+            val a = vm.repository.saveSellerStaff(ShopStaffDto(id = "", name = "Orders Olga", phone = phone, role = "ORDERS")).data!!
+            val b = vm.repository.saveSellerStaff(ShopStaffDto(id = "", name = "Manager Mo", phone = "+251 911 800 402", role = "MANAGER")).data!!
+            Triple(a, b, product.id)
+        }
+        // ORDERS staff signs in: linked to the shop as a seller, but limited to orders.
+        val staffUser = runBlocking { vm.repository.loginWithPhoneOtp(phone, "123456", "Orders Olga").data!! }
+        assertEquals("SELLER", staffUser.role)
+        assertEquals(ordersStaff.shopId, staffUser.shopId)
+        runBlocking {
+            assertTrue(vm.repository.getSellerOrders().success)
+            assertFalse("orders staff cannot change listings", vm.repository.updateProductStatus(productId, "ARCHIVED").success)
+            assertFalse("staff cannot manage staff", vm.repository.getSellerStaff().success)
+            assertFalse(vm.repository.saveSellerStaff(ShopStaffDto(id = "", name = "X", phone = "+251 911 800 499")).success)
+        }
+        // MANAGER may change listings but still not staff.
+        runBlocking { vm.repository.loginWithPhoneOtp("+251 911 800 402", "123456", "Manager Mo") }
+        runBlocking {
+            assertTrue(vm.repository.updateProductStatus(productId, "ACTIVE").success)
+            assertFalse(vm.repository.deleteSellerStaff(ordersStaff.id).success)
+        }
+        // Owner removes the manager: access is revoked.
+        signInSeller(vm)
+        runBlocking { assertTrue(vm.repository.deleteSellerStaff(managerStaff.id).success) }
+        runBlocking {
+            vm.repository.loginWithPhoneOtp("+251 911 800 402", "123456", "Manager Mo")
+            assertFalse("removed staff has no shop", vm.repository.getSellerOrders().success)
+        }
+    }
 }

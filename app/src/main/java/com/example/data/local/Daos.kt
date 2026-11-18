@@ -817,6 +817,9 @@ interface ShopStaffDao {
     @Query("SELECT * FROM shop_staff WHERE shopId = :shopId ORDER BY rowid ASC")
     suspend fun getByShop(shopId: String): List<ShopStaffEntity>
 
+    @Query("SELECT * FROM shop_staff")
+    suspend fun getAll(): List<ShopStaffEntity>
+
     @Query("SELECT * FROM shop_staff WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ShopStaffEntity?
 

@@ -215,7 +215,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 createdAt = getCurrentTime()
             ).also { db.userDao().insertUser(it) }
         }
-        ApiResponse(success = true, data = user.toDto())
+        ApiResponse(success = true, data = linkStaffUser(user).toDto())
     }
 
     override suspend fun loginAsGuest(): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
@@ -961,6 +961,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun createProduct(productData: Map<String, Any>): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
+        if (staffLacks("CATALOG")) return@withContext ApiResponse(success = false, message = "Your staff role cannot do this.")
         val shopId = resolveActiveSellerShopId()
             ?: return@withContext ApiResponse(success = false, message = "Create a seller shop first before adding products.")
         val shop = db.shopDao().getShopById(shopId)
@@ -982,6 +983,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun updateProduct(id: String, productData: Map<String, Any>): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
+        if (staffLacks("CATALOG")) return@withContext ApiResponse(success = false, message = "Your staff role cannot do this.")
         val existing = db.productDao().getProductById(id)
             ?: return@withContext ApiResponse(success = false, message = "Product not found")
 
@@ -995,6 +997,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun deleteProduct(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        if (staffLacks("CATALOG")) return@withContext ApiResponse(success = false, data = false, message = "Your staff role cannot do this.")
         val existing = db.productDao().getProductById(id)
             ?: return@withContext ApiResponse(success = false, data = false, message = "Product not found")
         db.productDao().deleteById(id)
@@ -1103,6 +1106,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun updateProductStatus(id: String, status: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        if (staffLacks("CATALOG")) return@withContext ApiResponse(success = false, data = false, message = "Your staff role cannot do this.")
         val prod = db.productDao().getProductById(id)
         if (prod != null) {
             db.productDao().updateProduct(prod.copy(status = status))
@@ -1113,6 +1117,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun updateProductStock(id: String, payload: Map<String, Any>): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
+        if (staffLacks("CATALOG")) return@withContext ApiResponse(success = false, message = "Your staff role cannot do this.")
         val existing = db.productDao().getProductById(id)
             ?: return@withContext ApiResponse(success = false, message = "Product not found")
         val targetStock = (payload["stockQuantity"] as? Number)?.toInt()?.coerceAtLeast(0)
@@ -1246,6 +1251,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun updateSellerOrderStatus(orderId: String, status: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        if (staffLacks("ORDERS")) return@withContext ApiResponse(success = false, data = false, message = "Your staff role cannot do this.")
         val caller = requireSignedInUser()
             ?: return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
         val order = db.orderDao().getOrderById(orderId)
@@ -3750,6 +3756,46 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     // ==================== PHASE 6: SELLER COLLECTIONS & STAFF ====================
 
+    private fun phoneDigits(phone: String) = phone.filter { it.isDigit() }.takeLast(9)
+
+    /** Active staff record for a phone number, or null. */
+    private suspend fun activeStaffFor(phone: String): ShopStaffEntity? {
+        val d = phoneDigits(phone)
+        if (d.length < 9) return null
+        return db.shopStaffDao().getAll().firstOrNull { it.isActive && phoneDigits(it.phone) == d }
+    }
+
+    /** Staff role of the current user in their shop, or null for owners, admins and non-staff. */
+    private suspend fun staffRoleOrNull(): String? {
+        val user = resolveCurrentUser() ?: return null
+        if (user.isAdmin() || db.shopDao().getShopByOwner(user.id) != null) return null
+        val rec = activeStaffFor(user.phone) ?: return null
+        return rec.role.takeIf { user.shopId == rec.shopId }
+    }
+
+    /** True when the caller is shop staff whose role does not allow [allowed] (MANAGER may do everything except manage staff). */
+    private suspend fun staffLacks(vararg allowed: String): Boolean {
+        val role = staffRoleOrNull() ?: return false
+        return role != "MANAGER" && role !in allowed
+    }
+
+    /** Links a signed-in user to the shop that invited their phone as staff; no-op for shop owners and admins. */
+    private suspend fun linkStaffUser(user: UserEntity): UserEntity {
+        if (user.isAdmin() || db.shopDao().getShopByOwner(user.id) != null) return user
+        val rec = activeStaffFor(user.phone) ?: return user
+        val linked = user.copy(shopId = rec.shopId, role = "SELLER", activeRole = "SELLER")
+        db.userDao().updateUser(linked)
+        return linked
+    }
+
+    /** Removes seller access from users whose staff record was removed or deactivated. */
+    private suspend fun unlinkStaffUsers(rec: ShopStaffEntity) {
+        val d = phoneDigits(rec.phone)
+        db.userDao().getAllUsers()
+            .filter { phoneDigits(it.phone) == d && it.shopId == rec.shopId && db.shopDao().getShopByOwner(it.id) == null && !it.isAdmin() }
+            .forEach { db.userDao().updateUser(it.copy(shopId = null, role = "CUSTOMER", activeRole = "CUSTOMER")) }
+    }
+
     private suspend fun requireSellerShop(): String? {
         val user = resolveCurrentUser() ?: return null
         if (user.role != "SELLER" && user.activeRole != "SELLER") return null
@@ -3811,6 +3857,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun getSellerStaff(): ApiResponse<List<ShopStaffDto>> = withContext(Dispatchers.IO) {
         db.ensureSeeded()
+        if (staffRoleOrNull() != null) return@withContext ApiResponse(success = false, message = "Only the shop owner can manage staff.")
         val shopId = requireSellerShop()
             ?: return@withContext ApiResponse(success = false, message = "Seller account required.")
         ApiResponse(success = true, data = db.shopStaffDao().getByShop(shopId).map { it.toDto() })
@@ -3818,6 +3865,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
 
     override suspend fun saveSellerStaff(staff: ShopStaffDto): ApiResponse<ShopStaffDto> = withContext(Dispatchers.IO) {
         db.ensureSeeded()
+        if (staffRoleOrNull() != null) return@withContext ApiResponse(success = false, message = "Only the shop owner can manage staff.")
         val shopId = requireSellerShop()
             ?: return@withContext ApiResponse(success = false, message = "Seller account required.")
         if (staff.name.isBlank()) return@withContext ApiResponse(success = false, message = "Staff name is required.")
@@ -3838,11 +3886,13 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             createdAt = existing?.createdAt ?: getCurrentTime()
         )
         db.shopStaffDao().upsert(entity)
+        if (!entity.isActive) unlinkStaffUsers(entity)
         ApiResponse(success = true, data = entity.toDto())
     }
 
     override suspend fun deleteSellerStaff(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
         db.ensureSeeded()
+        if (staffRoleOrNull() != null) return@withContext ApiResponse(success = false, data = false, message = "Only the shop owner can manage staff.")
         val shopId = requireSellerShop()
             ?: return@withContext ApiResponse(success = false, data = false, message = "Seller account required.")
         val existing = db.shopStaffDao().getById(id)
@@ -3850,6 +3900,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             return@withContext ApiResponse(success = false, data = false, message = "Staff member not found")
         }
         db.shopStaffDao().deleteById(id)
+        unlinkStaffUsers(existing)
         ApiResponse(success = true, data = true)
     }
 
