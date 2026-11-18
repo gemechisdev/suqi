@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,6 +30,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ProductQuestionDto
 import com.example.data.model.ReviewDto
+import com.example.data.model.UserDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.SuqiBottomSheet
@@ -91,7 +96,7 @@ fun SellerReviewsQAScreen(
     LaunchedEffect(Unit) { loadData() }
 
     SuqiScreen(
-        title = strings.seller.sellerToolsShopTitle,
+        title = strings.sellerOps.sellerToolsShopTitle,
         subtitle = "${reviews.size + questions.size}",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -137,8 +142,8 @@ fun SellerReviewsQAScreen(
             } else if (items.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
-                        icon = LucideIcons.Chat,
-                        title = strings.seller.sellerToolsShopTitle,
+                        icon = LucideIcons.MessageCircle,
+                        title = strings.sellerOps.sellerToolsShopTitle,
                         subtitle = "No ${selectedTab.lowercase()} yet",
                         testTag = "seller_reviews_qa_empty"
                     )
@@ -218,12 +223,12 @@ fun SellerReviewsQAScreen(
                                         SuqiTextField(
                                             value = "",
                                             onValueChange = {},
-                                            label = strings.adminGov.reviewReasonHint,
+                                            label = strings.admin.reviewReasonHint,
                                             modifier = Modifier.fillMaxWidth(),
                                             testTag = "seller_reply_${review.id}"
                                         )
                                         SuqiButton(
-                                            text = strings.adminGov.sendBroadcastBtn,
+                                            text = strings.admin.sendBroadcastBtn,
                                             onClick = {
                                                 coroutineScope.launch {
                                                     viewModel.repository.replyToReview(review.id, "Reply not yet wired")
@@ -279,12 +284,12 @@ fun SellerReviewsQAScreen(
                                         SuqiTextField(
                                             value = "",
                                             onValueChange = {},
-                                            label = strings.adminGov.reviewReasonHint,
+                                            label = strings.admin.reviewReasonHint,
                                             modifier = Modifier.fillMaxWidth(),
                                             testTag = "seller_answer_${q.id}"
                                         )
                                         SuqiButton(
-                                            text = strings.adminGov.sendBroadcastBtn,
+                                            text = strings.admin.sendBroadcastBtn,
                                             onClick = {
                                                 viewModel.showToast("Answer not yet wired")
                                             },
@@ -314,7 +319,7 @@ fun SellerCustomersScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var customers by remember { mutableStateOf(emptyList<UserDto>()) }
+    var customers by remember { mutableStateOf<List<UserDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
     fun loadCustomers() {
@@ -330,8 +335,8 @@ fun SellerCustomersScreen(
     LaunchedEffect(Unit) { loadCustomers() }
 
     SuqiScreen(
-        title = strings.seller.sellerToolsShopTitle,
-        subtitle = "${customers.size} customers",
+        title = strings.sellerOps.sellerToolsShopTitle,
+        subtitle = "${customers.value.size} customers",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -347,7 +352,7 @@ fun SellerCustomersScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.Users,
-                        title = strings.seller.sellerToolsShopTitle,
+                        title = strings.sellerOps.sellerToolsShopTitle,
                         subtitle = "No customers yet",
                         testTag = "seller_customers_empty"
                     )
@@ -408,10 +413,10 @@ fun SellerCollectionsScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var collections by remember { mutableStateOf(emptyList<String>()) }
+    var collections by remember { mutableStateOf<List<String>>(emptyList()) }
 
     SuqiScreen(
-        title = strings.seller.sellerToolsShopTitle,
+        title = strings.sellerOps.sellerToolsShopTitle,
         subtitle = "${collections.size} collections",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -426,7 +431,7 @@ fun SellerCollectionsScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.ShoppingBag,
-                        title = strings.seller.sellerToolsShopTitle,
+                        title = strings.sellerOps.sellerToolsShopTitle,
                         subtitle = "No collections yet",
                         testTag = "seller_collections_empty"
                     )
@@ -474,7 +479,7 @@ fun SellerStaffAccountsScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var staff by remember { mutableStateOf(emptyList<UserDto>()) }
+    var staff by remember { mutableStateOf<List<UserDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
     fun loadStaff() {
@@ -490,8 +495,8 @@ fun SellerStaffAccountsScreen(
     LaunchedEffect(Unit) { loadStaff() }
 
     SuqiScreen(
-        title = strings.seller.sellerToolsShopTitle,
-        subtitle = "${staff.size} staff",
+        title = strings.sellerOps.sellerToolsShopTitle,
+        subtitle = "${staff.value.size} staff",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -507,7 +512,7 @@ fun SellerStaffAccountsScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.User,
-                        title = strings.seller.sellerToolsShopTitle,
+                        title = strings.sellerOps.sellerToolsShopTitle,
                         subtitle = "No staff accounts yet",
                         testTag = "seller_staff_empty"
                     )
