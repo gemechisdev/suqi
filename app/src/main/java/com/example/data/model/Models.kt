@@ -703,6 +703,65 @@ data class AdminBroadcastDto(
     val createdAt: String
 )
 
+// ==================== PHASE 6: ADMIN PLATFORM MANAGEMENT ====================
+
+@JsonClass(generateAdapter = true)
+data class AdminUserRowDto(
+    val id: String,
+    val name: String,
+    val phone: String,
+    val email: String = "",
+    val avatarUrl: String = "",
+    val role: String,
+    val activeRole: String = "",
+    val region: String = "",
+    val city: String = "",
+    val subCity: String = "",
+    val isSuspended: Boolean = false,
+    val ordersCount: Int = 0,
+    val totalSpent: Double = 0.0,
+    val reviewsCount: Int = 0,
+    val reportsAgainst: Int = 0,
+    val createdAt: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminShopRowDto(
+    val id: String,
+    val name: String,
+    val logoUrl: String = "",
+    val ownerUserId: String,
+    val ownerName: String = "",
+    val category: String = "",
+    val shopType: String = "",
+    val isVerified: Boolean = false,
+    val verificationStatus: String = "NOT_SUBMITTED",
+    val isSuspended: Boolean = false,
+    val isFeatured: Boolean = false,
+    val planName: String = "Free Pilot",
+    val productsCount: Int = 0,
+    val ordersCount: Int = 0,
+    val gmv: Double = 0.0,
+    val notes: String = "",
+    val createdAt: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class AuditLogEntryDto(
+    val id: String,
+    val actorUserId: String,
+    val actorName: String,
+    val actorRole: String,
+    val action: String,
+    val targetType: String,
+    val targetId: String = "",
+    val targetLabel: String = "",
+    val beforeValue: String = "",
+    val afterValue: String = "",
+    val note: String = "",
+    val createdAt: String
+)
+
 @JsonClass(generateAdapter = true)
 data class ApiResponse<T>(
     val success: Boolean,

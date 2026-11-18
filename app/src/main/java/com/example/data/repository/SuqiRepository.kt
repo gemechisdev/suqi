@@ -355,6 +355,20 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun getAdminBroadcasts() = api.getAdminBroadcasts()
     suspend fun sendAdminBroadcastExtended(payload: Map<String, String>) = api.sendAdminBroadcast(payload)
 
+    // Phase 6: Admin platform management (users, shops, audit log)
+    suspend fun getAdminUsers() = api.getAdminUsers()
+    suspend fun getAdminUserDetail(id: String) = api.getAdminUserDetail(id)
+    suspend fun setUserSuspended(id: String, suspended: Boolean, reason: String = "") =
+        api.setUserSuspended(id, buildMap { put("suspended", suspended.toString()); if (reason.isNotBlank()) put("reason", reason) })
+    suspend fun resetUserSessions(id: String) = api.resetUserSessions(id)
+    suspend fun getAdminUserOrders(id: String) = api.getAdminUserOrders(id)
+    suspend fun getAdminShops() = api.getAdminShops()
+    suspend fun getAdminShopDetail(id: String) = api.getAdminShopDetail(id)
+    suspend fun adminShopAction(id: String, action: String, value: String = "", reason: String = "") =
+        api.adminShopAction(id, buildMap { put("action", action); if (value.isNotBlank()) put("value", value); if (reason.isNotBlank()) put("reason", reason) })
+    suspend fun saveAdminShopNotes(id: String, notes: String) = api.saveAdminShopNotes(id, mapOf("notes" to notes))
+    suspend fun getAuditLog() = api.getAuditLog()
+
     companion object {
         @Volatile
         private var INSTANCE: SuqiRepository? = null

@@ -233,6 +233,9 @@ interface ReviewDao {
     @Query("SELECT * FROM reviews WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ReviewEntity?
 
+    @Query("SELECT * FROM reviews WHERE userId = :userId ORDER BY date DESC")
+    suspend fun getReviewsByUser(userId: String): List<ReviewEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(review: ReviewEntity)
 
@@ -424,6 +427,9 @@ interface FlaggedReviewDao {
 
     @Query("SELECT * FROM flagged_reviews WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): FlaggedReviewEntity?
+
+    @Query("SELECT * FROM flagged_reviews WHERE reviewId = :reviewId")
+    suspend fun getByReviewId(reviewId: String): List<FlaggedReviewEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: FlaggedReviewEntity)
@@ -658,4 +664,54 @@ interface AnalyticsEventDao {
 
     @Query("SELECT COUNT(*) FROM analytics_events")
     suspend fun totalCount(): Int
+}
+
+// ==================== PHASE 6: ADMIN PLATFORM MANAGEMENT ====================
+
+@Dao
+interface AuditLogDao {
+    @Query("SELECT * FROM audit_log ORDER BY rowid DESC LIMIT :limit")
+    suspend fun getRecent(limit: Int): List<AuditLogEntity>
+
+    @Query("SELECT * FROM audit_log ORDER BY rowid DESC")
+    suspend fun getAll(): List<AuditLogEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: AuditLogEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<AuditLogEntity>)
+
+    @Query("DELETE FROM audit_log")
+    suspend fun clearAll()
+}
+
+@Dao
+interface ShopAdminNoteDao {
+    @Query("SELECT * FROM shop_admin_notes WHERE shopId = :shopId LIMIT 1")
+    suspend fun getByShop(shopId: String): ShopAdminNoteEntity?
+
+    @Query("SELECT * FROM shop_admin_notes")
+    suspend fun getAll(): List<ShopAdminNoteEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: ShopAdminNoteEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<ShopAdminNoteEntity>)
+}
+
+@Dao
+interface UserAdminOverrideDao {
+    @Query("SELECT * FROM user_admin_overrides WHERE userId = :userId LIMIT 1")
+    suspend fun getByUser(userId: String): UserAdminOverrideEntity?
+
+    @Query("SELECT * FROM user_admin_overrides")
+    suspend fun getAll(): List<UserAdminOverrideEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: UserAdminOverrideEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<UserAdminOverrideEntity>)
 }

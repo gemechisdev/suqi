@@ -406,4 +406,35 @@ interface SuqiApiService {
 
     @GET(SuqiEndpoints.ADMIN_BROADCAST)
     suspend fun getAdminBroadcasts(): ApiResponse<List<AdminBroadcastDto>>
+
+    // Phase 6: Admin platform management (users, shops, audit log)
+    @GET(SuqiEndpoints.ADMIN_USERS)
+    suspend fun getAdminUsers(): ApiResponse<List<AdminUserRowDto>>
+
+    @GET(SuqiEndpoints.ADMIN_USER_DETAIL)
+    suspend fun getAdminUserDetail(@Path("id") id: String): ApiResponse<AdminUserRowDto>
+
+    @POST(SuqiEndpoints.ADMIN_USER_SUSPEND)
+    suspend fun setUserSuspended(@Path("id") id: String, @Body payload: Map<String, String>): ApiResponse<AdminUserRowDto>
+
+    @POST(SuqiEndpoints.ADMIN_USER_RESET)
+    suspend fun resetUserSessions(@Path("id") id: String): ApiResponse<Boolean>
+
+    @GET(SuqiEndpoints.ADMIN_USER_ORDERS)
+    suspend fun getAdminUserOrders(@Path("id") id: String): ApiResponse<List<OrderDto>>
+
+    @GET(SuqiEndpoints.ADMIN_SHOPS)
+    suspend fun getAdminShops(): ApiResponse<List<AdminShopRowDto>>
+
+    @GET(SuqiEndpoints.ADMIN_SHOP_DETAIL)
+    suspend fun getAdminShopDetail(@Path("id") id: String): ApiResponse<AdminShopRowDto>
+
+    @POST(SuqiEndpoints.ADMIN_SHOP_ACTION)
+    suspend fun adminShopAction(@Path("id") id: String, @Body payload: Map<String, String>): ApiResponse<AdminShopRowDto>
+
+    @PUT(SuqiEndpoints.ADMIN_SHOP_NOTES)
+    suspend fun saveAdminShopNotes(@Path("id") id: String, @Body payload: Map<String, String>): ApiResponse<AdminShopRowDto>
+
+    @GET(SuqiEndpoints.ADMIN_AUDIT_LOG)
+    suspend fun getAuditLog(): ApiResponse<List<AuditLogEntryDto>>
 }

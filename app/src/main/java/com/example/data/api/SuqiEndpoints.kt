@@ -103,4 +103,16 @@ object SuqiEndpoints {
     const val SELLER_ANALYTICS = "seller/analytics"
     const val REVIEW_HELPFUL = "reviews/{id}/helpful"
     const val REVIEW_REPLY = "reviews/{id}/reply"
+
+    // Phase 6: Admin platform management (users, shops, audit log)
+    const val ADMIN_USERS = "admin/users"
+    const val ADMIN_USER_DETAIL = "admin/users/{id}"
+    const val ADMIN_USER_SUSPEND = "admin/users/{id}/suspend"
+    const val ADMIN_USER_RESET = "admin/users/{id}/reset-sessions"
+    const val ADMIN_USER_ORDERS = "admin/users/{id}/orders"
+    const val ADMIN_SHOPS = "admin/shops"
+    const val ADMIN_SHOP_DETAIL = "admin/shops/{id}"
+    const val ADMIN_SHOP_ACTION = "admin/shops/{id}/action"
+    const val ADMIN_SHOP_NOTES = "admin/shops/{id}/notes"
+    const val ADMIN_AUDIT_LOG = "admin/audit-log"
 }

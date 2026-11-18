@@ -3500,6 +3500,253 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         db.ensureSeeded()
         ApiResponse(success = true, data = db.adminBroadcastDao().getAll().map { it.toDto() })
     }
+
+    // ==================== PHASE 6: ADMIN PLATFORM MANAGEMENT ====================
+
+    private suspend fun requireAdmin(): UserEntity? {
+        val caller = resolveCurrentUser()
+        return if (caller != null && caller.isAdmin()) caller else null
+    }
+
+    /** Records an admin action for the A-20 audit log. Never fails the calling operation. */
+    private suspend fun recordAudit(
+        action: String,
+        targetType: String,
+        targetId: String,
+        targetLabel: String,
+        before: String = "",
+        after: String = "",
+        note: String = ""
+    ) {
+        runCatching {
+            val actor = resolveCurrentUser()
+            db.auditLogDao().insert(
+                AuditLogEntity(
+                    id = "audit_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}",
+                    actorUserId = actor?.id.orEmpty(),
+                    actorName = actor?.name.orEmpty(),
+                    actorRole = actor?.adminTier?.takeIf { it != "NONE" } ?: actor?.role.orEmpty(),
+                    action = action,
+                    targetType = targetType,
+                    targetId = targetId,
+                    targetLabel = targetLabel,
+                    beforeValue = before,
+                    afterValue = after,
+                    note = note,
+                    createdAt = getCurrentTime()
+                )
+            )
+        }
+    }
+
+    override suspend fun getAdminUsers(): ApiResponse<List<AdminUserRowDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val caller = requireAdmin()
+            ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val overrides = db.userAdminOverrideDao().getAll().associateBy { it.userId }
+        val orders = db.orderDao().getAllOrders()
+        val list = db.userDao().getAllUsers().map { user ->
+            val userOrders = orders.filter { it.customerUserId == user.id }
+            val userReviews = db.reviewDao().getReviewsByUser(user.id)
+            val reviewIds = userReviews.map { it.id }.toSet()
+            val reportsAgainst = reviewIds.sumOf { rid -> db.flaggedReviewDao().getByReviewId(rid).size }
+            AdminUserRowDto(
+                id = user.id,
+                name = user.name,
+                phone = user.phone,
+                email = user.email,
+                avatarUrl = user.avatarUrl,
+                role = user.role,
+                activeRole = user.activeRole.ifBlank { user.role },
+                region = user.region,
+                city = user.city,
+                subCity = user.subCity,
+                isSuspended = overrides[user.id]?.isSuspended == true,
+                ordersCount = userOrders.size,
+                totalSpent = userOrders.filter { it.paymentStatus == "VERIFIED" }.sumOf { it.totalAmount },
+                reviewsCount = userReviews.size,
+                reportsAgainst = reportsAgainst,
+                createdAt = user.createdAt
+            )
+        }.sortedByDescending { it.ordersCount }
+        ApiResponse(success = true, data = list)
+    }
+
+    override suspend fun getAdminUserDetail(id: String): ApiResponse<AdminUserRowDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        getAdminUsers().let { res ->
+            val row = res.data?.firstOrNull { it.id == id }
+                ?: return@withContext ApiResponse(success = false, message = "User not found")
+            ApiResponse(success = true, data = row)
+        }
+    }
+
+    override suspend fun setUserSuspended(id: String, payload: Map<String, String>): ApiResponse<AdminUserRowDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        val caller = requireAdmin()
+            ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val user = db.userDao().getUserById(id)
+            ?: return@withContext ApiResponse(success = false, message = "User not found")
+        if (user.role.equals("ADMIN", true)) {
+            return@withContext ApiResponse(success = false, message = "Staff accounts cannot be suspended here.")
+        }
+        val suspended = payload["suspended"]?.toBooleanStrictOrNull() ?: true
+        val reason = payload["reason"]?.trim().orEmpty()
+        val existing = db.userAdminOverrideDao().getByUser(id)
+        db.userAdminOverrideDao().upsert(
+            UserAdminOverrideEntity(
+                userId = id,
+                isSuspended = suspended,
+                note = reason.ifBlank { existing?.note.orEmpty() },
+                updatedAt = getCurrentTime()
+            )
+        )
+        recordAudit(
+            action = if (suspended) "USER_SUSPENDED" else "USER_RESTORED",
+            targetType = "USER",
+            targetId = id,
+            targetLabel = user.name,
+            before = (existing?.isSuspended == true).toString(),
+            after = suspended.toString(),
+            note = reason
+        )
+        if (suspended) {
+            db.notificationDao().insert(
+                NotificationEntity(
+                    id = "notif_susp_${System.currentTimeMillis()}",
+                    userId = id,
+                    type = "SYSTEM",
+                    title = "Account suspended",
+                    body = reason.ifBlank { "Your account has been suspended by Suqi support." },
+                    timestamp = "Just now",
+                    isRead = false
+                )
+            )
+        }
+        getAdminUserDetail(id)
+    }
+
+    override suspend fun resetUserSessions(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, data = false, message = "Admin permission required.")
+        val user = db.userDao().getUserById(id)
+            ?: return@withContext ApiResponse(success = false, data = false, message = "User not found")
+        db.userDao().updateUser(user.copy(isActiveSession = false))
+        recordAudit(
+            action = "USER_SESSIONS_RESET",
+            targetType = "USER",
+            targetId = id,
+            targetLabel = user.name
+        )
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun getAdminUserOrders(id: String): ApiResponse<List<OrderDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val orders = db.orderDao().getAllOrders()
+            .filter { it.customerUserId == id }
+            .sortedByDescending { EthiopianMarketplaceUtils.parseMarketplaceTimestampMillis(it.createdAt) ?: 0L }
+        ApiResponse(success = true, data = orders.map { it.toDto() })
+    }
+
+    override suspend fun getAdminShops(): ApiResponse<List<AdminShopRowDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        ApiResponse(success = true, data = buildAdminShopRows())
+    }
+
+    private suspend fun buildAdminShopRows(): List<AdminShopRowDto> {
+        val notes = db.shopAdminNoteDao().getAll().associateBy { it.shopId }
+        val allProducts = db.productDao().getAllProducts()
+        val allOrders = db.orderDao().getAllOrders()
+        val upgrades = db.subscriptionUpgradeDao().getAll()
+        val users = db.userDao().getAllUsers().associateBy { it.id }
+        return db.shopDao().getAllShops().map { shop ->
+            val shopOrders = allOrders.filter { it.shopId == shop.id }
+            val approvedUpgrade = upgrades.firstOrNull { it.shopId == shop.id && it.status == "APPROVED" }
+            AdminShopRowDto(
+                id = shop.id,
+                name = shop.name,
+                logoUrl = shop.logoUrl,
+                ownerUserId = shop.ownerUserId,
+                ownerName = users[shop.ownerUserId]?.name.orEmpty(),
+                category = shop.category,
+                shopType = shop.shopType,
+                isVerified = shop.isVerified,
+                verificationStatus = shop.verificationStatus,
+                isSuspended = notes[shop.id]?.isSuspended == true || !shop.acceptsOrders,
+                isFeatured = notes[shop.id]?.isFeatured == true,
+                planName = approvedUpgrade?.planName ?: "Free Pilot",
+                productsCount = allProducts.count { it.shopId == shop.id },
+                ordersCount = shopOrders.size,
+                gmv = shopOrders.filter { it.paymentStatus == "VERIFIED" }.sumOf { it.totalAmount },
+                notes = notes[shop.id]?.notes.orEmpty(),
+                createdAt = shop.createdAt
+            )
+        }.sortedByDescending { it.gmv }
+    }
+
+    override suspend fun getAdminShopDetail(id: String): ApiResponse<AdminShopRowDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val row = buildAdminShopRows().firstOrNull { it.id == id }
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        ApiResponse(success = true, data = row)
+    }
+
+    override suspend fun adminShopAction(id: String, payload: Map<String, String>): ApiResponse<AdminShopRowDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val shop = db.shopDao().getShopById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        val action = payload["action"]?.trim()?.uppercase().orEmpty()
+        val existing = db.shopAdminNoteDao().getByShop(id) ?: ShopAdminNoteEntity(shopId = id)
+        when (action) {
+            "SUSPEND" -> {
+                db.shopDao().updateShop(shop.copy(acceptsOrders = false))
+                db.shopAdminNoteDao().upsert(existing.copy(isSuspended = true, updatedAt = getCurrentTime()))
+                recordAudit("SHOP_SUSPENDED", "SHOP", id, shop.name, note = payload["reason"].orEmpty())
+            }
+            "RESTORE" -> {
+                db.shopDao().updateShop(shop.copy(acceptsOrders = true))
+                db.shopAdminNoteDao().upsert(existing.copy(isSuspended = false, updatedAt = getCurrentTime()))
+                recordAudit("SHOP_RESTORED", "SHOP", id, shop.name)
+            }
+            "FEATURE" -> {
+                db.shopAdminNoteDao().upsert(existing.copy(isFeatured = true, updatedAt = getCurrentTime()))
+                recordAudit("SHOP_FEATURED", "SHOP", id, shop.name)
+            }
+            "UNFEATURE" -> {
+                db.shopAdminNoteDao().upsert(existing.copy(isFeatured = false, updatedAt = getCurrentTime()))
+                recordAudit("SHOP_UNFEATURED", "SHOP", id, shop.name)
+            }
+            else -> return@withContext ApiResponse(success = false, message = "Unknown shop action.")
+        }
+        val row = buildAdminShopRows().firstOrNull { it.id == id }
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        ApiResponse(success = true, data = row)
+    }
+
+    override suspend fun saveAdminShopNotes(id: String, payload: Map<String, String>): ApiResponse<AdminShopRowDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val shop = db.shopDao().getShopById(id)
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        val existing = db.shopAdminNoteDao().getByShop(id) ?: ShopAdminNoteEntity(shopId = id)
+        db.shopAdminNoteDao().upsert(existing.copy(notes = payload["notes"].orEmpty(), updatedAt = getCurrentTime()))
+        recordAudit("SHOP_NOTE_SAVED", "SHOP", id, shop.name)
+        val row = buildAdminShopRows().firstOrNull { it.id == id }
+            ?: return@withContext ApiResponse(success = false, message = "Shop not found")
+        ApiResponse(success = true, data = row)
+    }
+
+    override suspend fun getAuditLog(): ApiResponse<List<AuditLogEntryDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        ApiResponse(success = true, data = db.auditLogDao().getRecent(500).map { it.toDto() })
+    }
 }
 
 // Extension mapper functions
@@ -3804,4 +4051,11 @@ fun AdminBroadcastEntity.toDto() = AdminBroadcastDto(
     destinationType = destinationType, targetId = targetId, scheduledAt = scheduledAt,
     status = status, sentCount = sentCount, openedCount = openedCount,
     isTemplate = isTemplate, createdAt = createdAt
+)
+
+// Phase 6: Admin platform management mappers
+fun AuditLogEntity.toDto() = AuditLogEntryDto(
+    id = id, actorUserId = actorUserId, actorName = actorName, actorRole = actorRole,
+    action = action, targetType = targetType, targetId = targetId, targetLabel = targetLabel,
+    beforeValue = beforeValue, afterValue = afterValue, note = note, createdAt = createdAt
 )

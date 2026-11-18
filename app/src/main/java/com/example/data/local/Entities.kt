@@ -534,3 +534,38 @@ data class AnalyticsEventEntity(
     val eventType: String, // "CART_ADD", "PRODUCT_VIEW"
     val timestampMillis: Long
 )
+
+// ==================== PHASE 6: ADMIN PLATFORM MANAGEMENT ====================
+
+@Entity(tableName = "audit_log")
+data class AuditLogEntity(
+    @PrimaryKey val id: String,
+    val actorUserId: String,
+    val actorName: String,
+    val actorRole: String,
+    val action: String,
+    val targetType: String,
+    val targetId: String = "",
+    val targetLabel: String = "",
+    val beforeValue: String = "",
+    val afterValue: String = "",
+    val note: String = "",
+    val createdAt: String
+)
+
+@Entity(tableName = "shop_admin_notes")
+data class ShopAdminNoteEntity(
+    @PrimaryKey val shopId: String,
+    val notes: String = "",
+    val isFeatured: Boolean = false,
+    val isSuspended: Boolean = false,
+    val updatedAt: String = ""
+)
+
+@Entity(tableName = "user_admin_overrides")
+data class UserAdminOverrideEntity(
+    @PrimaryKey val userId: String,
+    val isSuspended: Boolean = false,
+    val note: String = "",
+    val updatedAt: String = ""
+)

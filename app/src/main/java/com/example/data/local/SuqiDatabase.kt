@@ -47,9 +47,12 @@ import kotlinx.coroutines.sync.withLock
         FlashSaleEntity::class,
         SupportTicketMessageEntity::class,
         AdminBroadcastEntity::class,
-        AnalyticsEventEntity::class
+        AnalyticsEventEntity::class,
+        AuditLogEntity::class,
+        ShopAdminNoteEntity::class,
+        UserAdminOverrideEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -83,6 +86,9 @@ abstract class SuqiDatabase : RoomDatabase() {
     abstract fun supportTicketMessageDao(): SupportTicketMessageDao
     abstract fun adminBroadcastDao(): AdminBroadcastDao
     abstract fun analyticsEventDao(): AnalyticsEventDao
+    abstract fun auditLogDao(): AuditLogDao
+    abstract fun shopAdminNoteDao(): ShopAdminNoteDao
+    abstract fun userAdminOverrideDao(): UserAdminOverrideDao
 
     private val seedMutex = Mutex()
     @Volatile
@@ -535,6 +541,45 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v12: Phase 6 admin platform management — audit log, per-shop admin notes/flags, per-user admin overrides. */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `audit_log` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `actorUserId` TEXT NOT NULL,
+                        `actorName` TEXT NOT NULL,
+                        `actorRole` TEXT NOT NULL,
+                        `action` TEXT NOT NULL,
+                        `targetType` TEXT NOT NULL,
+                        `targetId` TEXT NOT NULL DEFAULT '',
+                        `targetLabel` TEXT NOT NULL DEFAULT '',
+                        `beforeValue` TEXT NOT NULL DEFAULT '',
+                        `afterValue` TEXT NOT NULL DEFAULT '',
+                        `note` TEXT NOT NULL DEFAULT '',
+                        `createdAt` TEXT NOT NULL
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `shop_admin_notes` (
+                        `shopId` TEXT NOT NULL PRIMARY KEY,
+                        `notes` TEXT NOT NULL DEFAULT '',
+                        `isFeatured` INTEGER NOT NULL DEFAULT 0,
+                        `isSuspended` INTEGER NOT NULL DEFAULT 0,
+                        `updatedAt` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `user_admin_overrides` (
+                        `userId` TEXT NOT NULL PRIMARY KEY,
+                        `isSuspended` INTEGER NOT NULL DEFAULT 0,
+                        `note` TEXT NOT NULL DEFAULT '',
+                        `updatedAt` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -561,7 +606,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     ).addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-                        MIGRATION_10_11
+                        MIGRATION_10_11, MIGRATION_11_12
                     ).addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
