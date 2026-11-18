@@ -187,7 +187,6 @@ fun BuyerCouponsScreen(
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
     var couponCode by remember { mutableStateOf("") }
-    val coroutineScope = rememberCoroutineScope()
 
     fun applyCoupon() {
         coroutineScope.launch {
@@ -310,7 +309,7 @@ fun BuyerCompareScreen(
             if (compared.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
-                        icon = LucideIcons.Compare,
+                        icon = LucideIcons.SlidersHorizontal,
                         title = "Compare Products",
                         subtitle = "Add items to compare",
                         testTag = "compare_empty"
