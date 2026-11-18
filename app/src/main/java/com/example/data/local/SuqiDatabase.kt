@@ -50,9 +50,13 @@ import kotlinx.coroutines.sync.withLock
         AnalyticsEventEntity::class,
         AuditLogEntity::class,
         ShopAdminNoteEntity::class,
-        UserAdminOverrideEntity::class
+        UserAdminOverrideEntity::class,
+        LocationAreaEntity::class,
+        PaymentProviderEntity::class,
+        ContentEntryEntity::class,
+        PlatformSwitchEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -89,6 +93,10 @@ abstract class SuqiDatabase : RoomDatabase() {
     abstract fun auditLogDao(): AuditLogDao
     abstract fun shopAdminNoteDao(): ShopAdminNoteDao
     abstract fun userAdminOverrideDao(): UserAdminOverrideDao
+    abstract fun locationAreaDao(): LocationAreaDao
+    abstract fun paymentProviderDao(): PaymentProviderDao
+    abstract fun contentEntryDao(): ContentEntryDao
+    abstract fun platformSwitchDao(): PlatformSwitchDao
 
     private val seedMutex = Mutex()
     @Volatile
@@ -580,6 +588,59 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v13: Phase 6 admin ops/config — locations tree, payment providers, content manager, grouped platform switches, order dispute fields. */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `disputeNote` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `disputeResolution` TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `location_areas` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `name` TEXT NOT NULL,
+                        `parentId` TEXT NOT NULL DEFAULT '',
+                        `level` TEXT NOT NULL,
+                        `isEnabled` INTEGER NOT NULL DEFAULT 1,
+                        `isDefaultZone` INTEGER NOT NULL DEFAULT 0,
+                        `sortOrder` INTEGER NOT NULL DEFAULT 0
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `payment_providers` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `displayName` TEXT NOT NULL,
+                        `logoEmoji` TEXT NOT NULL DEFAULT '🏦',
+                        `accountFormat` TEXT NOT NULL DEFAULT '',
+                        `referenceHint` TEXT NOT NULL DEFAULT '',
+                        `isActive` INTEGER NOT NULL DEFAULT 1,
+                        `sortOrder` INTEGER NOT NULL DEFAULT 0
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `content_entries` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `section` TEXT NOT NULL,
+                        `titleEn` TEXT NOT NULL DEFAULT '',
+                        `titleAm` TEXT NOT NULL DEFAULT '',
+                        `titleOm` TEXT NOT NULL DEFAULT '',
+                        `bodyEn` TEXT NOT NULL DEFAULT '',
+                        `bodyAm` TEXT NOT NULL DEFAULT '',
+                        `bodyOm` TEXT NOT NULL DEFAULT '',
+                        `isPublished` INTEGER NOT NULL DEFAULT 1,
+                        `updatedAt` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `platform_switches` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `groupName` TEXT NOT NULL,
+                        `isEnabled` INTEGER NOT NULL DEFAULT 1,
+                        `numericValue` REAL NOT NULL DEFAULT 0.0,
+                        `sortOrder` INTEGER NOT NULL DEFAULT 0
+                    )"""
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -606,7 +667,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     ).addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-                        MIGRATION_10_11, MIGRATION_11_12
+                        MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13
                     ).addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)

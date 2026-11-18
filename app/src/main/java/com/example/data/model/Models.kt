@@ -166,7 +166,9 @@ data class OrderDto(
     val courierPhone: String = "",
     val dispatchedAt: String? = null,
     val deliveredAt: String? = null,
-    val transferredAmount: Double? = null
+    val transferredAmount: Double? = null,
+    val disputeNote: String = "",
+    val disputeResolution: String = ""
 )
 
 @JsonClass(generateAdapter = true)
@@ -760,6 +762,106 @@ data class AuditLogEntryDto(
     val afterValue: String = "",
     val note: String = "",
     val createdAt: String
+)
+
+@JsonClass(generateAdapter = true)
+data class LocationAreaDto(
+    val id: String,
+    val name: String,
+    val nameAm: String = "",
+    val nameOm: String = "",
+    val parentId: String = "",
+    val level: String, // "REGION", "CITY", "SUB_CITY"
+    val isEnabled: Boolean = true,
+    val isDefaultZone: Boolean = false,
+    val sortOrder: Int = 0
+)
+
+@JsonClass(generateAdapter = true)
+data class PaymentProviderDto(
+    val id: String,
+    val displayName: String,
+    val logoEmoji: String = "🏦",
+    val accountFormat: String = "",
+    val referenceHint: String = "",
+    val isActive: Boolean = true,
+    val sortOrder: Int = 0
+)
+
+@JsonClass(generateAdapter = true)
+data class ContentEntryDto(
+    val id: String,
+    val section: String,
+    val titleEn: String = "",
+    val titleAm: String = "",
+    val titleOm: String = "",
+    val bodyEn: String = "",
+    val bodyAm: String = "",
+    val bodyOm: String = "",
+    val isPublished: Boolean = true,
+    val updatedAt: String = ""
+) {
+    fun titleFor(language: SuqiLanguageCode): String = when (language) {
+        SuqiLanguageCode.AM -> titleAm.ifBlank { titleEn }
+        SuqiLanguageCode.OM -> titleOm.ifBlank { titleEn }
+        else -> titleEn
+    }
+
+    fun bodyFor(language: SuqiLanguageCode): String = when (language) {
+        SuqiLanguageCode.AM -> bodyAm.ifBlank { bodyEn }
+        SuqiLanguageCode.OM -> bodyOm.ifBlank { bodyEn }
+        else -> bodyEn
+    }
+
+    fun isMissingTranslation(language: SuqiLanguageCode): Boolean = when (language) {
+        SuqiLanguageCode.AM -> titleAm.isBlank() || bodyAm.isBlank()
+        SuqiLanguageCode.OM -> titleOm.isBlank() || bodyOm.isBlank()
+        else -> false
+    }
+}
+
+/** Lightweight language code so the data layer does not depend on the UI i18n package. */
+enum class SuqiLanguageCode { EN, AM, OM }
+
+@JsonClass(generateAdapter = true)
+data class PlatformSwitchDto(
+    val id: String,
+    val groupName: String, // "COMMERCE", "MEDIA", "CATALOG", "MONETIZATION", "EXPERIENCE"
+    val isEnabled: Boolean = true,
+    val numericValue: Double = 0.0,
+    val sortOrder: Int = 0
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminPlatformConfigDto(
+    val locations: List<LocationAreaDto> = emptyList(),
+    val providers: List<PaymentProviderDto> = emptyList(),
+    val switches: List<PlatformSwitchDto> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminDisputeCaseDto(
+    val orderId: String,
+    val orderReference: String,
+    val buyerUserId: String,
+    val buyerName: String,
+    val sellerName: String,
+    val shopName: String,
+    val buyerClaim: String = "",
+    val sellerResponse: String = "",
+    val evidence: List<String> = emptyList(),
+    val amount: Double = 0.0,
+    val status: String = "OPEN", // "OPEN", "RESOLVED_BUYER", "RESOLVED_SELLER", "PARTIAL", "ESCALATED"
+    val resolutionNote: String = "",
+    val createdAt: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminReportRowDto(
+    val label: String,
+    val columns: List<String> = emptyList(),
+    val rows: List<List<String>> = emptyList(),
+    val isMissingTranslation: Boolean = false
 )
 
 @JsonClass(generateAdapter = true)

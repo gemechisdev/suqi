@@ -369,6 +369,26 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun saveAdminShopNotes(id: String, notes: String) = api.saveAdminShopNotes(id, mapOf("notes" to notes))
     suspend fun getAuditLog() = api.getAuditLog()
 
+    // Phase 6: admin ops & config
+    suspend fun getLocationAreas() = api.getLocationAreas()
+    suspend fun saveLocationArea(area: LocationAreaDto) = api.saveLocationArea(area)
+    suspend fun deleteLocationArea(id: String) = api.deleteLocationArea(id)
+    suspend fun getPaymentProviders() = api.getPaymentProviders()
+    suspend fun savePaymentProvider(provider: PaymentProviderDto) = api.savePaymentProvider(provider)
+    suspend fun deletePaymentProvider(id: String) = api.deletePaymentProvider(id)
+    suspend fun getContentEntries() = api.getContentEntries()
+    suspend fun saveContentEntry(entry: ContentEntryDto) = api.saveContentEntry(entry)
+    suspend fun getPlatformSwitches() = api.getPlatformSwitches()
+    suspend fun savePlatformSwitch(id: String, enabled: Boolean, numericValue: Double = 0.0) =
+        api.savePlatformSwitch(buildMap { put("id", id); put("isEnabled", enabled); put("numericValue", numericValue) })
+    suspend fun getAdminDisputes() = api.getAdminDisputes()
+    suspend fun decideDispute(orderId: String, decision: String, note: String, refundAmount: Double = 0.0) =
+        api.decideDispute(orderId, buildMap { put("decision", decision); put("note", note); put("refundAmount", refundAmount.toString()) })
+    suspend fun getAdminReport(kind: String) = api.getAdminReport(kind)
+    suspend fun getDevEnvironment() = api.getDevEnvironment()
+    suspend fun devDataAction(action: String, value: String = "") =
+        api.devDataAction(buildMap { put("action", action); if (value.isNotBlank()) put("value", value) })
+
     companion object {
         @Volatile
         private var INSTANCE: SuqiRepository? = null

@@ -3747,6 +3747,283 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
         ApiResponse(success = true, data = db.auditLogDao().getRecent(500).map { it.toDto() })
     }
+
+    // ==================== PHASE 6: LOCATIONS, PROVIDERS, CONTENT, SWITCHES ====================
+
+    override suspend fun getLocationAreas(): ApiResponse<List<LocationAreaDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        ApiResponse(success = true, data = db.locationAreaDao().getAll().map { it.toDto() })
+    }
+
+    override suspend fun saveLocationArea(area: LocationAreaDto): ApiResponse<LocationAreaDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        if (area.name.isBlank()) return@withContext ApiResponse(success = false, message = "Area name is required.")
+        val entity = LocationAreaEntity(
+            id = area.id.ifBlank { "loc_${System.currentTimeMillis()}" },
+            name = area.name.trim(),
+            parentId = area.parentId,
+            level = area.level,
+            isEnabled = area.isEnabled,
+            isDefaultZone = area.isDefaultZone,
+            sortOrder = area.sortOrder
+        )
+        db.locationAreaDao().upsert(entity)
+        recordAudit("LOCATION_SAVED", "LOCATION", entity.id, entity.name)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deleteLocationArea(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, data = false, message = "Admin permission required.")
+        val existing = db.locationAreaDao().getById(id)
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Area not found")
+        db.locationAreaDao().deleteById(id)
+        recordAudit("LOCATION_DELETED", "LOCATION", id, existing.name)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun getPaymentProviders(): ApiResponse<List<PaymentProviderDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        ApiResponse(success = true, data = db.paymentProviderDao().getAll().map { it.toDto() })
+    }
+
+    override suspend fun savePaymentProvider(provider: PaymentProviderDto): ApiResponse<PaymentProviderDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        if (provider.displayName.isBlank()) return@withContext ApiResponse(success = false, message = "Provider name is required.")
+        val entity = PaymentProviderEntity(
+            id = provider.id.ifBlank { "prov_${System.currentTimeMillis()}" },
+            displayName = provider.displayName.trim(),
+            logoEmoji = provider.logoEmoji.ifBlank { "🏦" },
+            accountFormat = provider.accountFormat.trim(),
+            referenceHint = provider.referenceHint.trim(),
+            isActive = provider.isActive,
+            sortOrder = provider.sortOrder
+        )
+        db.paymentProviderDao().upsert(entity)
+        recordAudit("PAYMENT_PROVIDER_SAVED", "PROVIDER", entity.id, entity.displayName)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun deletePaymentProvider(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, data = false, message = "Admin permission required.")
+        val existing = db.paymentProviderDao().getById(id)
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Provider not found")
+        db.paymentProviderDao().deleteById(id)
+        recordAudit("PAYMENT_PROVIDER_DELETED", "PROVIDER", id, existing.displayName)
+        ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun getContentEntries(): ApiResponse<List<ContentEntryDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        ApiResponse(success = true, data = db.contentEntryDao().getAll().map { it.toDto() })
+    }
+
+    override suspend fun saveContentEntry(entry: ContentEntryDto): ApiResponse<ContentEntryDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val entity = ContentEntryEntity(
+            id = entry.id.ifBlank { "content_${System.currentTimeMillis()}" },
+            section = entry.section,
+            titleEn = entry.titleEn,
+            titleAm = entry.titleAm,
+            titleOm = entry.titleOm,
+            bodyEn = entry.bodyEn,
+            bodyAm = entry.bodyAm,
+            bodyOm = entry.bodyOm,
+            isPublished = entry.isPublished,
+            updatedAt = getCurrentTime()
+        )
+        db.contentEntryDao().upsert(entity)
+        recordAudit("CONTENT_SAVED", "CONTENT", entity.id, entity.titleEn)
+        ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun getPlatformSwitches(): ApiResponse<List<PlatformSwitchDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        ApiResponse(success = true, data = db.platformSwitchDao().getAll().map { it.toDto() })
+    }
+
+    override suspend fun savePlatformSwitch(payload: Map<String, Any>): ApiResponse<PlatformSwitchDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val id = (payload["id"] as? String)?.trim().orEmpty()
+        if (id.isBlank()) return@withContext ApiResponse(success = false, message = "Switch id is required.")
+        val existing = db.platformSwitchDao().getById(id)
+            ?: PlatformSwitchEntity(id = id, groupName = (payload["groupName"] as? String).orEmpty().ifBlank { "COMMERCE" })
+        val enabled = (payload["isEnabled"] as? Boolean) ?: existing.isEnabled
+        val numeric = (payload["numericValue"] as? Number)?.toDouble() ?: existing.numericValue
+        val updated = existing.copy(isEnabled = enabled, numericValue = numeric)
+        db.platformSwitchDao().upsert(updated)
+        recordAudit(
+            action = "SWITCH_UPDATED",
+            targetType = "SWITCH",
+            targetId = id,
+            targetLabel = id,
+            before = existing.isEnabled.toString(),
+            after = enabled.toString()
+        )
+        ApiResponse(success = true, data = updated.toDto())
+    }
+
+    // ==================== PHASE 6: DISPUTES & REPORTS ====================
+
+    private suspend fun buildDisputeCases(): List<AdminDisputeCaseDto> {
+        val users = db.userDao().getAllUsers().associateBy { it.id }
+        val shops = db.shopDao().getAllShops().associateBy { it.id }
+        return db.orderDao().getAllOrders()
+            .filter { it.paymentStatus == "REJECTED" || it.disputeResolution.isNotBlank() || it.orderStatus.contains("Dispute", true) }
+            .map { ord ->
+                val shop = shops[ord.shopId]
+                AdminDisputeCaseDto(
+                    orderId = ord.id,
+                    orderReference = ord.orderReference,
+                    buyerUserId = ord.customerUserId,
+                    buyerName = ord.customerName,
+                    sellerName = shop?.let { users[it.ownerUserId]?.name }.orEmpty(),
+                    shopName = ord.shopName,
+                    buyerClaim = ord.rejectionReason ?: ord.verificationNotes.orEmpty(),
+                    sellerResponse = ord.sellerNotes,
+                    evidence = listOfNotNull(ord.receiptImageUri.takeIf { it.isNotBlank() }),
+                    amount = ord.totalAmount,
+                    status = ord.disputeResolution.ifBlank { "OPEN" },
+                    resolutionNote = ord.disputeNote,
+                    createdAt = ord.createdAt
+                )
+            }
+            .sortedByDescending { EthiopianMarketplaceUtils.parseMarketplaceTimestampMillis(it.createdAt) ?: 0L }
+    }
+
+    override suspend fun getAdminDisputes(): ApiResponse<List<AdminDisputeCaseDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        ApiResponse(success = true, data = buildDisputeCases())
+    }
+
+    override suspend fun decideDispute(orderId: String, payload: Map<String, String>): ApiResponse<AdminDisputeCaseDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val order = db.orderDao().getOrderById(orderId)
+            ?: return@withContext ApiResponse(success = false, message = "Order not found")
+        val note = payload["note"]?.trim().orEmpty()
+        if (note.isBlank()) return@withContext ApiResponse(success = false, message = "A decision note is required.")
+        val decision = payload["decision"]?.trim()?.uppercase().orEmpty()
+        val resolution = when (decision) {
+            "REFUND_BUYER" -> "RESOLVED_BUYER"
+            "SIDE_WITH_SELLER" -> "RESOLVED_SELLER"
+            "PARTIAL" -> "PARTIAL"
+            "ESCALATE" -> "ESCALATED"
+            else -> return@withContext ApiResponse(success = false, message = "Unknown dispute decision.")
+        }
+        val updated = order.copy(
+            disputeResolution = resolution,
+            disputeNote = note,
+            orderStatus = if (resolution == "RESOLVED_BUYER" || resolution == "PARTIAL") "Cancelled" else order.orderStatus
+        )
+        db.orderDao().updateOrder(updated)
+        db.notificationDao().insert(
+            NotificationEntity(
+                id = "notif_dispute_${System.currentTimeMillis()}",
+                userId = order.customerUserId,
+                type = "ORDER",
+                title = "Dispute #${order.orderReference} updated",
+                body = note,
+                timestamp = "Just now",
+                isRead = false
+            )
+        )
+        recordAudit("DISPUTE_DECIDED", "ORDER", orderId, order.orderReference, before = "OPEN", after = resolution, note = note)
+        val case = buildDisputeCases().firstOrNull { it.orderId == orderId }
+            ?: return@withContext ApiResponse(success = false, message = "Order not found")
+        ApiResponse(success = true, data = case)
+    }
+
+    override suspend fun getAdminReport(kind: String): ApiResponse<AdminReportRowDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val orders = db.orderDao().getAllOrders()
+        val users = db.userDao().getAllUsers()
+        val shops = db.shopDao().getAllShops()
+        val reviews = db.reviewDao().getAllReviews()
+        val flagged = db.flaggedReviewDao().getAllFlagged()
+        val report = when (kind.uppercase()) {
+            "SALES" -> AdminReportRowDto(
+                label = "SALES",
+                columns = listOf("Reference", "Shop", "Amount", "Status", "Date"),
+                rows = orders.sortedByDescending { it.createdAt }.take(50).map {
+                    listOf(it.orderReference, it.shopName, "ETB ${it.totalAmount.toInt()}", it.paymentStatus, it.createdAt)
+                }
+            )
+            "USERS" -> AdminReportRowDto(
+                label = "USERS",
+                columns = listOf("Name", "Phone", "Role", "Joined"),
+                rows = users.take(50).map { listOf(it.name, it.phone, it.role, it.createdAt) }
+            )
+            "SHOPS" -> AdminReportRowDto(
+                label = "SHOPS",
+                columns = listOf("Shop", "Category", "Verified", "Products"),
+                rows = shops.take(50).map { shop ->
+                    listOf(shop.name, shop.category, if (shop.isVerified) "Yes" else "No", shop.productCount.toString())
+                }
+            )
+            "ORDERS" -> AdminReportRowDto(
+                label = "ORDERS",
+                columns = listOf("Reference", "Customer", "Status", "Payment"),
+                rows = orders.take(50).map { listOf(it.orderReference, it.customerName, it.orderStatus, it.paymentStatus) }
+            )
+            "FINANCE" -> AdminReportRowDto(
+                label = "FINANCE",
+                columns = listOf("Shop", "GMV", "Orders"),
+                rows = shops.map { shop ->
+                    val shopOrders = orders.filter { it.shopId == shop.id && it.paymentStatus == "VERIFIED" }
+                    listOf(shop.name, "ETB ${shopOrders.sumOf { o -> o.totalAmount }.toInt()}", shopOrders.size.toString())
+                }.sortedByDescending { it.getOrNull(1).orEmpty() }.take(50)
+            )
+            "MODERATION" -> AdminReportRowDto(
+                label = "MODERATION",
+                columns = listOf("Reason", "Status", "Reports"),
+                rows = (listOf("Reviews" to reviews.size, "Flagged" to flagged.size, "Hidden" to flagged.count { it.status == "HIDDEN" }, "Restored" to flagged.count { it.status == "RESTORED" }))
+                    .map { listOf(it.first, "OK", it.second.toString()) }
+            )
+            else -> AdminReportRowDto(label = kind, columns = emptyList(), rows = emptyList())
+        }
+        ApiResponse(success = true, data = report)
+    }
+
+    override suspend fun getDevEnvironment(): ApiResponse<Map<String, String>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val data = mapOf(
+            "environment" to "Builtin",
+            "baseUrl" to "builtin://local",
+            "schemaVersion" to "13",
+            "products" to db.productDao().getAllProducts().size.toString(),
+            "users" to db.userDao().getAllUsers().size.toString(),
+            "shops" to db.shopDao().getAllShops().size.toString(),
+            "orders" to db.orderDao().getAllOrders().size.toString(),
+            "analyticsEvents" to db.analyticsEventDao().totalCount().toString(),
+            "auditEntries" to db.auditLogDao().getAll().size.toString()
+        )
+        ApiResponse(success = true, data = data)
+    }
+
+    override suspend fun devDataAction(payload: Map<String, String>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, data = false, message = "Admin permission required.")
+        val action = payload["action"]?.trim()?.uppercase().orEmpty()
+        when (action) {
+            "CLEAR_STATE" -> {
+                db.auditLogDao().clearAll()
+                recordAudit("DEV_DATA_ACTION", "SYSTEM", "audit_log", "Cleared local state")
+            }
+            else -> {
+                recordAudit("DEV_DATA_ACTION", "SYSTEM", action, action)
+            }
+        }
+        ApiResponse(success = true, data = true)
+    }
 }
 
 // Extension mapper functions
@@ -3840,7 +4117,8 @@ fun OrderEntity.toDto(): OrderDto {
         receiptImageUri = receiptImageUri, payerIdentifier = payerIdentifier,
         sellerNotes = sellerNotes, courierName = courierName,
         courierPhone = courierPhone, dispatchedAt = dispatchedAt,
-        deliveredAt = deliveredAt, transferredAmount = transferredAmount
+        deliveredAt = deliveredAt, transferredAmount = transferredAmount,
+        disputeNote = disputeNote, disputeResolution = disputeResolution
     )
 }
 
@@ -4058,4 +4336,24 @@ fun AuditLogEntity.toDto() = AuditLogEntryDto(
     id = id, actorUserId = actorUserId, actorName = actorName, actorRole = actorRole,
     action = action, targetType = targetType, targetId = targetId, targetLabel = targetLabel,
     beforeValue = beforeValue, afterValue = afterValue, note = note, createdAt = createdAt
+)
+
+// Phase 6: ops/config mappers
+fun LocationAreaEntity.toDto() = LocationAreaDto(
+    id = id, name = name, parentId = parentId, level = level,
+    isEnabled = isEnabled, isDefaultZone = isDefaultZone, sortOrder = sortOrder
+)
+
+fun PaymentProviderEntity.toDto() = PaymentProviderDto(
+    id = id, displayName = displayName, logoEmoji = logoEmoji, accountFormat = accountFormat,
+    referenceHint = referenceHint, isActive = isActive, sortOrder = sortOrder
+)
+
+fun ContentEntryEntity.toDto() = ContentEntryDto(
+    id = id, section = section, titleEn = titleEn, titleAm = titleAm, titleOm = titleOm,
+    bodyEn = bodyEn, bodyAm = bodyAm, bodyOm = bodyOm, isPublished = isPublished, updatedAt = updatedAt
+)
+
+fun PlatformSwitchEntity.toDto() = PlatformSwitchDto(
+    id = id, groupName = groupName, isEnabled = isEnabled, numericValue = numericValue, sortOrder = sortOrder
 )

@@ -115,4 +115,15 @@ object SuqiEndpoints {
     const val ADMIN_SHOP_ACTION = "admin/shops/{id}/action"
     const val ADMIN_SHOP_NOTES = "admin/shops/{id}/notes"
     const val ADMIN_AUDIT_LOG = "admin/audit-log"
+
+    // Phase 6: admin ops & config
+    const val ADMIN_LOCATIONS = "admin/locations"
+    const val ADMIN_PAYMENT_PROVIDERS = "admin/payment-providers"
+    const val ADMIN_CONTENT = "admin/content"
+    const val ADMIN_PLATFORM_SWITCHES = "admin/platform-switches"
+    const val ADMIN_DISPUTES = "admin/disputes"
+    const val ADMIN_DISPUTE_DECISION = "admin/disputes/{orderId}/decision"
+    const val ADMIN_REPORTS = "admin/reports"
+    const val ADMIN_DEVTOOLS_ENV = "admin/devtools/environment"
+    const val ADMIN_DEVTOOLS_DATA = "admin/devtools/data"
 }

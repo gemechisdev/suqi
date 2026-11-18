@@ -160,7 +160,9 @@ data class OrderEntity(
     val courierPhone: String = "",
     val dispatchedAt: String? = null,
     val deliveredAt: String? = null,
-    val transferredAmount: Double? = null
+    val transferredAmount: Double? = null,
+    val disputeNote: String = "",
+    val disputeResolution: String = ""
 )
 
 @Entity(tableName = "shop_payment_methods")
@@ -568,4 +570,51 @@ data class UserAdminOverrideEntity(
     val isSuspended: Boolean = false,
     val note: String = "",
     val updatedAt: String = ""
+)
+
+// ==================== PHASE 6: ADMIN OPS / CONFIG ====================
+
+@Entity(tableName = "location_areas")
+data class LocationAreaEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val parentId: String = "",
+    val level: String, // "REGION", "CITY", "SUB_CITY"
+    val isEnabled: Boolean = true,
+    val isDefaultZone: Boolean = false,
+    val sortOrder: Int = 0
+)
+
+@Entity(tableName = "payment_providers")
+data class PaymentProviderEntity(
+    @PrimaryKey val id: String,
+    val displayName: String,
+    val logoEmoji: String = "🏦",
+    val accountFormat: String = "",
+    val referenceHint: String = "",
+    val isActive: Boolean = true,
+    val sortOrder: Int = 0
+)
+
+@Entity(tableName = "content_entries")
+data class ContentEntryEntity(
+    @PrimaryKey val id: String,
+    val section: String, // "FAQ", "HELP_TOPIC", "TERMS", "PRIVACY", "ONBOARDING", "EMPTY_STATE"
+    val titleEn: String = "",
+    val titleAm: String = "",
+    val titleOm: String = "",
+    val bodyEn: String = "",
+    val bodyAm: String = "",
+    val bodyOm: String = "",
+    val isPublished: Boolean = true,
+    val updatedAt: String = ""
+)
+
+@Entity(tableName = "platform_switches")
+data class PlatformSwitchEntity(
+    @PrimaryKey val id: String,
+    val groupName: String, // "COMMERCE", "MEDIA", "CATALOG", "MONETIZATION", "EXPERIENCE"
+    val isEnabled: Boolean = true,
+    val numericValue: Double = 0.0,
+    val sortOrder: Int = 0
 )

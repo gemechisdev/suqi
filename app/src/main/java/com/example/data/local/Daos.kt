@@ -230,6 +230,9 @@ interface ReviewDao {
     @Query("SELECT * FROM reviews WHERE targetId = :targetId ORDER BY date DESC")
     suspend fun getReviewsForTarget(targetId: String): List<ReviewEntity>
 
+    @Query("SELECT * FROM reviews ORDER BY date DESC")
+    suspend fun getAllReviews(): List<ReviewEntity>
+
     @Query("SELECT * FROM reviews WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ReviewEntity?
 
@@ -714,4 +717,82 @@ interface UserAdminOverrideDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<UserAdminOverrideEntity>)
+}
+
+@Dao
+interface LocationAreaDao {
+    @Query("SELECT * FROM location_areas ORDER BY level ASC, sortOrder ASC, name ASC")
+    suspend fun getAll(): List<LocationAreaEntity>
+
+    @Query("SELECT * FROM location_areas WHERE level = :level AND parentId = :parentId ORDER BY sortOrder ASC, name ASC")
+    suspend fun getByLevelAndParent(level: String, parentId: String): List<LocationAreaEntity>
+
+    @Query("SELECT * FROM location_areas WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): LocationAreaEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: LocationAreaEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<LocationAreaEntity>)
+
+    @Query("DELETE FROM location_areas WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface PaymentProviderDao {
+    @Query("SELECT * FROM payment_providers ORDER BY sortOrder ASC, displayName ASC")
+    suspend fun getAll(): List<PaymentProviderEntity>
+
+    @Query("SELECT * FROM payment_providers WHERE isActive = 1 ORDER BY sortOrder ASC")
+    suspend fun getActive(): List<PaymentProviderEntity>
+
+    @Query("SELECT * FROM payment_providers WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): PaymentProviderEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: PaymentProviderEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<PaymentProviderEntity>)
+
+    @Query("DELETE FROM payment_providers WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface ContentEntryDao {
+    @Query("SELECT * FROM content_entries ORDER BY section ASC, rowid ASC")
+    suspend fun getAll(): List<ContentEntryEntity>
+
+    @Query("SELECT * FROM content_entries WHERE section = :section ORDER BY rowid ASC")
+    suspend fun getBySection(section: String): List<ContentEntryEntity>
+
+    @Query("SELECT * FROM content_entries WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ContentEntryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: ContentEntryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<ContentEntryEntity>)
+
+    @Query("DELETE FROM content_entries WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface PlatformSwitchDao {
+    @Query("SELECT * FROM platform_switches ORDER BY groupName ASC, sortOrder ASC")
+    suspend fun getAll(): List<PlatformSwitchEntity>
+
+    @Query("SELECT * FROM platform_switches WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): PlatformSwitchEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: PlatformSwitchEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<PlatformSwitchEntity>)
 }

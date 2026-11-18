@@ -437,4 +437,50 @@ interface SuqiApiService {
 
     @GET(SuqiEndpoints.ADMIN_AUDIT_LOG)
     suspend fun getAuditLog(): ApiResponse<List<AuditLogEntryDto>>
+
+    // Phase 6: admin ops & config
+    @GET(SuqiEndpoints.ADMIN_LOCATIONS)
+    suspend fun getLocationAreas(): ApiResponse<List<LocationAreaDto>>
+
+    @POST(SuqiEndpoints.ADMIN_LOCATIONS)
+    suspend fun saveLocationArea(@Body area: LocationAreaDto): ApiResponse<LocationAreaDto>
+
+    @DELETE(SuqiEndpoints.ADMIN_LOCATIONS)
+    suspend fun deleteLocationArea(@Query("id") id: String): ApiResponse<Boolean>
+
+    @GET(SuqiEndpoints.ADMIN_PAYMENT_PROVIDERS)
+    suspend fun getPaymentProviders(): ApiResponse<List<PaymentProviderDto>>
+
+    @POST(SuqiEndpoints.ADMIN_PAYMENT_PROVIDERS)
+    suspend fun savePaymentProvider(@Body provider: PaymentProviderDto): ApiResponse<PaymentProviderDto>
+
+    @DELETE(SuqiEndpoints.ADMIN_PAYMENT_PROVIDERS)
+    suspend fun deletePaymentProvider(@Query("id") id: String): ApiResponse<Boolean>
+
+    @GET(SuqiEndpoints.ADMIN_CONTENT)
+    suspend fun getContentEntries(): ApiResponse<List<ContentEntryDto>>
+
+    @POST(SuqiEndpoints.ADMIN_CONTENT)
+    suspend fun saveContentEntry(@Body entry: ContentEntryDto): ApiResponse<ContentEntryDto>
+
+    @GET(SuqiEndpoints.ADMIN_PLATFORM_SWITCHES)
+    suspend fun getPlatformSwitches(): ApiResponse<List<PlatformSwitchDto>>
+
+    @POST(SuqiEndpoints.ADMIN_PLATFORM_SWITCHES)
+    suspend fun savePlatformSwitch(@Body payload: Map<String, Any>): ApiResponse<PlatformSwitchDto>
+
+    @GET(SuqiEndpoints.ADMIN_DISPUTES)
+    suspend fun getAdminDisputes(): ApiResponse<List<AdminDisputeCaseDto>>
+
+    @POST(SuqiEndpoints.ADMIN_DISPUTE_DECISION)
+    suspend fun decideDispute(@Path("orderId") orderId: String, @Body payload: Map<String, String>): ApiResponse<AdminDisputeCaseDto>
+
+    @GET(SuqiEndpoints.ADMIN_REPORTS)
+    suspend fun getAdminReport(@Query("kind") kind: String): ApiResponse<AdminReportRowDto>
+
+    @GET(SuqiEndpoints.ADMIN_DEVTOOLS_ENV)
+    suspend fun getDevEnvironment(): ApiResponse<Map<String, String>>
+
+    @POST(SuqiEndpoints.ADMIN_DEVTOOLS_DATA)
+    suspend fun devDataAction(@Body payload: Map<String, String>): ApiResponse<Boolean>
 }
