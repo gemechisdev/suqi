@@ -105,7 +105,7 @@ fun BuyerWishlistScreen(
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.Heart,
                         title = strings.wishlistTitle,
-                        subtitle = strings.emptyWishlistSub,
+                        subtitle = strings.buyer.emptyWishlistSub,
                         testTag = "wishlist_empty"
                     )
                 }
