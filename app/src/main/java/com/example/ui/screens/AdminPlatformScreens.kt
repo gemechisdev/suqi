@@ -31,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +56,7 @@ import com.example.data.model.AuditLogEntryDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.StatusType
+import com.example.ui.components.SuqiBottomSheet
 import com.example.ui.components.SuqiEmptyState
 import com.example.ui.components.SuqiFilterChips
 import com.example.ui.components.SuqiScreen
@@ -891,7 +893,7 @@ private fun ShopProductsList(shopId: String, viewModel: SuqiViewModel) {
     val strings = suqiStrings()
     var products by remember { mutableStateOf(emptyList<com.example.data.model.ProductDto>()) }
     LaunchedEffect(shopId) {
-        val res = viewModel.repository.getProducts()
+        val res = viewModel.repository.getProducts(shopId = shopId)
         if (res.success) products = res.data.orEmpty().filter { it.shopId == shopId }
     }
     if (products.isEmpty()) {
