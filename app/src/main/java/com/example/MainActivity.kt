@@ -439,6 +439,76 @@ fun SuqiAppRoot(
                             }
                         }
                         is ScreenDestination.AdminDevTools -> AdminDevToolsScreen(viewModel = viewModel)
+                        is ScreenDestination.AdminUsers -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminUsersScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminUserDetail -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminUserDetailScreen(userId = dest.userId, viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminShopsManager -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminShopsManagerScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminShopDetail -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminShopDetailScreen(shopId = dest.shopId, viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminAuditLog -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminAuditLogScreen(viewModel = viewModel)
+                            }
+                        }
                         is ScreenDestination.AppSettings -> AppSettingsScreen(viewModel = viewModel)
                         is ScreenDestination.HelpLegal -> HelpLegalScreen(viewModel = viewModel)
                         }
