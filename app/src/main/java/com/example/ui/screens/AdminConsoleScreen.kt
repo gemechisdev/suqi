@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AdminSettingsDto
@@ -1049,12 +1050,13 @@ private fun AdminQuickToolTile(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = modifier
-            .heightIn(min = 82.dp)
+            .width(72.dp)
+            .heightIn(min = 82.dp, max = 82.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(colors.secondaryBackground)
             .border(1.dp, colors.border, RoundedCornerShape(16.dp))
             .clickable(onClick = item.onClick)
-            .padding(horizontal = 8.dp, vertical = 12.dp)
+            .padding(horizontal = 8.dp, vertical = 10.dp)
             .testTag("admin_quick_tool_${item.key}")
     ) {
         Box(
@@ -1079,7 +1081,11 @@ private fun AdminQuickToolTile(
             fontSize = 11.sp,
             color = colors.primaryText,
             maxLines = 2,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .heightIn(min = 30.dp, max = 30.dp)
+                .padding(horizontal = 2.dp)
         )
     }
 }
