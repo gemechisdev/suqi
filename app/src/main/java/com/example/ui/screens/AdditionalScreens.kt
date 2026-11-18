@@ -1263,7 +1263,7 @@ fun AdminDevToolsScreen(
 
     fun testConnection() {
         coroutineScope.launch {
-            viewModel.showToast("Testing connection to ${env.toLowerCase()} endpoint...")
+            viewModel.showToast("Testing connection to ${env.lowercase()} endpoint...")
         }
     }
 
@@ -1596,7 +1596,7 @@ fun AdminDevToolsScreen(
                         }
                         Spacer(modifier = Modifier.weight(1f))
                         SuqiButton(
-                            text = strings.common.openLabel,
+                            text = strings.openLabel,
                             onClick = { viewModel.showToast("Design gallery not yet wired") },
                             modifier = Modifier.heightIn(min = 40.dp),
                             isPrimary = false
