@@ -406,16 +406,16 @@ fun ShopStorefrontScreen(
         return
     }
 
-    fun collectionDisplayTitle(key: String): String = when {
-        key.startsWith("col:") -> sellerCollections.firstOrNull { it.id == key.removePrefix("col:") }?.name.orEmpty()
-        else -> builtinCollectionTitle(key)
-    }
-
     fun builtinCollectionTitle(key: String): String = when (key) {
         "Best Sellers" -> strings.popularNow
         "Discount Deals" -> strings.hotDeals
         "In Stock Ready" -> strings.inStock
         else -> strings.recommendedForYou
+    }
+
+    fun collectionDisplayTitle(key: String): String = when {
+        key.startsWith("col:") -> sellerCollections.firstOrNull { it.id == key.removePrefix("col:") }?.name.orEmpty()
+        else -> builtinCollectionTitle(key)
     }
 
     SuqiScreen(

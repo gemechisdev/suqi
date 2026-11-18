@@ -442,7 +442,7 @@ fun AccountHubScreen(
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                     SuqiListRow(
                         icon = LucideIcons.ArrowUpDown,
-                        title = strings.phase6.compareTitle,
+                        title = strings.admin6.compareTitle,
                         onClick = { viewModel.navigate(ScreenDestination.BuyerCompare) },
                         testTag = "account_menu_compare"
                     )
