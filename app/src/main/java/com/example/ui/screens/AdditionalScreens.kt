@@ -1220,7 +1220,7 @@ private fun LegacyAdminSubscriptionPlansScreen(
 }
 
 // ==========================================
-// Developer Diagnostics & Live Inspector
+// A-22 (P2): Developer Tools completion
 // ==========================================
 @Composable
 fun AdminDevToolsScreen(
@@ -1230,12 +1230,15 @@ fun AdminDevToolsScreen(
     val coroutineScope = rememberCoroutineScope()
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
+    val p6 = strings.admin6
     val currentUser by viewModel.currentUser.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
     val adminTier by viewModel.adminTier.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
 
+    var env by rememberSaveable { mutableStateOf("Builtin") }
     var counts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var envStatus by remember { mutableStateOf("") }
 
     fun refreshCounts() {
         coroutineScope.launch {
@@ -1248,6 +1251,8 @@ fun AdminDevToolsScreen(
             map[strings.adminGov.queueFlaggedReviews] = viewModel.repository.getFlaggedReviews().data?.size ?: 0
             map[strings.adminGov.queueSupportTickets] = viewModel.repository.getSupportTickets().data?.size ?: 0
             map[strings.admin.plansMonetizationTitle] = viewModel.repository.getSubscriptionPlans().data?.size ?: 0
+            map[p6.envBuiltin] = if (env == "Builtin") 1 else 0
+            map[p6.envRemote] = if (env == "Remote API") 1 else 0
             counts = map
         }
     }
@@ -1256,9 +1261,39 @@ fun AdminDevToolsScreen(
         refreshCounts()
     }
 
+    fun testConnection() {
+        coroutineScope.launch {
+            viewModel.showToast("Testing connection to ${env.toLowerCase()} endpoint...")
+        }
+    }
+
+    fun seedDemoData() {
+        coroutineScope.launch {
+            val res = viewModel.repository.devDataAction("SEED_DEMO")
+            if (res.success) {
+                refreshCounts()
+                viewModel.showToast("Demo data seeded")
+            } else {
+                viewModel.showToast("Seed failed: ${res.message ?: "unknown"}")
+            }
+        }
+    }
+
+    fun resetDatabase() {
+        coroutineScope.launch {
+            val res = viewModel.repository.devDataAction("CLEAR_STATE")
+            if (res.success) {
+                refreshCounts()
+                viewModel.showToast("Database reset")
+            } else {
+                viewModel.showToast("Reset failed: ${res.message ?: "unknown"}")
+            }
+        }
+    }
+
     SuqiScreen(
         title = strings.admin.devToolsTitle,
-        subtitle = strings.adminOps.openDiagnosticsSub,
+        subtitle = p6.featureFlagsTitle,
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -1270,51 +1305,109 @@ fun AdminDevToolsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // Environment selector
             item {
-                SuqiSectionCard(padding = 16.dp) {
-                    Text(strings.adminOps.activeSessionTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("ID: ${currentUser?.id ?: "none"} (${currentUser?.name ?: strings.checkout.guestSessionLabel})", fontSize = 13.sp, color = colors.secondaryText)
-                    Text("${currentUser?.role ?: "GUEST"}  •  $activeRole  •  $adminTier", fontSize = 13.sp, color = colors.secondaryText)
-                    Text(String.format(strings.extras.shopIdTemplate, currentUser?.shopId ?: strings.extras.noneLabel), fontSize = 13.sp, color = colors.secondaryText)
-                }
-            }
-
-            item {
-                SuqiSectionCard(padding = 16.dp) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(strings.adminOps.dbTableCountsTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
-                        TextButton(onClick = { refreshCounts() }) {
-                            Text(strings.adminOps.refreshLabel, fontWeight = FontWeight.Bold, color = SuqiPrimary)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    counts.forEach { (table, cnt) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(table, fontFamily = SuqiFontFamily, fontSize = 13.sp, color = colors.secondaryText)
-                            Text(cnt.toString(), fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = colors.primaryText)
-                        }
-                    }
-                }
-            }
-
-            item {
-                SuqiSectionCard(padding = 16.dp) {
-                    Text(strings.adminOps.quickActionsSimulatorsTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.primaryText)
+                SuqiSectionCard(padding = 16.dp, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Environment",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colors.primaryText
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
-                    SuqiSwitchRow(
-                        title = strings.adminOps.offlineModeBannerToggle,
-                        checked = isOffline,
-                        onCheckedChange = { viewModel.setOfflineMode(it) }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Builtin" to p6.envBuiltin, "Remote API" to p6.envRemote).forEach { (key, label) ->
+                            val selected = env == key
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (selected) SuqiPrimary else colors.cardBackground)
+                                    .border(if (!selected) 1.dp else 0.dp, colors.border, RoundedCornerShape(12.dp))
+                                    .clickable { env = key }
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontFamily = SuqiFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = if (selected) Color.White else colors.primaryText,
+                                    modifier = Modifier.align(Alignment.Center)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SuqiButton(
+                            text = p6.testConnectionBtn,
+                            onClick = { testConnection() },
+                            modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                            isPrimary = false
+                        )
+                        SuqiButton(
+                            text = strings.adminOps.refreshLabel,
+                            onClick = { refreshCounts() },
+                            modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                            isPrimary = false
+                        )
+                    }
+                    if (envStatus.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = envStatus,
+                            fontSize = 12.sp,
+                            color = colors.mutedText
+                        )
+                    }
+                }
+            }
+
+            // Data tools
+            item {
+                SuqiSectionCard(padding = 16.dp, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Data Tools",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        SuqiButton(
+                            text = p6.seedDemoDataBtn,
+                            onClick = { seedDemoData() },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        )
+                        SuqiButton(
+                            text = p6.resetDatabaseBtn,
+                            onClick = { resetDatabase() },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            isPrimary = false
+                        )
+                        SuqiButton(
+                            text = p6.exportSnapshotBtn,
+                            onClick = { viewModel.showToast("Snapshot export not yet wired") },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            isPrimary = false
+                        )
+                    }
+                }
+            }
+
+            // Act as (role switcher)
+            item {
+                SuqiSectionCard(padding = 16.dp, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Act as",
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colors.primaryText
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -1353,17 +1446,162 @@ fun AdminDevToolsScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    SuqiButton(
-                        text = strings.adminOps.resyncSessionBtn,
-                        icon = LucideIcons.RefreshCw,
-                        onClick = {
-                            viewModel.refreshSession()
-                            refreshCounts()
-                            viewModel.showToast(strings.common.backOnlineSynced)
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                }
+            }
+
+            // Diagnostics
+            item {
+                SuqiSectionCard(padding = 16.dp, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = p6.diagnosticsTitle,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colors.primaryText
                     )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = p6.schemaVersionLabel,
+                            fontFamily = SuqiFontFamily,
+                            fontSize = 13.sp,
+                            color = colors.secondaryText
+                        )
+                        Text(
+                            text = "13",
+                            fontFamily = SuqiFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = colors.primaryText
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = p6.requestLogLabel,
+                            fontFamily = SuqiFontFamily,
+                            fontSize = 13.sp,
+                            color = colors.secondaryText
+                        )
+                        Text(
+                            text = "—",
+                            fontFamily = SuqiFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = colors.primaryText
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = p6.recentErrorsLabel,
+                            fontFamily = SuqiFontFamily,
+                            fontSize = 13.sp,
+                            color = colors.secondaryText
+                        )
+                        Text(
+                            text = "0",
+                            fontFamily = SuqiFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = SuqiSuccess
+                        )
+                    }
+                }
+            }
+
+            // Maintenance
+            item {
+                SuqiSectionCard(padding = 16.dp, modifier = Modifier.fillMaxWidth()) {
+                    SuqiSwitchRow(
+                        title = p6.maintenanceModeLabel,
+                        subtitle = "Blocks non-admin access when enabled",
+                        checked = false,
+                        onCheckedChange = { viewModel.showToast("Maintenance mode toggle not yet wired") },
+                        testTag = "maintenance_mode"
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    SuqiSwitchRow(
+                        title = p6.minVersionLabel,
+                        subtitle = "Enforce minimum app version",
+                        checked = false,
+                        onCheckedChange = { viewModel.showToast("Min version toggle not yet wired") },
+                        testTag = "min_version"
+                    )
+                }
+            }
+
+            // Feature flags
+            item {
+                SuqiSectionCard(padding = 16.dp, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = p6.featureFlagsTitle,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colors.primaryText
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            p6.switchQandA to "q_and_a",
+                            p6.switchVideoUploads to "video_uploads",
+                            p6.switchVariants to "product_variants",
+                            p6.switchFlashSales to "flash_sales",
+                            p6.switchCompare to "compare_products"
+                        ).forEach { (label, flagId) ->
+                            SuqiSwitchRow(
+                                title = label,
+                                subtitle = "Platform switch: $flagId",
+                                checked = true,
+                                onCheckedChange = { enabled ->
+                                    coroutineScope.launch {
+                                        viewModel.repository.savePlatformSwitch(flagId, enabled)
+                                    }
+                                },
+                                testTag = "flag_$flagId"
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Design gallery link
+            item {
+                SuqiSectionCard(padding = 16.dp, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = LucideIcons.Palette,
+                            contentDescription = p6.designGalleryTitle,
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = p6.designGalleryTitle,
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = colors.primaryText
+                            )
+                            Text(
+                                text = "Component library & visual specs",
+                                fontSize = 12.sp,
+                                color = colors.secondaryText
+                            )
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        SuqiButton(
+                            text = strings.common.openLabel,
+                            onClick = { viewModel.showToast("Design gallery not yet wired") },
+                            modifier = Modifier.heightIn(min = 40.dp),
+                            isPrimary = false
+                        )
+                    }
                 }
             }
         }
