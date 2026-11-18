@@ -89,7 +89,7 @@ fun BuyerWishlistScreen(
     LaunchedEffect(Unit) { loadWishlist() }
 
     SuqiScreen(
-        title = strings.buyer.wishlistTitle,
+        title = strings.wishlistTitle,
         subtitle = "${wishlist.size} items",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -104,8 +104,8 @@ fun BuyerWishlistScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.Heart,
-                        title = strings.buyer.wishlistTitle,
-                        subtitle = strings.buyer.emptyWishlistSub,
+                        title = strings.wishlistTitle,
+                        subtitle = strings.emptyWishlistSub,
                         testTag = "wishlist_empty"
                     )
                 }
@@ -206,7 +206,7 @@ fun BuyerCouponsScreen(
 
     SuqiScreen(
         title = strings.couponsTitle,
-        subtitle = "Coupons strings.buyer.couponsSub Wallet",
+        subtitle = "Coupons & Wallet",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
