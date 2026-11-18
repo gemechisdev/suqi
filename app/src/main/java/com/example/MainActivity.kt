@@ -509,6 +509,104 @@ fun SuqiAppRoot(
                                 AdminAuditLogScreen(viewModel = viewModel)
                             }
                         }
+                        is ScreenDestination.AdminListingsModeration -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminModerationScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminOrdersDisputes -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminOrdersDisputesScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminReportsExports -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminReportsExportsScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminLocationsManager -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminLocationsManagerScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminPaymentProviders -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminPaymentProvidersScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminContentManager -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminContentManagerScreen(viewModel = viewModel)
+                            }
+                        }
+                        is ScreenDestination.AdminPlatformSwitches -> {
+                            if (!hasAdminAccess) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                AdminPlatformSwitchesScreen(viewModel = viewModel)
+                            }
+                        }
                         is ScreenDestination.AppSettings -> AppSettingsScreen(viewModel = viewModel)
                         is ScreenDestination.HelpLegal -> HelpLegalScreen(viewModel = viewModel)
                         }

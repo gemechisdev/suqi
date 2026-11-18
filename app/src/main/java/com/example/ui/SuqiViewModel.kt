@@ -89,6 +89,13 @@ sealed class ScreenDestination {
     data class AdminShopDetail(val shopId: String) : ScreenDestination()
     data object AdminAuditLog : ScreenDestination()
     data object AdminDevTools : ScreenDestination()
+    data object AdminListingsModeration : ScreenDestination()
+    data object AdminOrdersDisputes : ScreenDestination()
+    data object AdminReportsExports : ScreenDestination()
+    data object AdminLocationsManager : ScreenDestination()
+    data object AdminPaymentProviders : ScreenDestination()
+    data object AdminContentManager : ScreenDestination()
+    data object AdminPlatformSwitches : ScreenDestination()
     data object AppSettings : ScreenDestination()
     data object HelpLegal : ScreenDestination()
 }
@@ -334,6 +341,7 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     var cachedAdminUsers: List<AdminUserRowDto> = emptyList()
     var cachedAdminShopRows: List<AdminShopRowDto> = emptyList()
     var cachedAuditLog: List<AuditLogEntryDto> = emptyList()
+    var cachedAdminDisputes: List<AdminDisputeCaseDto> = emptyList()
 
     fun clearUserCaches() {
         cachedHomeProducts = emptyList()
