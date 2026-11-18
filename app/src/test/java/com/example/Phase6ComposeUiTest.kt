@@ -270,7 +270,26 @@ class Phase6ComposeUiTest {
         scrollListToTag("dispute_refund_$orderId")
         composeRule.onNodeWithTag("dispute_refund_$orderId").assertIsDisplayed()
         composeRule.onNodeWithTag("dispute_escalate_$orderId").assertIsDisplayed()
-        // Today the buttons only show a toast and do not call decideDispute (see Phase 6 findings), so state is unchanged.
+        composeRule.onNodeWithTag("dispute_note_$orderId").performTextInput("Seller shipped wrong item")
+        composeRule.onNodeWithTag("dispute_refund_$orderId").performClick()
+        waitForCondition {
+            runBlocking { vm.repository.getAdminDisputes().data.orEmpty().first { it.orderId == orderId }.status == "RESOLVED_BUYER" }
+        }
+        assertTrue(runBlocking { vm.repository.getAuditLog().data.orEmpty().any { it.action == "DISPUTE_DECIDED" && it.targetId == orderId } })
+    }
+
+    @Test
+    fun adminOrdersDisputes_decisionWithoutNoteChangesNothing() {
+        val db = SuqiDatabase.getInstance(ApplicationProvider.getApplicationContext<Application>())
+        val buyerVm = newBuyerViewModel("+251 911 710 107", "No Note Buyer")
+        val orderId = "ord_p6ui_nonote_${System.currentTimeMillis()}"
+        runBlocking { db.orderDao().insertOrder(rejectedOrder(orderId, buyerVm.currentUser.value!!.id)) }
+        val vm = newAdminViewModel()
+        show { AdminOrdersDisputesScreen(viewModel = vm) }
+        waitForTag("dispute_card_$orderId")
+        scrollListToTag("dispute_escalate_$orderId")
+        composeRule.onNodeWithTag("dispute_escalate_$orderId").performClick()
+        pump()
         assertEquals("OPEN", runBlocking { vm.repository.getAdminDisputes().data.orEmpty().first { it.orderId == orderId }.status })
     }
 
@@ -285,20 +304,26 @@ class Phase6ComposeUiTest {
     // ---------------- Admin: config ----------------
 
     @Test
-    fun adminLocations_showsSeededAreasAndDefaultZoneToggle() {
+    fun adminLocations_defaultZoneToggleSaves() {
         val vm = newAdminViewModel()
         show { AdminLocationsManagerScreen(viewModel = vm) }
         waitForTag("default_zone_loc_bole")
-        composeRule.onNodeWithTag("default_zone_loc_bole").assertIsDisplayed()
+        composeRule.onNodeWithTag("default_zone_loc_kirkos").performClick()
+        waitForCondition {
+            runBlocking { vm.repository.getLocationAreas().data.orEmpty().first { it.id == "loc_kirkos" }.isDefaultZone }
+        }
         assertFalse(composeRule.onAllNodesWithTag("locations_empty").fetchSemanticsNodes().isNotEmpty())
     }
 
     @Test
-    fun adminPaymentProviders_showsSeededProviders() {
+    fun adminPaymentProviders_activeToggleSaves() {
         val vm = newAdminViewModel()
         show { AdminPaymentProvidersScreen(viewModel = vm) }
         waitForTag("provider_active_prov_telebirr")
-        composeRule.onNodeWithTag("provider_active_prov_telebirr").assertIsDisplayed()
+        composeRule.onNodeWithTag("provider_active_prov_awash").performClick()
+        waitForCondition {
+            runBlocking { vm.repository.getPaymentProviders().data.orEmpty().first { it.id == "prov_awash" }.isActive.not() }
+        }
         assertFalse(composeRule.onAllNodesWithTag("providers_empty").fetchSemanticsNodes().isNotEmpty())
     }
 
@@ -366,8 +391,11 @@ class Phase6ComposeUiTest {
     fun sellerCustomers_composesForSeller() {
         val vm = newSellerViewModel()
         show { SellerCustomersScreen(viewModel = vm) }
-        // SellerCustomersScreen loads via the admin-only getAdminUsers(), so a seller sees the empty state (known gap).
-        waitForTag("seller_customers_empty")
+        // Customers come from the shop's own orders; the seeded Tech Hub has buyers, so the empty state must not stay.
+        waitForCondition {
+            composeRule.onAllNodesWithTag("seller_customers_empty").fetchSemanticsNodes().isEmpty() &&
+                runBlocking { vm.repository.getSellerOrders().data.orEmpty().isNotEmpty() }
+        }
     }
 
     @Test
@@ -381,7 +409,6 @@ class Phase6ComposeUiTest {
     fun sellerStaffAccounts_composesForSeller() {
         val vm = newSellerViewModel()
         show { SellerStaffAccountsScreen(viewModel = vm) }
-        // Same admin-only data source as Customers, so a seller sees the empty state (known gap).
-        waitForTag("seller_staff_empty")
+        waitForTag("seller_staff_${vm.currentUser.value!!.id}")
     }
 }

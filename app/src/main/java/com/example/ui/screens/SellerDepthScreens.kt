@@ -362,9 +362,21 @@ fun SellerCustomersScreen(
 
     fun loadCustomers() {
         coroutineScope.launch {
-            val res = viewModel.repository.getAdminUsers()
+            // Seller-scoped: customers are the distinct buyers found in this shop's own orders.
+            val res = viewModel.repository.getSellerOrders()
             if (res.success && res.data != null) {
-                customers = res.data.filter { it.role == "CUSTOMER" || it.role == "GUEST" }
+                customers = res.data.groupBy { it.customerUserId }.map { (id, orders) ->
+                    val latest = orders.first()
+                    AdminUserRowDto(
+                        id = id,
+                        name = latest.customerName,
+                        phone = latest.customerPhone,
+                        role = "CUSTOMER",
+                        ordersCount = orders.size,
+                        totalSpent = orders.sumOf { it.totalAmount },
+                        createdAt = latest.createdAt
+                    )
+                }
             }
             isLoading = false
         }
@@ -425,7 +437,7 @@ fun SellerCustomersScreen(
                                         color = colors.secondaryText
                                     )
                                     Text(
-                                        text = "${customer.role} • ${customer.createdAt}",
+                                        text = "${customer.ordersCount} orders • ETB ${customer.totalSpent.toInt()} • ${customer.createdAt}",
                                         fontSize = 11.sp,
                                         color = colors.mutedText
                                     )
@@ -523,10 +535,10 @@ fun SellerStaffAccountsScreen(
 
     fun loadStaff() {
         coroutineScope.launch {
-            val res = viewModel.repository.getAdminUsers()
-            if (res.success && res.data != null) {
-                staff = res.data.filter { it.role == "ADMIN" || it.role == "STAFF" }
-            }
+            // No staff-account model exists yet: the shop's only account is the signed-in owner.
+            staff = viewModel.currentUser.value?.let {
+                listOf(AdminUserRowDto(id = it.id, name = it.name, phone = it.phone, role = "OWNER"))
+            }.orEmpty()
             isLoading = false
         }
     }
@@ -565,7 +577,7 @@ fun SellerStaffAccountsScreen(
                     items(staff, key = { it.id }) { member ->
                         SuqiSectionCard(
                             padding = 14.dp,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().testTag("seller_staff_${member.id}")
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

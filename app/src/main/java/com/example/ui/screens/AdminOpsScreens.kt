@@ -271,6 +271,22 @@ fun AdminOrdersDisputesScreen(
 
     LaunchedEffect(Unit) { loadDisputes() }
 
+    var disputeNotes by remember { mutableStateOf(emptyMap<String, String>()) }
+    fun decide(item: com.example.data.model.AdminDisputeCaseDto, decision: String, refund: Double = 0.0) {
+        val note = disputeNotes[item.orderId].orEmpty().trim()
+        if (note.isBlank()) {
+            viewModel.showToast("Write a decision note first")
+            return
+        }
+        coroutineScope.launch {
+            val res = viewModel.repository.decideDispute(item.orderId, decision, note, refund)
+            if (res.success) {
+                viewModel.showToast("Decision saved")
+                loadDisputes()
+            } else viewModel.showToast(res.message ?: strings.retryLabel)
+        }
+    }
+
     val openDisputes = remember(disputes) {
         disputes.filter { it.status.equals("OPEN", true) }
     }
@@ -387,6 +403,14 @@ fun AdminOrdersDisputesScreen(
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
+                                com.example.ui.components.SuqiTextField(
+                                    value = disputeNotes[item.orderId].orEmpty(),
+                                    onValueChange = { disputeNotes = disputeNotes + (item.orderId to it) },
+                                    label = "Decision note",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    testTag = "dispute_note_${item.orderId}"
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -394,7 +418,7 @@ fun AdminOrdersDisputesScreen(
                                     SuqiButton(
                                         text = p6.refundBuyerBtn,
                                         onClick = {
-                                            viewModel.showToast("Refund buyer decision for ${item.orderReference} requires dispute note")
+                                            decide(item, "REFUND_BUYER", item.amount)
                                         },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("dispute_refund_${item.orderId}"),
                                         isPrimary = true
@@ -402,7 +426,7 @@ fun AdminOrdersDisputesScreen(
                                     SuqiButton(
                                         text = p6.sideWithSellerBtn,
                                         onClick = {
-                                            viewModel.showToast("Side with seller decision for ${item.orderReference} requires dispute note")
+                                            decide(item, "SIDE_WITH_SELLER")
                                         },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("dispute_side_${item.orderId}"),
                                         isPrimary = false
@@ -416,7 +440,7 @@ fun AdminOrdersDisputesScreen(
                                     SuqiButton(
                                         text = p6.partialRefundBtn,
                                         onClick = {
-                                            viewModel.showToast("Partial refund requires dispute note")
+                                            decide(item, "PARTIAL", item.amount / 2)
                                         },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("dispute_partial_${item.orderId}"),
                                         isPrimary = false
@@ -424,7 +448,7 @@ fun AdminOrdersDisputesScreen(
                                     SuqiButton(
                                         text = p6.escalateBtn,
                                         onClick = {
-                                            viewModel.showToast("Escalated to human review")
+                                            decide(item, "ESCALATE")
                                         },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("dispute_escalate_${item.orderId}"),
                                         isPrimary = false

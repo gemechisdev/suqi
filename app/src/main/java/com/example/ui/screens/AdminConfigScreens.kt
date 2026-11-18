@@ -182,13 +182,23 @@ fun AdminLocationsManagerScreen(
                                     SuqiSwitchRow(
                                         title = p6.defaultZoneLabel,
                                         checked = area.isDefaultZone,
-                                        onCheckedChange = {},
+                                        onCheckedChange = { on ->
+                                            coroutineScope.launch {
+                                                viewModel.repository.saveLocationArea(area.copy(isDefaultZone = on))
+                                                loadAreas()
+                                            }
+                                        },
                                         modifier = Modifier.width(150.dp),
                                         testTag = "default_zone_${area.id}"
                                     )
                                     SuqiButton(
                                         text = p6.disableAreaLabel,
-                                        onClick = {},
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                viewModel.repository.saveLocationArea(area.copy(isEnabled = !area.isEnabled))
+                                                loadAreas()
+                                            }
+                                        },
                                         modifier = Modifier.heightIn(min = 36.dp),
                                         isPrimary = false
                                     )
@@ -301,7 +311,12 @@ fun AdminPaymentProvidersScreen(
                                 SuqiSwitchRow(
                                     title = p6.activeSwitchLabel,
                                     checked = provider.isActive,
-                                    onCheckedChange = {},
+                                    onCheckedChange = { on ->
+                                        coroutineScope.launch {
+                                            viewModel.repository.savePaymentProvider(provider.copy(isActive = on))
+                                            loadProviders()
+                                        }
+                                    },
                                     testTag = "provider_active_${provider.id}"
                                 )
                             }
