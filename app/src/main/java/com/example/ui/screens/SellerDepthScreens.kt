@@ -229,7 +229,7 @@ fun SellerReviewsQAScreen(
                                         color = colors.secondaryText,
                                         maxLines = 3
                                     )
-                                    if (review.sellerReply.isNotBlank()) {
+                                    if (review.sellerReply?.isNotBlank() == true) {
                                         Spacer(modifier = Modifier.height(6.dp))
                                         SuqiSectionCard(
                                             padding = 10.dp,
@@ -261,7 +261,7 @@ fun SellerReviewsQAScreen(
                                             testTag = "seller_reply_${review.id}"
                                         )
                                         SuqiButton(
-                                            text = strings.admin.sendBroadcastBtn,
+                                            text = strings.adminGov.sendBroadcastBtn,
                                             onClick = {
                                                 coroutineScope.launch {
                                                     viewModel.repository.replyToReview(review.id, "Reply not yet wired")
@@ -327,7 +327,7 @@ fun SellerReviewsQAScreen(
                                             testTag = "seller_answer_${q.id}"
                                         )
                                         SuqiButton(
-                                            text = strings.admin.sendBroadcastBtn,
+                                            text = strings.adminGov.sendBroadcastBtn,
                                             onClick = {
                                                 viewModel.showToast("Answer not yet wired")
                                             },
@@ -594,7 +594,11 @@ fun SellerStaffAccountsScreen(
             Spacer(modifier = Modifier.height(16.dp))
             SuqiButton(
                 text = "Invite Staff",
-                onClick = { viewModel.showToast("Staff invite not yet wired") },
+                onClick = {
+                                            coroutineScope.launch {
+                                                viewModel.showToast("Staff invite not yet wired")
+                                            }
+                                        },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             )
         }
