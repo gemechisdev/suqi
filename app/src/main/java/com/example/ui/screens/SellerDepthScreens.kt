@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,13 +41,17 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.AdminUserRowDto
 import com.example.data.model.ProductQuestionDto
 import com.example.data.model.ReviewDto
 import com.example.data.model.UserDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
+import com.example.ui.components.StatusType
 import com.example.ui.components.SuqiBottomSheet
+import com.example.ui.components.SuqiButton
 import com.example.ui.components.SuqiEmptyState
+import com.example.ui.components.SuqiScreen
 import com.example.ui.components.SuqiSectionCard
 import com.example.ui.components.SuqiStatusBadge
 import com.example.ui.components.SuqiTextField
@@ -319,7 +324,7 @@ fun SellerCustomersScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var customers by remember { mutableStateOf<List<UserDto>>(emptyList()) }
+    var customers by remember { mutableStateOf<List<AdminUserRowDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
     fun loadCustomers() {
@@ -336,7 +341,7 @@ fun SellerCustomersScreen(
 
     SuqiScreen(
         title = strings.sellerOps.sellerToolsShopTitle,
-        subtitle = "${customers.value.size} customers",
+        subtitle = "${customers.size} customers",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
@@ -479,7 +484,7 @@ fun SellerStaffAccountsScreen(
     val colors = LocalSuqiColors.current
     val strings = suqiStrings()
     val isOffline by viewModel.isOffline.collectAsState()
-    var staff by remember { mutableStateOf<List<UserDto>>(emptyList()) }
+    var staff by remember { mutableStateOf<List<AdminUserRowDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
     fun loadStaff() {
@@ -496,7 +501,7 @@ fun SellerStaffAccountsScreen(
 
     SuqiScreen(
         title = strings.sellerOps.sellerToolsShopTitle,
-        subtitle = "${staff.value.size} staff",
+        subtitle = "${staff.size} staff",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
         modifier = modifier
