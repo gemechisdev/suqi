@@ -165,6 +165,7 @@ data class OrderDto(
     val courierName: String = "",
     val courierPhone: String = "",
     val dispatchedAt: String? = null,
+    val deliveredAt: String? = null,
     val transferredAmount: Double? = null
 )
 

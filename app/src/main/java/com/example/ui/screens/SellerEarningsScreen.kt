@@ -100,7 +100,7 @@ fun SellerEarningsScreen(
             SuqiSkeletonList(count = 4, modifier = Modifier.padding(paddingValues).padding(top = 12.dp))
         } else if (current == null) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                SuqiErrorCard(title = strings.seller.earningsTitle, message = strings.retryLabel, onRetry = { loadEarnings() })
+                SuqiErrorCard(message = "${strings.seller.earningsTitle} — ${strings.retryLabel}", onRetry = { loadEarnings() })
             }
         } else {
             val filteredLedger = remember(current.ledger, ledgerFilter) {
@@ -182,11 +182,9 @@ fun SellerEarningsScreen(
                                 "PAYOUT" to p5.filterPayouts
                             )
                             SuqiFilterChips(
-                                items = filterOptions.map { it.second },
-                                selectedItem = filterOptions.firstOrNull { it.first == ledgerFilter }?.second ?: p5.filterAll,
-                                onSelect = { chosen ->
-                                    ledgerFilter = filterOptions.firstOrNull { it.second == chosen }?.first ?: "ALL"
-                                }
+                                items = filterOptions,
+                                selectedKey = ledgerFilter,
+                                onSelect = { ledgerFilter = it }
                             )
                         }
                         if (filteredLedger.isEmpty()) {
@@ -303,7 +301,7 @@ fun SellerEarningsScreen(
                                             }
                                         }
                                     }
-                                    SuqiTextField(value = bankName, onValueChange = { bankName = it }, label = strings.seller.bankLabel)
+                                    SuqiTextField(value = bankName, onValueChange = { bankName = it }, label = strings.checkout.bankTransferLabel)
                                     SuqiTextField(value = accountName, onValueChange = { accountName = it }, label = p5.payoutAccountNameLabel, testTag = "payout_account_name_input")
                                     SuqiTextField(value = accountNumber, onValueChange = { accountNumber = it }, label = p5.payoutAccountNumberLabel, testTag = "payout_account_number_input")
                                     SuqiButton(
@@ -354,7 +352,7 @@ fun SellerEarningsScreen(
                             if (res.success) {
                                 showPayoutSheet = false
                                 loadEarnings()
-                                viewModel.showToast(strings.seller.payoutTitle)
+                                viewModel.showToast(p5.requestPayoutBtn)
                             } else {
                                 viewModel.showToast(viewModel.localizeMessage(res.message ?: strings.retryLabel))
                             }

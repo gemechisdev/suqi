@@ -159,7 +159,9 @@ data class SuqiPhase5Strings(
     val broadcastHistoryTab: String,
     val broadcastTemplatesTab: String,
     val broadcastStatsTemplate: String,
-    val phonePreviewLabel: String
+    val phonePreviewLabel: String,
+    val broadcastTargetIdLabel: String,
+    val broadcastSentTemplate: String
 )
 
 object SuqiPhase5Catalog {
@@ -315,7 +317,9 @@ object SuqiPhase5Catalog {
         broadcastHistoryTab = "History",
         broadcastTemplatesTab = "Templates",
         broadcastStatsTemplate = "%d sent • %d opened",
-        phonePreviewLabel = "Live Phone Notification Preview"
+        phonePreviewLabel = "Live Phone Notification Preview",
+        broadcastTargetIdLabel = "Target ID (category or shop)",
+        broadcastSentTemplate = "Broadcast sent to %d recipients"
     )
 
     val amharic = SuqiPhase5Strings(
@@ -470,7 +474,9 @@ object SuqiPhase5Catalog {
         broadcastHistoryTab = "ታሪክ",
         broadcastTemplatesTab = "ቅጾች",
         broadcastStatsTemplate = "%d ተልኳል • %d ተከፍቷል",
-        phonePreviewLabel = "የስልክ ማሳወቂያ ቅድመ እይታ"
+        phonePreviewLabel = "የስልክ ማሳወቂያ ቅድመ እይታ",
+        broadcastTargetIdLabel = "የመዳረሻ መለያ (ምድብ ወይም ሱቅ)",
+        broadcastSentTemplate = "መልዕክቱ ለ%d ተቀባዮች ተልኳል"
     )
 
     val afaanOromo = SuqiPhase5Strings(
@@ -625,6 +631,8 @@ object SuqiPhase5Catalog {
         broadcastHistoryTab = "Seenaa",
         broadcastTemplatesTab = "Qajeelfamoota",
         broadcastStatsTemplate = "%d ergame • %d baname",
-        phonePreviewLabel = "Mul'ata Beeksisa Bilbilaa"
+        phonePreviewLabel = "Mul'ata Beeksisa Bilbilaa",
+        broadcastTargetIdLabel = "ID Xiyyeeffannoo (ramaddii ykn suuqa)",
+        broadcastSentTemplate = "Beeksisni gara namoota %d ergameera"
     )
 }

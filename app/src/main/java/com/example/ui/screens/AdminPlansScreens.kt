@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -263,7 +264,7 @@ fun AdminPlansV2Screen(
                                 Spacer(Modifier.height(10.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     SuqiButton(
-                                        text = strings.adminOps.approveBtn,
+                                        text = strings.admin.approveBtn,
                                         onClick = {
                                             coroutineScope.launch {
                                                 viewModel.repository.decideSubscriptionUpgrade(upg.id, "APPROVE")
@@ -284,7 +285,7 @@ fun AdminPlansV2Screen(
                                         border = BorderStroke(1.dp, SuqiError.copy(alpha = 0.5f)),
                                         modifier = Modifier.weight(1f).height(48.dp)
                                     ) {
-                                        Text(strings.adminOps.rejectBtn, color = SuqiError, fontWeight = FontWeight.Bold)
+                                        Text(strings.admin.rejectBtn, color = SuqiError, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }

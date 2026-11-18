@@ -584,9 +584,10 @@ fun AdminBroadcastScreen(
                                         SuqiImagePickerTile(
                                             label = p5.attachImageLabel,
                                             imageUri = imageUrl.takeIf { it.isNotBlank() },
-                                            onImageSelected = { imageUrl = it },
-                                            onRemoveImage = if (imageUrl.isNotBlank()) { { imageUrl = "" } } else null,
-                                            modifier = Modifier.width(120.dp).testTag("bc_image_picker")
+                                            onImagePicked = { imageUrl = it },
+                                            onRemove = if (imageUrl.isNotBlank()) { { imageUrl = "" } } else null,
+                                            modifier = Modifier.width(120.dp),
+                                            testTag = "bc_image_picker"
                                         )
                                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text(strings.adminGov.destinationTypeLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.secondaryText)
@@ -606,7 +607,7 @@ fun AdminBroadcastScreen(
                                                 SuqiTextField(
                                                     value = targetId,
                                                     onValueChange = { targetId = it },
-                                                    label = strings.adminGov.targetValueLabel
+                                                    label = p5.broadcastTargetIdLabel
                                                 )
                                             }
                                         }
@@ -665,7 +666,7 @@ fun AdminBroadcastScreen(
                                         Spacer(Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = title.ifBlank { strings.appName },
+                                                text = title.ifBlank { strings.welcomeToSuqi },
                                                 fontFamily = SuqiFontFamily,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp,
@@ -718,7 +719,7 @@ fun AdminBroadcastScreen(
                                                 )
                                             )
                                             if (res.success) {
-                                                viewModel.showToast(String.format(strings.adminGov.broadcastSentTemplate, res.data ?: 1))
+                                                viewModel.showToast(String.format(p5.broadcastSentTemplate, res.data ?: 1))
                                                 title = ""
                                                 body = ""
                                                 loadData()
@@ -744,7 +745,7 @@ fun AdminBroadcastScreen(
                                                     )
                                                 )
                                                 if (res.success) {
-                                                    viewModel.showToast(strings.adminOps.testPushLabel)
+                                                    viewModel.showToast(strings.adminGov.sendTestToMeBtn)
                                                     loadData()
                                                 }
                                             }
@@ -753,7 +754,7 @@ fun AdminBroadcastScreen(
                                         shape = RoundedCornerShape(14.dp),
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("bc_send_test_btn")
                                     ) {
-                                        Text(strings.adminOps.testPushLabel, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(strings.adminGov.sendTestToMeBtn, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     OutlinedButton(
                                         onClick = {

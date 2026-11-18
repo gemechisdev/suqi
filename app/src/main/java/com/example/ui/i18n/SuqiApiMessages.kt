@@ -62,6 +62,16 @@ object SuqiApiMessages {
         r("^Promo does not apply to items in cart\\.?", "ኮዱ በጋሪው ውስጥ ላሉ እቃዎች አይሰራም።", "Koodichi meeshaalee gaarii keessatti hin hojjetu."),
         r("^Sale price must be lower than original price\\.?", "የቅናሽ ዋጋ ከመጀመሪያው ዋጋ ያነሰ መሆን አለበት።", "Gatiin hir'ifame gatii duraa gadi ta'uu qaba."),
         r("^Upgrade request submitted for verification\\.?", "የዕቅድ ማሻሻያ ጥያቄ ለማረጋገጫ ቀርቧል።", "Gaaffiin olguddisuu karooraa mirkaneessaaf dhiyaateera."),
+        r("^Admin permission required\\.?", "የአስተዳዳሪ ፈቃድ ያስፈልጋል።", "Hayyamni bulchaa barbaachisaa dha."),
+        r("^Permission denied\\.?", "ፈቃድ ተከልክሏል።", "Hayyamni dhorkameera."),
+        r("^You can only request returns for your own orders\\.?", "ለራስዎ ትዕዛዞች ብቻ የመመለሻ ጥያቄ ማቅረብ ይችላሉ።", "Ajaja keessan qofaaf gaaffii deebisuu dhiyeessuu dandeessu."),
+        r("^Only the buyer or admin can mark a return shipped back\\.?", "እቃው መመለሱን ማረጋገጥ የሚችለው ገዢው ወይም አስተዳዳሪው ብቻ ነው።", "Meeshaan deebi'uu isaa kan mirkaneessuu danda'u bitaa ykn bulchaa qofa."),
+        r("^Only the shop owner or admin can decide this return\\.?", "በዚህ የመመለሻ ጥያቄ ላይ መወሰን የሚችለው የሱቁ ባለቤት ወይም አስተዳዳሪው ብቻ ነው።", "Gaaffii deebisuu kana irratti kan murteessuu danda'u abbaa suuqaa ykn bulchaa qofa."),
+        r("^Only the shop owner can reply to this review\\.?", "ለዚህ ግምገማ መልስ መስጠት የሚችለው የሱቁ ባለቤት ብቻ ነው።", "Ilaalcha kanaaf deebii kennuu kan danda'u abbaa suuqaa qofa."),
+        r("^Only admins can add internal notes\\.?", "የውስጥ ማስታወሻዎችን ማከል የሚችሉት አስተዳዳሪዎች ብቻ ናቸው።", "Yaadannoo keessoo dabaluu kan danda'an bulchitoota qofa."),
+        r("^Cannot (.+) return from status (.+)\\.?", "ከሁኔታ $2 ላይ $1 ማድረግ አይቻልም።", "Haala $2 irraa $1 gochuun hin danda'amu."),
+        r("^Cannot (.+) payout from status (.+)\\.?", "ከሁኔታ $2 ላይ ክፍያ $1 ማድረግ አይቻልም።", "Haala $2 irraa kaffaltii $1 gochuun hin danda'amu."),
+        r("^Upgrade request already (.+)\\.?", "የማሻሻያ ጥያቄው አስቀድሞ $1 ሆኗል።", "Gaaffiin olguddisuu duraan $1 ta'eera."),
         r("^(.+) is required\\.?", "$1 ያስፈልጋል።", "$1 barbaachisaa dha.")
     )
 

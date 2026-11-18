@@ -247,7 +247,7 @@ fun SellerReturnsScreen(
                     "REQUESTED" -> {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             SuqiButton(
-                                text = strings.adminOps.approveBtn,
+                                text = strings.admin.approveBtn,
                                 isPill = true,
                                 onClick = { decide("APPROVE") },
                                 testTag = "seller_return_approve_btn",
@@ -268,7 +268,7 @@ fun SellerReturnsScreen(
                             border = BorderStroke(1.dp, SuqiError.copy(alpha = 0.6f)),
                             modifier = Modifier.fillMaxWidth().height(48.dp).testTag("seller_return_reject_btn")
                         ) {
-                            Text(strings.adminOps.rejectBtn, color = SuqiError, fontWeight = FontWeight.Bold)
+                            Text(strings.admin.rejectBtn, color = SuqiError, fontWeight = FontWeight.Bold)
                         }
                     }
                     "APPROVED", "REPLACEMENT_OFFERED", "SENT_BACK" -> {
@@ -288,7 +288,9 @@ fun SellerReturnsScreen(
     if (showRejectDialog && selectedReturn != null) {
         AlertDialog(
             onDismissRequest = { showRejectDialog = false },
-            title = { Text(strings.adminOps.rejectBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 420.dp),
+            title = { Text(strings.admin.rejectBtn, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
             text = {
                 SuqiTextField(
                     value = rejectNote,

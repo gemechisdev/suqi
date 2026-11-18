@@ -482,9 +482,13 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshUnreadNotifications() {
         viewModelScope.launch {
-            val res = repository.getNotifications()
-            if (res.success && res.data != null) {
-                unreadNotificationCount.value = res.data.count { !it.isRead }
+            try {
+                val res = repository.getNotifications()
+                if (res.success && res.data != null) {
+                    unreadNotificationCount.value = res.data.count { !it.isRead }
+                }
+            } catch (e: IllegalStateException) {
+                if (e.message?.contains("closed", ignoreCase = true) != true) throw e
             }
         }
     }
@@ -587,47 +591,51 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshSession() {
         val gen = ++sessionRefreshGeneration
         viewModelScope.launch {
-            repository.refreshCartCount()
-            val userRes = repository.getCurrentUser()
-            if (gen != sessionRefreshGeneration) return@launch
-            if (userRes.success && userRes.data != null) {
-                val u = userRes.data
-                val previousUserId = lastSessionUserId ?: _currentUser.value?.id
-                if (previousUserId != null && previousUserId != u.id) {
-                    clearUserCaches()
-                }
-                lastSessionUserId = u.id
-                _currentUser.value = u
-                _activeRole.value = u.activeRole.ifBlank { u.role }
-                _adminTier.value = u.adminTier
-                if (u.city.isNotBlank()) selectedCity.value = u.city
-                if (u.subCity.isNotBlank()) selectedSubCity.value = u.subCity
-                if (u.region.isNotBlank()) selectedRegion.value = u.region
-                if (!prefs.contains("selected_language") && u.preferredLanguage.isNotBlank()) {
-                    selectedLanguage.value = u.preferredLanguage
-                    prefs.edit().putString("selected_language", u.preferredLanguage).apply()
-                }
+            try {
+                repository.refreshCartCount()
+                val userRes = repository.getCurrentUser()
+                if (gen != sessionRefreshGeneration) return@launch
+                if (userRes.success && userRes.data != null) {
+                    val u = userRes.data
+                    val previousUserId = lastSessionUserId ?: _currentUser.value?.id
+                    if (previousUserId != null && previousUserId != u.id) {
+                        clearUserCaches()
+                    }
+                    lastSessionUserId = u.id
+                    _currentUser.value = u
+                    _activeRole.value = u.activeRole.ifBlank { u.role }
+                    _adminTier.value = u.adminTier
+                    if (u.city.isNotBlank()) selectedCity.value = u.city
+                    if (u.subCity.isNotBlank()) selectedSubCity.value = u.subCity
+                    if (u.region.isNotBlank()) selectedRegion.value = u.region
+                    if (!prefs.contains("selected_language") && u.preferredLanguage.isNotBlank()) {
+                        selectedLanguage.value = u.preferredLanguage
+                        prefs.edit().putString("selected_language", u.preferredLanguage).apply()
+                    }
 
-                val addrRes = repository.getSavedAddresses()
-                val defAddr = addrRes.data?.firstOrNull { it.isDefault } ?: addrRes.data?.firstOrNull()
-                if (defAddr != null) {
-                    activeCheckoutRecipientName.value = defAddr.fullName
-                    activeCheckoutRecipientPhone.value = defAddr.phone
-                    activeCheckoutDeliveryAddress.value = listOfNotNull(
-                        defAddr.streetOrLandmark.takeIf { it.isNotBlank() },
-                        defAddr.subCity.takeIf { it.isNotBlank() },
-                        defAddr.city.takeIf { it.isNotBlank() }
-                    ).joinToString(", ")
-                } else {
-                    activeCheckoutRecipientName.value = if (u.role == "GUEST") "" else u.name
-                    activeCheckoutRecipientPhone.value = u.phone
-                    activeCheckoutDeliveryAddress.value = listOfNotNull(
-                        u.subCity.takeIf { it.isNotBlank() },
-                        u.city.takeIf { it.isNotBlank() }
-                    ).joinToString(", ")
+                    val addrRes = repository.getSavedAddresses()
+                    val defAddr = addrRes.data?.firstOrNull { it.isDefault } ?: addrRes.data?.firstOrNull()
+                    if (defAddr != null) {
+                        activeCheckoutRecipientName.value = defAddr.fullName
+                        activeCheckoutRecipientPhone.value = defAddr.phone
+                        activeCheckoutDeliveryAddress.value = listOfNotNull(
+                            defAddr.streetOrLandmark.takeIf { it.isNotBlank() },
+                            defAddr.subCity.takeIf { it.isNotBlank() },
+                            defAddr.city.takeIf { it.isNotBlank() }
+                        ).joinToString(", ")
+                    } else {
+                        activeCheckoutRecipientName.value = if (u.role == "GUEST") "" else u.name
+                        activeCheckoutRecipientPhone.value = u.phone
+                        activeCheckoutDeliveryAddress.value = listOfNotNull(
+                            u.subCity.takeIf { it.isNotBlank() },
+                            u.city.takeIf { it.isNotBlank() }
+                        ).joinToString(", ")
+                    }
                 }
+                refreshUnreadNotifications()
+            } catch (e: IllegalStateException) {
+                if (e.message?.contains("closed", ignoreCase = true) != true) throw e
             }
-            refreshUnreadNotifications()
         }
     }
 

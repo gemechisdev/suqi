@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.data.model.ApiResponse
 import com.example.data.model.CartItemDto
 import com.example.data.model.PromoCodeDto
 import com.example.ui.ScreenDestination
@@ -467,28 +468,6 @@ fun ShopCartGroupCard(
                     } else {
                         val matched = availablePromos.firstOrNull {
                             it.code.equals(code, ignoreCase = true) && it.isActive
-                        } ?: when {
-                            code.equals("SUMMER25", ignoreCase = true) -> PromoCodeDto(
-                                id = "promo_1",
-                                shopId = shopId,
-                                code = "SUMMER25",
-                                discountType = "PERCENTAGE",
-                                discountValue = 25.0,
-                                minOrderAmount = 1000.0,
-                                validUntil = "Dec 31, 2026",
-                                isActive = true
-                            )
-                            code.equals("TECH10", ignoreCase = true) -> PromoCodeDto(
-                                id = "promo_2",
-                                shopId = shopId,
-                                code = "TECH10",
-                                discountType = "PERCENTAGE",
-                                discountValue = 10.0,
-                                minOrderAmount = 500.0,
-                                validUntil = "Dec 31, 2026",
-                                isActive = true
-                            )
-                            else -> null
                         }
                         when {
                             matched == null -> promoError = strings.checkout.invalidPromoToast

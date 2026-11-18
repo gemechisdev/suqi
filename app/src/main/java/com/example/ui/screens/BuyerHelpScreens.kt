@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.SupportTicketDto
+import com.example.data.model.SupportTicketMessageDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
 import com.example.ui.components.*

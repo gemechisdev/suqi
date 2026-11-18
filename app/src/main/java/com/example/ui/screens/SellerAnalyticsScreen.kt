@@ -49,16 +49,17 @@ fun SellerAnalyticsScreen(
     val isOffline by viewModel.isOffline.collectAsState()
 
     var rangeDays by rememberSaveable { mutableIntStateOf(7) }
-    var analytics by remember { mutableStateOf(viewModel.cachedSellerAnalytics) }
+    var analytics by remember { mutableStateOf<SellerAnalyticsDto?>(viewModel.cachedSellerAnalytics[rangeDays]) }
     var isLoading by remember { mutableStateOf(analytics == null) }
 
     fun loadAnalytics(days: Int) {
         coroutineScope.launch {
+            analytics = viewModel.cachedSellerAnalytics[days]
             isLoading = analytics == null
             val res = viewModel.repository.getSellerAnalytics(days)
             if (res.success && res.data != null) {
                 analytics = res.data
-                if (days == 7) viewModel.cachedSellerAnalytics = res.data
+                viewModel.cachedSellerAnalytics[days] = res.data
             }
             isLoading = false
         }
@@ -120,7 +121,7 @@ fun SellerAnalyticsScreen(
                         .size(48.dp)
                         .testTag("analytics_export_csv_btn")
                 ) {
-                    Icon(LucideIcons.Download, contentDescription = strings.adminOps.exportCsvBtn, tint = SuqiPrimary)
+                    Icon(LucideIcons.Download, contentDescription = strings.adminGov.exportCsvPdfBtn, tint = SuqiPrimary)
                 }
             }
         },
@@ -371,7 +372,7 @@ fun SellerAnalyticsScreen(
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 Text(
-                                                    text = "${formatEtb(prod.revenue)} • ${prod.unitsSold} ${strings.checkout.itemLabel}",
+                                                    text = "${formatEtb(prod.revenue)} • ${String.format(strings.checkout.itemsSummaryTemplate, prod.unitsSold)}",
                                                     fontFamily = SuqiFontFamily,
                                                     fontSize = 11.sp,
                                                     color = colors.secondaryText
@@ -406,7 +407,7 @@ fun SellerAnalyticsScreen(
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
                                                 Text(
-                                                    text = EthiopianMarketplaceUtils.localizePlace(area.subCity, com.example.ui.i18n.LocalSuqiLanguage.current),
+                                                    text = com.example.ui.i18n.placeLabel(area.subCity),
                                                     fontFamily = SuqiFontFamily,
                                                     fontWeight = FontWeight.SemiBold,
                                                     fontSize = 13.sp,
@@ -437,7 +438,7 @@ fun SellerAnalyticsScreen(
                     }
 
                     if (current.paymentSplit.isNotEmpty()) {
-                        val palette = listOf(SuqiPrimary, SuqiSuccess, SuqiWarning, SuqiSecondary)
+                        val palette = listOf(SuqiPrimary, SuqiSuccess, SuqiWarning, Color(0xFF6366F1))
                         item {
                             SuqiSectionCard {
                                 Text(

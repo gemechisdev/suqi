@@ -91,7 +91,7 @@ fun AdminFinanceScreen(
             SuqiSkeletonList(count = 4, modifier = Modifier.padding(paddingValues).padding(top = 12.dp))
         } else if (current == null) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                SuqiErrorCard(title = strings.admin.financeTitle, message = strings.retryLabel, onRetry = { loadFinance() })
+                SuqiErrorCard(message = "${strings.admin.financeTitle} — ${strings.retryLabel}", onRetry = { loadFinance() })
             }
         } else {
             LazyColumn(
@@ -197,15 +197,17 @@ fun AdminFinanceScreen(
                                                     modifier = Modifier.weight(1f)
                                                 )
                                             }
-                                            SuqiButton(
-                                                text = p5.transferRefHint.substringBefore(" "),
-                                                onClick = {
-                                                    transferRef = ""
-                                                    payDialogTarget = payout
-                                                },
-                                                testTag = "mark_paid_payout_${payout.id}",
-                                                modifier = Modifier.weight(1f)
-                                            )
+                                            if (payout.status == "APPROVED") {
+                                                SuqiButton(
+                                                    text = p5.transferRefHint.substringBefore(" "),
+                                                    onClick = {
+                                                        transferRef = ""
+                                                        payDialogTarget = payout
+                                                    },
+                                                    testTag = "mark_paid_payout_${payout.id}",
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            }
                                             OutlinedButton(
                                                 onClick = {
                                                     coroutineScope.launch {
@@ -217,7 +219,7 @@ fun AdminFinanceScreen(
                                                 border = BorderStroke(1.dp, SuqiError.copy(alpha = 0.5f)),
                                                 modifier = Modifier.height(48.dp)
                                             ) {
-                                                Text(strings.adminOps.rejectBtn, color = SuqiError, fontSize = 12.sp)
+                                                Text(strings.admin.rejectBtn, color = SuqiError, fontSize = 12.sp)
                                             }
                                         }
                                     }
@@ -276,21 +278,14 @@ fun AdminFinanceScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 SuqiFilterChips(
-                                    items = listOf(p5.filterAll, p5.filterCommissions, p5.subscriptionRevenueLabel, p5.filterPayouts),
-                                    selectedItem = when (ledgerFilter) {
-                                        "COMMISSION" -> p5.filterCommissions
-                                        "SUBSCRIPTION" -> p5.subscriptionRevenueLabel
-                                        "PAYOUT" -> p5.filterPayouts
-                                        else -> p5.filterAll
-                                    },
-                                    onSelect = { chosen ->
-                                        ledgerFilter = when (chosen) {
-                                            p5.filterCommissions -> "COMMISSION"
-                                            p5.subscriptionRevenueLabel -> "SUBSCRIPTION"
-                                            p5.filterPayouts -> "PAYOUT"
-                                            else -> "ALL"
-                                        }
-                                    },
+                                    items = listOf(
+                                        "ALL" to p5.filterAll,
+                                        "COMMISSION" to p5.filterCommissions,
+                                        "SUBSCRIPTION" to p5.subscriptionRevenueLabel,
+                                        "PAYOUT" to p5.filterPayouts
+                                    ),
+                                    selectedKey = ledgerFilter,
+                                    onSelect = { ledgerFilter = it },
                                     modifier = Modifier.weight(1f)
                                 )
                                 OutlinedButton(
@@ -334,6 +329,8 @@ fun AdminFinanceScreen(
     payDialogTarget?.let { payout ->
         AlertDialog(
             onDismissRequest = { payDialogTarget = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 420.dp),
             title = { Text("${payout.shopName} • ${formatEtb(payout.amount)}", fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold) },
             text = {
                 SuqiTextField(

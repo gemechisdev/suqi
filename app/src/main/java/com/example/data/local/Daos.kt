@@ -212,6 +212,9 @@ interface PromoCodeDao {
     @Query("SELECT * FROM promo_codes WHERE shopId = :shopId AND code = :code LIMIT 1")
     suspend fun getPromoByCode(shopId: String, code: String): PromoCodeEntity?
 
+    @Query("SELECT * FROM promo_codes WHERE id = :id LIMIT 1")
+    suspend fun getPromoById(id: String): PromoCodeEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(promo: PromoCodeEntity)
 
@@ -640,4 +643,19 @@ interface AdminBroadcastDao {
 
     @Query("DELETE FROM admin_broadcasts WHERE id = :id")
     suspend fun deleteById(id: String)
+}
+
+@Dao
+interface AnalyticsEventDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(event: AnalyticsEventEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(events: List<AnalyticsEventEntity>)
+
+    @Query("SELECT COUNT(*) FROM analytics_events WHERE shopId = :shopId AND eventType = :eventType AND timestampMillis >= :sinceMillis")
+    suspend fun countByShopTypeSince(shopId: String, eventType: String, sinceMillis: Long): Int
+
+    @Query("SELECT COUNT(*) FROM analytics_events")
+    suspend fun totalCount(): Int
 }

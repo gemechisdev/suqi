@@ -86,8 +86,10 @@ fun ReturnItemPill(
     val strings = suqiStrings()
     val colors = LocalSuqiColors.current
     if (!order.orderStatus.equals("Delivered", ignoreCase = true)) return
-    val ageHours = com.example.util.EthiopianMarketplaceUtils.computeElapsedHours(order.createdAt)
-    val within7Days = ageHours == null || ageHours <= 7.0 * 24.0
+    val deliveryAgeHours = order.deliveredAt
+        ?.takeIf { it.isNotBlank() }
+        ?.let { com.example.util.EthiopianMarketplaceUtils.computeElapsedHours(it) }
+    val within7Days = deliveryAgeHours != null && deliveryAgeHours <= 7.0 * 24.0
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         if (existingReturn != null) {
             OutlinedButton(

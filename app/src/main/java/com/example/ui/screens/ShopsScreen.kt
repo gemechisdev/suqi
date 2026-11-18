@@ -1073,7 +1073,8 @@ fun ReviewItemCard(
                 }
             }
         }
-        if (review.sellerReply.isNotBlank()) {
+        val sellerReply = review.sellerReply
+        if (!sellerReply.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(8.dp))
             Box(
                 modifier = Modifier
@@ -1084,13 +1085,13 @@ fun ReviewItemCard(
             ) {
                 Column {
                     Text(
-                        text = "${p5.sellerRepliedLabel} • ${review.sellerReplyAt}",
+                        text = "${p5.sellerRepliedLabel} • ${review.sellerReplyAt.orEmpty()}",
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         color = SuqiPrimary
                     )
-                    Text(review.sellerReply, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
+                    Text(sellerReply, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
                 }
             }
         }

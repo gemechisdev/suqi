@@ -46,9 +46,10 @@ import kotlinx.coroutines.sync.withLock
         SubscriptionUpgradeEntity::class,
         FlashSaleEntity::class,
         SupportTicketMessageEntity::class,
-        AdminBroadcastEntity::class
+        AdminBroadcastEntity::class,
+        AnalyticsEventEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -81,6 +82,7 @@ abstract class SuqiDatabase : RoomDatabase() {
     abstract fun flashSaleDao(): FlashSaleDao
     abstract fun supportTicketMessageDao(): SupportTicketMessageDao
     abstract fun adminBroadcastDao(): AdminBroadcastDao
+    abstract fun analyticsEventDao(): AnalyticsEventDao
 
     private val seedMutex = Mutex()
     @Volatile
@@ -517,6 +519,22 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v11: orders.deliveredAt for 7-day return window + analytics_events for real product views and cart adds. */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `deliveredAt` TEXT")
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `analytics_events` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `shopId` TEXT NOT NULL,
+                        `productId` TEXT NOT NULL DEFAULT '',
+                        `eventType` TEXT NOT NULL,
+                        `timestampMillis` INTEGER NOT NULL
+                    )"""
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -542,7 +560,8 @@ abstract class SuqiDatabase : RoomDatabase() {
                         "suqi_marketplace.db"
                     ).addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
+                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+                        MIGRATION_10_11
                     ).addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)

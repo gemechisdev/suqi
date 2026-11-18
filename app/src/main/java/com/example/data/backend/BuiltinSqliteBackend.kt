@@ -32,6 +32,34 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         return db.shopDao().getShopByOwner(user.id)?.id
     }
 
+    private suspend fun requireSignedInUser(): UserEntity? {
+        val user = resolveCurrentUser() ?: return null
+        return user.takeIf { !it.role.equals("GUEST", ignoreCase = true) }
+    }
+
+    private fun UserEntity.isAdmin(): Boolean =
+        role.equals("ADMIN", ignoreCase = true)
+
+    private suspend fun UserEntity.ownsShop(targetShopId: String): Boolean {
+        if (targetShopId.isBlank()) return false
+        if (isAdmin()) return true
+        if (!shopId.isNullOrBlank() && shopId == targetShopId) return true
+        return db.shopDao().getShopByOwner(id)?.id == targetShopId
+    }
+
+    private suspend fun recordAnalyticsEvent(shopId: String, productId: String, eventType: String) {
+        if (shopId.isBlank()) return
+        db.analyticsEventDao().insert(
+            AnalyticsEventEntity(
+                id = "evt_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}",
+                shopId = shopId,
+                productId = productId,
+                eventType = eventType,
+                timestampMillis = System.currentTimeMillis()
+            )
+        )
+    }
+
     private suspend fun currentWishlistedProductIds(): Set<String> {
         val userId = resolveCurrentUser()?.id ?: return emptySet()
         return db.wishlistDao().getProductIdsForUser(userId).toSet()
@@ -191,6 +219,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun loginAsGuest(): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         db.userDao().clearActiveSessions()
         val existing = db.userDao().getUserById("user_guest")
         val guest = if (existing != null) {
@@ -217,6 +246,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun adminSignIn(payload: Map<String, String>): ApiResponse<UserDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val identifier = payload["identifier"]?.trim().orEmpty()
         val pin = payload["pin"]?.trim().orEmpty()
         val tier = payload["tier"]?.trim()?.uppercase()?.takeIf { it in listOf("OWNER", "ADMIN", "DEVELOPER") } ?: "OWNER"
@@ -444,8 +474,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getProductDetails(id: String): ApiResponse<ProductDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val prod = db.productDao().getProductById(id)
         if (prod != null) {
+            recordAnalyticsEvent(prod.shopId, prod.id, "PRODUCT_VIEW")
             val userId = resolveCurrentUser()?.id
             val isWishlisted = if (userId != null) db.wishlistDao().isWishlisted(userId, id) else false
             ApiResponse(success = true, data = prod.toDto(isWishlisted = isWishlisted))
@@ -596,6 +628,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         }
         if (existing != null) {
             db.cartDao().updateQuantity(existing.id, mergedQuantity)
+            recordAnalyticsEvent(product.shopId, product.id, "CART_ADD")
             return@withContext ApiResponse(
                 success = true,
                 data = existing.copy(quantity = mergedQuantity, stockAvailable = available).toDto()
@@ -616,6 +649,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             stockAvailable = available
         )
         val id = db.cartDao().insertCartItem(cartEntity)
+        recordAnalyticsEvent(product.shopId, product.id, "CART_ADD")
         ApiResponse(success = true, data = cartEntity.copy(id = id).toDto())
     }
 
@@ -1212,12 +1246,20 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun updateSellerOrderStatus(orderId: String, status: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
         val order = db.orderDao().getOrderById(orderId)
             ?: return@withContext ApiResponse(success = false, data = false, message = "Order not found")
+        if (!caller.ownsShop(order.shopId)) {
+            return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
+        }
         val shop = db.shopDao().getShopById(order.shopId)
         val dispatchedAt = if (status in listOf("Dispatched", "Out for Delivery")) {
             order.dispatchedAt ?: getCurrentTime()
         } else order.dispatchedAt
+        val deliveredAt = if (status.equals("Delivered", ignoreCase = true)) {
+            order.deliveredAt?.takeIf { it.isNotBlank() } ?: getCurrentTime()
+        } else order.deliveredAt
         val courierName = if (status in listOf("Dispatched", "Out for Delivery") && order.courierName.isBlank()) {
             "${order.shopName} Dispatch"
         } else order.courierName
@@ -1229,6 +1271,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             order.copy(
                 orderStatus = status,
                 dispatchedAt = dispatchedAt,
+                deliveredAt = deliveredAt,
                 courierName = courierName,
                 courierPhone = courierPhone
             )
@@ -1355,6 +1398,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getShopPromotions(shopId: String, includeInactive: Boolean): ApiResponse<List<PromoCodeDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val targetShopId = shopId.ifBlank { resolveActiveSellerShopId().orEmpty() }
         val list = if (targetShopId.isBlank()) emptyList() else {
             val entities = if (includeInactive) db.promoCodeDao().getAllPromosForShop(targetShopId)
@@ -1365,13 +1409,24 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun createPromoCode(promo: PromoCodeDto): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
         val targetShopId = promo.shopId.ifBlank { resolveActiveSellerShopId() }
-            ?: return@withContext ApiResponse(success = false, message = "No shop found for promotion")
+            ?: return@withContext ApiResponse(success = false, data = false, message = "No shop found for promotion")
+        if (!caller.ownsShop(targetShopId)) {
+            return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
+        }
         db.promoCodeDao().insert(promo.copy(shopId = targetShopId).toEntity())
         ApiResponse(success = true, data = true)
     }
 
     override suspend fun deletePromoCode(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
+        val existing = db.promoCodeDao().getPromoById(id)
+        if (existing != null && !caller.ownsShop(existing.shopId)) {
+            return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
+        }
         db.promoCodeDao().deleteById(id)
         ApiResponse(success = true, data = true)
     }
@@ -1939,12 +1994,19 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun resolveSupportTicket(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, data = false, message = "Admin permission required.")
+        }
         db.supportTicketDao().updateStatus(id, "RESOLVED")
         ApiResponse(success = true, data = true)
     }
 
     override suspend fun sendAdminBroadcast(payload: Map<String, String>): ApiResponse<Int> = withContext(Dispatchers.IO) {
-        db.ensureSeeded()
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Admin permission required.", data = 0)
+        }
         val title = payload["title"]?.trim().orEmpty()
         val body = payload["body"]?.trim().orEmpty()
         val audience = payload["audience"]?.trim().orEmpty().ifBlank { "ALL" }
@@ -2320,13 +2382,18 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getFlaggedReviews(): ApiResponse<List<FlaggedReviewDto>> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val list = db.flaggedReviewDao().getAllFlagged().map { it.toDto() }
         ApiResponse(success = true, data = list)
     }
 
     override suspend fun reportOrModerateReview(payload: Map<String, String>): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
-        val action = (payload["action"] ?: "REPORT").uppercase()
+        val caller = resolveCurrentUser()
+        val action = (payload["action"] ?: "REPORT").trim().uppercase()
         if (action in listOf("MODERATE", "DISMISS", "DELETE", "HIDE", "RESTORE")) {
+            if (caller == null || !caller.isAdmin()) {
+                return@withContext ApiResponse(success = false, data = false, message = "Admin permission required.")
+            }
             val id = payload["id"] ?: return@withContext ApiResponse(success = false, data = false)
             val note = payload["note"]?.trim().orEmpty()
             val status = payload["status"] ?: when (action) {
@@ -2360,6 +2427,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun saveSubscriptionPlan(plan: SubscriptionPlanDto): ApiResponse<SubscriptionPlanDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        }
         val entity = SubscriptionPlanEntity(
             id = plan.id.ifBlank { "plan_${System.currentTimeMillis()}" },
             name = plan.name.trim(),
@@ -2377,6 +2448,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun deleteSubscriptionPlan(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, data = false, message = "Admin permission required.")
+        }
         db.subscriptionPlanDao().deleteById(id)
         ApiResponse(success = true, data = true)
     }
@@ -2397,23 +2472,34 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun getReturnDetails(id: String): ApiResponse<ReturnRequestDto> = withContext(Dispatchers.IO) {
-        db.ensureSeeded()
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "Permission denied.")
         val req = db.returnRequestDao().getById(id)
             ?: return@withContext ApiResponse(success = false, message = "Return request not found")
+        if (req.customerUserId != caller.id && !caller.ownsShop(req.shopId)) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         ApiResponse(success = true, data = req.toDto())
     }
 
     override suspend fun submitReturnRequest(payload: Map<String, Any>): ApiResponse<ReturnRequestDto> = withContext(Dispatchers.IO) {
-        db.ensureSeeded()
-        val user = resolveCurrentUser()
+        val user = requireSignedInUser()
             ?: return@withContext ApiResponse(success = false, message = "No active user session")
         val orderId = (payload["orderId"] as? String)?.trim().orEmpty()
         val order = db.orderDao().getOrderById(orderId)
             ?: return@withContext ApiResponse(success = false, message = "Order not found")
+        if (order.customerUserId != user.id && !user.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "You can only request returns for your own orders.")
+        }
 
         val nowMs = System.currentTimeMillis()
-        val orderAgeHours = EthiopianMarketplaceUtils.computeElapsedHours(order.createdAt, nowMs)
-        if (!order.orderStatus.equals("Delivered", ignoreCase = true) || (orderAgeHours != null && orderAgeHours > 7.0 * 24.0)) {
+        val deliveredAgeHours = order.deliveredAt
+            ?.takeIf { it.isNotBlank() }
+            ?.let { EthiopianMarketplaceUtils.computeElapsedHours(it, nowMs) }
+        if (!order.orderStatus.equals("Delivered", ignoreCase = true) ||
+            deliveredAgeHours == null ||
+            deliveredAgeHours > 7.0 * 24.0
+        ) {
             return@withContext ApiResponse(
                 success = false,
                 message = "Return window expired (orders are eligible within 7 days of delivery)."
@@ -2501,9 +2587,31 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun decideReturnRequest(id: String, payload: Map<String, String>): ApiResponse<ReturnRequestDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "Permission denied.")
         val existing = db.returnRequestDao().getById(id)
             ?: return@withContext ApiResponse(success = false, message = "Return request not found")
-        val action = (payload["action"] ?: "").uppercase()
+        val action = (payload["action"] ?: "").trim().uppercase()
+        if (action == "SENT_BACK") {
+            if (existing.customerUserId != caller.id && !caller.isAdmin()) {
+                return@withContext ApiResponse(success = false, message = "Only the buyer or admin can mark a return shipped back.")
+            }
+        } else if (action in listOf("APPROVE", "OFFER_REPLACEMENT", "COMPLETE_REFUND", "REJECT")) {
+            if (!caller.ownsShop(existing.shopId)) {
+                return@withContext ApiResponse(success = false, message = "Only the shop owner or admin can decide this return.")
+            }
+        } else {
+            return@withContext ApiResponse(success = false, message = "Cannot $action return from status ${existing.status}.")
+        }
+        val allowedCurrent = when (action) {
+            "APPROVE", "OFFER_REPLACEMENT", "REJECT" -> setOf("REQUESTED")
+            "SENT_BACK" -> setOf("APPROVED", "REPLACEMENT_OFFERED")
+            "COMPLETE_REFUND" -> setOf("APPROVED", "REPLACEMENT_OFFERED", "SENT_BACK")
+            else -> emptySet()
+        }
+        if (existing.status.uppercase() !in allowedCurrent) {
+            return@withContext ApiResponse(success = false, message = "Cannot $action return from status ${existing.status}.")
+        }
         val note = payload["note"]?.trim().orEmpty()
         if (action == "REJECT" && note.isBlank()) {
             return@withContext ApiResponse(success = false, message = "Rejection reason is required.")
@@ -2696,8 +2804,13 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun saveShopPayoutAccount(account: PayoutAccountDto): ApiResponse<PayoutAccountDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "Permission denied.")
         val shopId = resolveActiveSellerShopId()
             ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        if (!caller.ownsShop(shopId)) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         val shop = db.shopDao().getShopById(shopId)
             ?: return@withContext ApiResponse(success = false, message = "Shop not found")
         if (account.accountNumber.isBlank() || account.accountName.isBlank()) {
@@ -2715,9 +2828,13 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun requestSellerPayout(payload: Map<String, Any>): ApiResponse<PayoutRequestDto> = withContext(Dispatchers.IO) {
-        db.ensureSeeded()
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "Permission denied.")
         val shopId = resolveActiveSellerShopId()
             ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        if (!caller.ownsShop(shopId)) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         val shop = db.shopDao().getShopById(shopId)
             ?: return@withContext ApiResponse(success = false, message = "Shop not found")
         if (shop.payoutAccountNumber.isBlank()) {
@@ -2829,6 +2946,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun saveCommissionConfig(rule: CommissionRuleDto): ApiResponse<CommissionRuleDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        }
         val entity = CommissionConfigEntity(
             id = rule.id.ifBlank { "comm_${rule.categoryId.ifBlank { System.currentTimeMillis() }}" },
             categoryId = rule.categoryId.ifBlank { "DEFAULT" },
@@ -2841,9 +2962,22 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun decidePayoutRequest(id: String, payload: Map<String, String>): ApiResponse<PayoutRequestDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        }
         val existing = db.payoutRequestDao().getById(id)
             ?: return@withContext ApiResponse(success = false, message = "Payout request not found")
-        val decision = (payload["decision"] ?: "").uppercase()
+        val decision = (payload["decision"] ?: "").trim().uppercase()
+        val allowedCurrent = when (decision) {
+            "APPROVE" -> setOf("PENDING")
+            "MARK_PAID" -> setOf("APPROVED")
+            "REJECT" -> setOf("PENDING", "APPROVED")
+            else -> emptySet()
+        }
+        if (existing.status.uppercase() !in allowedCurrent) {
+            return@withContext ApiResponse(success = false, message = "Cannot $decision payout from status ${existing.status}.")
+        }
         val refCode = payload["referenceCode"]?.trim().orEmpty()
         val note = payload["note"]?.trim().orEmpty()
         if (decision == "MARK_PAID" && refCode.isBlank()) {
@@ -2881,6 +3015,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     // ==================== PHASE 5: SUBSCRIPTIONS & PILOT ====================
 
     override suspend fun updatePilotConfig(payload: Map<String, Any>): ApiResponse<AdminSettingsDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        }
         val current = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
         val isPilot = payload["isPilotMode"] as? Boolean ?: current.isPilotMode
         val endDate = payload["pilotEndDate"] as? String ?: current.pilotEndDate
@@ -2901,8 +3039,13 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun submitSubscriptionUpgrade(payload: Map<String, Any>): ApiResponse<SubscriptionUpgradeDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "Permission denied.")
         val shopId = resolveActiveSellerShopId()
             ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        if (!caller.ownsShop(shopId)) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         val shop = db.shopDao().getShopById(shopId)
             ?: return@withContext ApiResponse(success = false, message = "Shop not found")
         val planId = (payload["planId"] as? String)?.trim().orEmpty()
@@ -2933,10 +3076,21 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun decideSubscriptionUpgrade(id: String, payload: Map<String, String>): ApiResponse<SubscriptionUpgradeDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        }
         val existing = db.subscriptionUpgradeDao().getById(id)
             ?: return@withContext ApiResponse(success = false, message = "Upgrade request not found")
-        val decision = (payload["decision"] ?: "APPROVE").uppercase()
-        val nextStatus = if (decision == "APPROVE") "APPROVED" else "REJECTED"
+        if (!existing.status.equals("PENDING", ignoreCase = true)) {
+            return@withContext ApiResponse(success = false, message = "Upgrade request already ${existing.status}.")
+        }
+        val decision = (payload["decision"] ?: "APPROVE").trim().uppercase()
+        val nextStatus = when (decision) {
+            "APPROVE" -> "APPROVED"
+            "REJECT" -> "REJECTED"
+            else -> return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         val updated = existing.copy(
             status = nextStatus,
             adminNote = payload["note"]?.trim().orEmpty(),
@@ -2960,8 +3114,13 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun cancelShopSubscription(): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
         val shopId = resolveActiveSellerShopId()
             ?: return@withContext ApiResponse(success = false, data = false)
+        if (!caller.ownsShop(shopId)) {
+            return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
+        }
         val upgrades = db.subscriptionUpgradeDao().getByShop(shopId).filter { it.status == "APPROVED" }
         upgrades.forEach {
             db.subscriptionUpgradeDao().update(it.copy(status = "CANCELLED", reviewedAt = getCurrentTime()))
@@ -2972,6 +3131,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     // ==================== PHASE 5: PROMOTIONS 2.0 & FLASH SALES ====================
 
     override suspend fun validatePromoCode(payload: Map<String, Any>): ApiResponse<PromoCodeDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val shopId = (payload["shopId"] as? String)?.trim().orEmpty()
         val code = (payload["code"] as? String)?.trim()?.uppercase().orEmpty()
         val subtotal = (payload["subtotal"] as? Number)?.toDouble() ?: 0.0
@@ -3010,11 +3170,19 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun saveFlashSale(flashSale: FlashSaleDto): ApiResponse<FlashSaleDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "Permission denied.")
         val shopId = flashSale.shopId.ifBlank { resolveActiveSellerShopId() }
             ?: return@withContext ApiResponse(success = false, message = "No shop associated with current account")
+        if (!caller.ownsShop(shopId)) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         val shop = db.shopDao().getShopById(shopId)
         val prod = db.productDao().getProductById(flashSale.productId)
             ?: return@withContext ApiResponse(success = false, message = "Product not found")
+        if (prod.shopId != shopId && !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         if (flashSale.salePrice <= 0.0 || flashSale.salePrice >= prod.price) {
             return@withContext ApiResponse(success = false, message = "Sale price must be lower than original price.")
         }
@@ -3041,6 +3209,12 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun deleteFlashSale(id: String): ApiResponse<Boolean> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
+        val existing = db.flashSaleDao().getById(id)
+        if (existing != null && !caller.ownsShop(existing.shopId)) {
+            return@withContext ApiResponse(success = false, data = false, message = "Permission denied.")
+        }
         db.flashSaleDao().deleteById(id)
         ApiResponse(success = true, data = true)
     }
@@ -3147,7 +3321,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val paymentSplit = validOrders.groupBy { it.paymentMethodTitle.ifBlank { it.paymentMethodType } }
             .map { (title, list) -> OwnerChartSlice(title, title, list.sumOf { it.totalAmount }) }
 
-        val cartAdds = db.cartDao().getAllUsersPlaceholderCount(shopId, products.size, validOrders.size)
+        val productViews = db.analyticsEventDao().countByShopTypeSince(shopId, "PRODUCT_VIEW", windowStart)
+        val cartAdds = db.analyticsEventDao().countByShopTypeSince(shopId, "CART_ADD", windowStart)
         val completedCount = validOrders.count { it.paymentStatus == "VERIFIED" }
 
         ApiResponse(
@@ -3158,7 +3333,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 isProLocked = isProLocked,
                 totalRevenue = verifiedRevenue,
                 totalOrders = ordersInWindow.size,
-                productViews = maxOf(products.size * 38 + validOrders.size * 24, 0),
+                productViews = productViews,
                 cartAdds = cartAdds,
                 completedOrders = completedCount,
                 revenueLabels = revLabels,
@@ -3172,13 +3347,10 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         )
     }
 
-    private fun CartDao.getAllUsersPlaceholderCount(shopId: String, productsCount: Int, ordersCount: Int): Int {
-        return maxOf(ordersCount * 3 + productsCount * 2, ordersCount)
-    }
-
     // ==================== PHASE 5: REVIEWS 2.0 & MODERATION 2.0 ====================
 
     override suspend fun toggleReviewHelpful(reviewId: String): ApiResponse<ReviewDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
         val currentUserId = resolveCurrentUser()?.id ?: "user_guest"
         val review = db.reviewDao().getById(reviewId)
             ?: return@withContext ApiResponse(success = false, message = "Review not found")
@@ -3196,19 +3368,32 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun replyToReview(reviewId: String, payload: Map<String, String>): ApiResponse<ReviewDto> = withContext(Dispatchers.IO) {
-        val currentUserId = resolveCurrentUser()?.id ?: ""
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "Only the shop owner can reply to this review.")
         val reply = payload["reply"]?.trim().orEmpty()
         if (reply.isBlank()) {
             return@withContext ApiResponse(success = false, message = "Reply cannot be empty.")
         }
         val review = db.reviewDao().getById(reviewId)
             ?: return@withContext ApiResponse(success = false, message = "Review not found")
+        val reviewShopId = when (review.targetType.uppercase()) {
+            "PRODUCT" -> db.productDao().getProductById(review.targetId)?.shopId.orEmpty()
+            "SHOP" -> review.targetId
+            else -> ""
+        }
+        if (!caller.ownsShop(reviewShopId)) {
+            return@withContext ApiResponse(success = false, message = "Only the shop owner can reply to this review.")
+        }
         val updated = review.copy(sellerReply = reply, sellerReplyAt = "Just now")
         db.reviewDao().update(updated)
-        ApiResponse(success = true, data = updated.toDto(currentUserId))
+        ApiResponse(success = true, data = updated.toDto(caller.id))
     }
 
     override suspend fun bulkModerateReviews(payload: Map<String, Any>): ApiResponse<Int> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Admin permission required.", data = 0)
+        }
         @Suppress("UNCHECKED_CAST")
         val ids = (payload["ids"] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
         val action = (payload["action"] as? String)?.uppercase().orEmpty()
@@ -3227,9 +3412,12 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     // ==================== PHASE 5: SUPPORT INBOX & BROADCASTS ====================
 
     override suspend fun getTicketMessages(ticketId: String): ApiResponse<List<SupportTicketMessageDto>> = withContext(Dispatchers.IO) {
-        db.ensureSeeded()
         val currentUser = resolveCurrentUser()
-        val isAdmin = currentUser?.role == "ADMIN"
+        val ticket = db.supportTicketDao().getById(ticketId)
+        if (ticket != null && (currentUser == null || (!currentUser.isAdmin() && ticket.userId != currentUser.id))) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.", data = emptyList())
+        }
+        val isAdmin = currentUser?.isAdmin() == true
         val messages = db.supportTicketMessageDao().getByTicket(ticketId)
             .filter { isAdmin || !it.isInternalNote }
             .map { it.toDto() }
@@ -3237,41 +3425,55 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     }
 
     override suspend fun sendTicketMessage(ticketId: String, payload: Map<String, Any>): ApiResponse<SupportTicketMessageDto> = withContext(Dispatchers.IO) {
-        val currentUser = resolveCurrentUser()
+        val currentUser = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "No active user session")
+        val ticket = db.supportTicketDao().getById(ticketId)
+            ?: return@withContext ApiResponse(success = false, message = "Support ticket not found")
+        if (!currentUser.isAdmin() && ticket.userId != currentUser.id) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         val text = (payload["message"] as? String)?.trim().orEmpty()
         if (text.isBlank()) {
             return@withContext ApiResponse(success = false, message = "Message cannot be empty.")
         }
         val isInternalNote = payload["isInternalNote"] as? Boolean ?: false
-        val senderRole = (payload["senderRole"] as? String)?.takeIf { it.isNotBlank() }
-            ?: when {
-                currentUser?.role == "ADMIN" -> "ADMIN"
-                currentUser?.activeRole == "SELLER" -> "SELLER"
-                else -> "BUYER"
-            }
+        if (isInternalNote && !currentUser.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Only admins can add internal notes.")
+        }
+        val senderRole = when {
+            currentUser.isAdmin() -> "ADMIN"
+            currentUser.activeRole.equals("SELLER", ignoreCase = true) -> "SELLER"
+            else -> "BUYER"
+        }
         val now = getCurrentTime()
         val entity = SupportTicketMessageEntity(
-            id = "tmsg_${System.currentTimeMillis()}",
+            id = "tmsg_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}",
             ticketId = ticketId,
             senderRole = senderRole,
-            senderName = currentUser?.name ?: if (senderRole == "ADMIN") "Suqi Support" else "Customer",
+            senderName = currentUser.name,
             message = text,
-            isInternalNote = isInternalNote && senderRole == "ADMIN",
+            isInternalNote = isInternalNote && currentUser.isAdmin(),
             createdAt = now
         )
         db.supportTicketMessageDao().insert(entity)
-        db.supportTicketDao().getById(ticketId)?.let { ticket ->
-            val nextStatus = if (senderRole == "ADMIN" && !isInternalNote && ticket.status == "OPEN") "PENDING" else ticket.status
-            db.supportTicketDao().update(ticket.copy(status = nextStatus, updatedAt = now))
-        }
+        val nextStatus = if (senderRole == "ADMIN" && !isInternalNote && ticket.status == "OPEN") "PENDING" else ticket.status
+        db.supportTicketDao().update(ticket.copy(status = nextStatus, updatedAt = now))
         ApiResponse(success = true, data = entity.toDto())
     }
 
     override suspend fun updateSupportTicket(ticketId: String, payload: Map<String, String>): ApiResponse<SupportTicketDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+        if (caller == null || !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        }
         val ticket = db.supportTicketDao().getById(ticketId)
             ?: return@withContext ApiResponse(success = false, message = "Support ticket not found")
+        val requestedStatus = payload["status"]?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
+        if (requestedStatus != null && requestedStatus !in setOf("OPEN", "PENDING", "RESOLVED", "CLOSED")) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
         val updated = ticket.copy(
-            status = payload["status"]?.takeIf { it.isNotBlank() } ?: ticket.status,
+            status = requestedStatus ?: ticket.status,
             priority = payload["priority"]?.takeIf { it.isNotBlank() } ?: ticket.priority,
             assignedTo = payload["assignedTo"] ?: ticket.assignedTo,
             resolutionSummary = payload["resolutionSummary"] ?: ticket.resolutionSummary,
@@ -3391,7 +3593,7 @@ fun OrderEntity.toDto(): OrderDto {
         receiptImageUri = receiptImageUri, payerIdentifier = payerIdentifier,
         sellerNotes = sellerNotes, courierName = courierName,
         courierPhone = courierPhone, dispatchedAt = dispatchedAt,
-        transferredAmount = transferredAmount
+        deliveredAt = deliveredAt, transferredAmount = transferredAmount
     )
 }
 

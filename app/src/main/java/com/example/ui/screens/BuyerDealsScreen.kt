@@ -120,16 +120,11 @@ fun BuyerDealsScreen(
             }
 
             item {
-                val chipLabels = listOf(strings.allLabel) + categories.take(5).map { it.localizedName(lang) }
-                val activeLbl = if (selectedCategoryId == "ALL") strings.allLabel
-                else categories.firstOrNull { it.id == selectedCategoryId }?.localizedName(lang) ?: strings.allLabel
+                val chipItems = listOf("ALL" to strings.allLabel) + categories.take(5).map { it.id to it.localizedName(lang) }
                 SuqiFilterChips(
-                    items = chipLabels,
-                    selectedItem = activeLbl,
-                    onSelect = { chosen ->
-                        selectedCategoryId = if (chosen == strings.allLabel) "ALL"
-                        else categories.firstOrNull { it.localizedName(lang) == chosen }?.id ?: "ALL"
-                    },
+                    items = chipItems,
+                    selectedKey = selectedCategoryId,
+                    onSelect = { selectedCategoryId = it },
                     modifier = Modifier.testTag("deals_category_chips")
                 )
             }

@@ -97,10 +97,13 @@ fun ReturnRequestScreen(
     }
 
     val currentOrder = order
-    val ageHours = currentOrder?.let { EthiopianMarketplaceUtils.computeElapsedHours(it.createdAt) }
+    val deliveryAgeHours = currentOrder?.deliveredAt
+        ?.takeIf { it.isNotBlank() }
+        ?.let { EthiopianMarketplaceUtils.computeElapsedHours(it) }
     val isEligible = currentOrder != null &&
         currentOrder.orderStatus.equals("Delivered", ignoreCase = true) &&
-        (ageHours == null || ageHours <= 7.0 * 24.0)
+        deliveryAgeHours != null &&
+        deliveryAgeHours <= 7.0 * 24.0
 
     val selectedRefundAmount = currentOrder?.items
         ?.filter { it.productId in selectedProductIds }
@@ -196,8 +199,7 @@ fun ReturnRequestScreen(
             errorMsg != null || currentOrder == null -> {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                     SuqiErrorCard(
-                        title = strings.returnsTitle,
-                        message = errorMsg ?: strings.retryLabel,
+                        message = errorMsg ?: "${strings.returnsTitle} — ${strings.retryLabel}",
                         onRetry = { loadData() }
                     )
                 }
@@ -510,7 +512,7 @@ fun ReturnStatusScreen(
             SuqiSkeletonList(count = 3, modifier = Modifier.padding(paddingValues).padding(top = 12.dp))
         } else if (current == null) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                SuqiErrorCard(title = p5.returnStatusTitle, message = strings.retryLabel, onRetry = { loadDetails() })
+                SuqiErrorCard(message = "${p5.returnStatusTitle} — ${strings.retryLabel}", onRetry = { loadDetails() })
             }
         } else {
             LazyColumn(

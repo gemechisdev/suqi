@@ -159,6 +159,7 @@ data class OrderEntity(
     val courierName: String = "",
     val courierPhone: String = "",
     val dispatchedAt: String? = null,
+    val deliveredAt: String? = null,
     val transferredAmount: Double? = null
 )
 
@@ -523,4 +524,13 @@ data class AdminBroadcastEntity(
     val openedCount: Int = 0,
     val isTemplate: Boolean = false,
     val createdAt: String
+)
+
+@Entity(tableName = "analytics_events")
+data class AnalyticsEventEntity(
+    @PrimaryKey val id: String,
+    val shopId: String,
+    val productId: String = "",
+    val eventType: String, // "CART_ADD", "PRODUCT_VIEW"
+    val timestampMillis: Long
 )

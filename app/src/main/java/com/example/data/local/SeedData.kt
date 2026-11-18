@@ -768,6 +768,7 @@ object SeedData {
                 paymentStatus = "VERIFIED",
                 orderStatus = "Delivered",
                 createdAt = daysAgoTimestamp(45),
+                deliveredAt = daysAgoTimestamp(45),
                 transferredAmount = 9999.0
             ),
             OrderEntity(
@@ -794,6 +795,7 @@ object SeedData {
                 paymentStatus = "VERIFIED",
                 orderStatus = "Delivered",
                 createdAt = daysAgoTimestamp(2),
+                deliveredAt = daysAgoTimestamp(2),
                 transferredAmount = 2850.0
             ),
             OrderEntity(
@@ -820,6 +822,7 @@ object SeedData {
                 paymentStatus = "VERIFIED",
                 orderStatus = "Delivered",
                 createdAt = daysAgoTimestamp(3),
+                deliveredAt = daysAgoTimestamp(3),
                 transferredAmount = 13549.0
             )
         )
@@ -1268,6 +1271,7 @@ object SeedData {
                     paymentStatus = "VERIFIED",
                     orderStatus = "Delivered",
                     createdAt = daysAgoTimestamp(2),
+                    deliveredAt = daysAgoTimestamp(2),
                     transferredAmount = 2850.0
                 )
             )
@@ -1298,9 +1302,46 @@ object SeedData {
                     paymentStatus = "VERIFIED",
                     orderStatus = "Delivered",
                     createdAt = daysAgoTimestamp(3),
+                    deliveredAt = daysAgoTimestamp(3),
                     transferredAmount = 13549.0
                 )
             )
+        }
+        // Backfill deliveredAt on existing seeded delivered orders after v10 -> v11 migration
+        listOf("ord_3" to 45, "ord_4" to 2, "ord_5" to 3).forEach { (ordId, daysAgo) ->
+            db.orderDao().getOrderById(ordId)?.let { ord ->
+                if (ord.orderStatus.equals("Delivered", true) && ord.deliveredAt.isNullOrBlank()) {
+                    db.orderDao().updateOrder(ord.copy(deliveredAt = daysAgoTimestamp(daysAgo)))
+                }
+            }
+        }
+        if (db.analyticsEventDao().totalCount() == 0) {
+            val nowMs = System.currentTimeMillis()
+            val seedEvents = buildList {
+                repeat(12) { idx ->
+                    add(
+                        AnalyticsEventEntity(
+                            id = "ae_seed_view_th_$idx",
+                            shopId = "shop_techhub",
+                            productId = if (idx % 2 == 0) "prod_laptop_hp" else "prod_airpods_pro",
+                            eventType = "PRODUCT_VIEW",
+                            timestampMillis = nowMs - (idx + 1) * 3_600_000L
+                        )
+                    )
+                }
+                repeat(5) { idx ->
+                    add(
+                        AnalyticsEventEntity(
+                            id = "ae_seed_cart_th_$idx",
+                            shopId = "shop_techhub",
+                            productId = if (idx % 2 == 0) "prod_laptop_hp" else "prod_airpods_pro",
+                            eventType = "CART_ADD",
+                            timestampMillis = nowMs - (idx + 1) * 4_800_000L
+                        )
+                    )
+                }
+            }
+            db.analyticsEventDao().insertAll(seedEvents)
         }
         if (db.commissionConfigDao().getAll().isEmpty()) {
             db.commissionConfigDao().insertAll(

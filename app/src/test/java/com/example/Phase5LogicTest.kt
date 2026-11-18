@@ -56,6 +56,7 @@ class Phase5LogicTest {
         paymentStatus = "VERIFIED",
         orderStatus = "Delivered",
         createdAt = "Just now",
+        deliveredAt = "Just now",
         payerIdentifier = buyerPhone
     )
 
@@ -160,6 +161,113 @@ class Phase5LogicTest {
             val messages = vm.repository.getTicketMessages(ticket.id).data.orEmpty()
             assertTrue(messages.any { it.message == "Any update?" })
             assertTrue(messages.all { it.ticketId == ticket.id })
+        }
+    }
+
+    @Test
+    fun returns_windowUsesDeliveredAtAndRejectsMissingOrExpiredDeliveryTime() {
+        val db = SuqiDatabase.getInstance(ApplicationProvider.getApplicationContext<Application>())
+        val vm = newVm()
+        val sdf = java.text.SimpleDateFormat("MMM d, yyyy • hh:mm a", java.util.Locale.US)
+        val phone = "+251 911 500 500"
+        val buyer = runBlocking { vm.repository.loginWithPhoneOtp(phone, "123456", "Delivery Window Buyer").data!! }
+        val now = System.currentTimeMillis()
+        val oldCreatedAt = sdf.format(java.util.Date(now - 30L * 86_400_000L))
+        val recentDeliveredAt = sdf.format(java.util.Date(now - 2L * 86_400_000L))
+        val expiredDeliveredAt = sdf.format(java.util.Date(now - 10L * 86_400_000L))
+
+        val idMissing = "ord_p5_nodel_${now}"
+        val idUnparseable = "ord_p5_bad_${now}"
+        val idExpired = "ord_p5_exp_${now}"
+        val idEligible = "ord_p5_ok_${now}"
+        val idSellerDeliver = "ord_p5_mark_${now}"
+
+        runBlocking {
+            db.orderDao().insertOrder(deliveredOrder(idMissing, buyer.id, buyer.name, phone).copy(deliveredAt = null))
+            db.orderDao().insertOrder(deliveredOrder(idUnparseable, buyer.id, buyer.name, phone).copy(deliveredAt = "sometime-last-week"))
+            db.orderDao().insertOrder(deliveredOrder(idExpired, buyer.id, buyer.name, phone).copy(createdAt = oldCreatedAt, deliveredAt = expiredDeliveredAt))
+            db.orderDao().insertOrder(deliveredOrder(idEligible, buyer.id, buyer.name, phone).copy(createdAt = oldCreatedAt, deliveredAt = recentDeliveredAt))
+            db.orderDao().insertOrder(deliveredOrder(idSellerDeliver, buyer.id, buyer.name, phone).copy(orderStatus = "Dispatched", deliveredAt = null))
+
+            assertFalse("Null deliveredAt must fail", vm.repository.submitReturnRequest(mapOf("orderId" to idMissing, "reason" to "Damaged")).success)
+            assertFalse("Unparseable deliveredAt must fail", vm.repository.submitReturnRequest(mapOf("orderId" to idUnparseable, "reason" to "Damaged")).success)
+            assertFalse("Expired deliveredAt (>7d) must fail", vm.repository.submitReturnRequest(mapOf("orderId" to idExpired, "reason" to "Damaged")).success)
+            assertTrue("Old createdAt with recent deliveredAt must pass", vm.repository.submitReturnRequest(mapOf("orderId" to idEligible, "reason" to "Damaged")).success)
+
+            // Seller marks order Delivered -> backend stamps deliveredAt so return becomes eligible
+            vm.repository.loginWithPhoneOtp(sellerPhone, "123456")
+            assertTrue(vm.repository.updateSellerOrderStatus(idSellerDeliver, "Delivered").success)
+            val updatedOrder = db.orderDao().getOrderById(idSellerDeliver)!!
+            assertFalse(updatedOrder.deliveredAt.isNullOrBlank())
+
+            vm.repository.loginWithPhoneOtp(phone, "123456")
+            assertTrue(vm.repository.submitReturnRequest(mapOf("orderId" to idSellerDeliver, "reason" to "Damaged")).success)
+        }
+    }
+
+    @Test
+    fun backend_enforcesRoleOwnershipAndStatusTransitions() {
+        val db = SuqiDatabase.getInstance(ApplicationProvider.getApplicationContext<Application>())
+        val vm = newVm()
+        val buyerPhone = "+251 911 500 600"
+        val otherPhone = "+251 911 500 601"
+        runBlocking {
+            val buyer = vm.repository.loginWithPhoneOtp(buyerPhone, "123456", "Return Owner").data!!
+            val ordId = "ord_p5_auth_${System.currentTimeMillis()}"
+            db.orderDao().insertOrder(deliveredOrder(ordId, buyer.id, buyer.name, buyerPhone))
+            val ret = vm.repository.submitReturnRequest(mapOf("orderId" to ordId, "reason" to "Damaged")).data!!
+
+            // Buyer cannot approve their own return; seller cannot complete refund directly from REQUESTED
+            assertFalse(vm.repository.decideReturnRequest(ret.id, "APPROVE", note = "Self approve").success)
+            vm.repository.loginWithPhoneOtp(sellerPhone, "123456")
+            assertFalse("REQUESTED -> COMPLETED invalid", vm.repository.decideReturnRequest(ret.id, "COMPLETE_REFUND").success)
+            assertTrue("REQUESTED -> APPROVED valid", vm.repository.decideReturnRequest(ret.id, "APPROVE", note = "OK").success)
+
+            // Unrelated buyer cannot reply to review, add internal note, moderate, or broadcast
+            val review = vm.repository.submitReview(
+                mapOf("targetId" to "prod_laptop_hp", "targetType" to "PRODUCT", "rating" to 5.0, "comment" to "Great")
+            ).data!!
+            vm.repository.loginWithPhoneOtp(otherPhone, "123456", "Other User")
+            assertFalse(vm.repository.replyToReview(review.id, "Fake reply").success)
+            val tkt = vm.repository.submitSupportTicket(
+                SupportTicketDto(id = "", userId = "", category = "Orders", subject = "Help", description = "Need help", status = "OPEN", createdAt = "")
+            ).data!!
+            assertFalse(vm.repository.sendTicketMessage(tkt.id, "Secret", isInternalNote = true).success)
+            assertFalse(vm.repository.reportOrModerateReview(mapOf("id" to "flag_1", "action" to "HIDE")).success)
+            assertFalse(vm.repository.sendAdminBroadcast("Hi", "Spam").success)
+
+            // Non-admin cannot decide payout; Admin cannot jump PENDING -> MARK_PAID directly
+            vm.repository.loginWithPhoneOtp(sellerPhone, "123456")
+            val summary = vm.repository.getSellerEarningsSummary().data!!
+            val pendingPayout = summary.payoutRequests.firstOrNull { it.status == "PENDING" }
+                ?: run {
+                    val req = vm.repository.requestSellerPayout(500.0)
+                    assertTrue(req.message, req.success)
+                    req.data!!
+                }
+            assertFalse(vm.repository.decidePayoutRequest(pendingPayout.id, "APPROVE").success)
+            vm.repository.adminSignIn("admin@suqi.et", "123456", "OWNER")
+            assertFalse("PENDING -> MARK_PAID must fail", vm.repository.decidePayoutRequest(pendingPayout.id, "MARK_PAID", referenceCode = "FT123").success)
+            assertTrue("PENDING -> APPROVE valid", vm.repository.decidePayoutRequest(pendingPayout.id, "APPROVE").success)
+            assertTrue("APPROVED -> MARK_PAID valid", vm.repository.decidePayoutRequest(pendingPayout.id, "MARK_PAID", referenceCode = "FT123").success)
+        }
+    }
+
+    @Test
+    fun analytics_tracksRealProductViewAndCartAddEvents() {
+        val vm = newVm()
+        runBlocking {
+            vm.repository.loginWithPhoneOtp(sellerPhone, "123456")
+            val before = vm.repository.getSellerAnalytics(7).data!!
+
+            vm.repository.loginWithPhoneOtp("+251 911 500 700", "123456", "Analytics Buyer")
+            assertTrue(vm.repository.getProductDetails("prod_laptop_hp").success)
+            assertTrue(vm.repository.addToCart("prod_laptop_hp", 1, "").success)
+
+            vm.repository.loginWithPhoneOtp(sellerPhone, "123456")
+            val after = vm.repository.getSellerAnalytics(7).data!!
+            assertEquals(before.productViews + 1, after.productViews)
+            assertEquals(before.cartAdds + 1, after.cartAdds)
         }
     }
 }

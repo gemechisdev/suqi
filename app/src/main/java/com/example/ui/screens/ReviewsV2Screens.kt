@@ -374,7 +374,8 @@ fun ReviewsV2Screen(
                                 }
                             }
 
-                            if (rev.sellerReply.isNotBlank()) {
+                            val revSellerReply = rev.sellerReply
+                            if (!revSellerReply.isNullOrBlank()) {
                                 Spacer(Modifier.height(8.dp))
                                 Box(
                                     modifier = Modifier
@@ -386,14 +387,14 @@ fun ReviewsV2Screen(
                                 ) {
                                     Column {
                                         Text(
-                                            text = "${p5.sellerRepliedLabel} • ${rev.sellerReplyAt}",
+                                            text = "${p5.sellerRepliedLabel} • ${rev.sellerReplyAt.orEmpty()}",
                                             fontFamily = SuqiFontFamily,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.sp,
                                             color = SuqiPrimary
                                         )
                                         Spacer(Modifier.height(2.dp))
-                                        Text(rev.sellerReply, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
+                                        Text(revSellerReply, fontFamily = SuqiFontFamily, fontSize = 12.sp, color = colors.primaryText)
                                     }
                                 }
                             }
@@ -438,7 +439,7 @@ fun ReviewsV2Screen(
                                         TextButton(
                                             onClick = {
                                                 replyTarget = rev
-                                                replyText = rev.sellerReply
+                                                replyText = rev.sellerReply.orEmpty()
                                             },
                                             modifier = Modifier
                                                 .heightIn(min = 48.dp)
@@ -538,13 +539,14 @@ fun ReviewsV2Screen(
                         SuqiImagePickerTile(
                             label = "#${idx + 1}",
                             imageUri = uri,
-                            onImageSelected = { newUri ->
+                            onImagePicked = { newUri ->
                                 if (idx < reviewPhotos.size) reviewPhotos[idx] = newUri else reviewPhotos.add(newUri)
                             },
-                            onRemoveImage = if (uri != null) {
+                            onRemove = if (uri != null) {
                                 { reviewPhotos.removeAt(idx) }
                             } else null,
-                            modifier = Modifier.weight(1f).testTag("review_photo_tile_$idx")
+                            modifier = Modifier.weight(1f),
+                            testTag = "review_photo_tile_$idx"
                         )
                     }
                 }
@@ -635,7 +637,7 @@ fun ReviewsV2Screen(
                 SuqiTextField(
                     value = reportReason,
                     onValueChange = { reportReason = it },
-                    label = strings.adminGov.rejectionReasonTitle,
+                    label = strings.checkout.rejectionReasonTitle,
                     testTag = "review_report_reason_input"
                 )
                 SuqiButton(
@@ -666,8 +668,7 @@ fun ReviewsV2Screen(
 
     viewerImageUrl?.let { url ->
         SuqiDocumentViewer(
-            title = strings.customerReviews,
-            imageUri = url,
+            documents = listOf(SuqiDocumentPage(strings.customerReviews, url)),
             onDismiss = { viewerImageUrl = null }
         )
     }
@@ -759,7 +760,7 @@ fun AdminModerationV2Screen(
                             colors = ButtonDefaults.buttonColors(containerColor = SuqiSuccess),
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("mod_bulk_restore")
                         ) {
-                            Text(strings.adminGov.restoreBtn, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(strings.adminGov.restoreActionBtn, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         OutlinedButton(
                             onClick = {
@@ -820,7 +821,7 @@ fun AdminModerationV2Screen(
                     Icon(LucideIcons.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = if (bulkMode) "${selectedIds.size} ${strings.common.selectedLabel}" else p5.selectMultipleBtn,
+                        text = if (bulkMode) String.format(strings.sellerWork.selectedCountTemplate, selectedIds.size) else p5.selectMultipleBtn,
                         fontSize = 12.sp,
                         color = colors.primaryText
                     )
@@ -977,7 +978,7 @@ fun AdminModerationV2Screen(
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("mod_restore_${item.id}")
                                     ) {
-                                        Text(strings.adminGov.restoreBtn, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(strings.adminGov.restoreActionBtn, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }

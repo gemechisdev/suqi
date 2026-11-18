@@ -700,6 +700,8 @@ class ExampleRobolectricTest {
         )
         assertTrue(ticketRes.success)
         val ticketId = ticketRes.data!!.id
+        val adminRes = backend.adminSignIn(mapOf("identifier" to "admin@suqi.et", "pin" to "123456", "tier" to "OWNER"))
+        assertTrue(adminRes.success)
         val resolveRes = backend.resolveSupportTicket(ticketId)
         assertTrue(resolveRes.success)
         assertEquals(true, resolveRes.data)

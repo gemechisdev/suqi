@@ -32,6 +32,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.example.data.model.OrderDto
+import com.example.data.model.ReturnRequestDto
 import com.example.data.model.SupportTicketDto
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel

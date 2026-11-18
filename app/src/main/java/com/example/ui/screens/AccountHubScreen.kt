@@ -1009,6 +1009,8 @@ fun ProfileEditScreen(
         val confirmWord = w.deleteConfirmWord
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 420.dp),
             title = { Text(w.deleteAccountTitle, fontFamily = SuqiFontFamily, fontWeight = FontWeight.Bold, color = colors.primaryText) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
