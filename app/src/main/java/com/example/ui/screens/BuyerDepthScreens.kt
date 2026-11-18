@@ -89,7 +89,7 @@ fun BuyerWishlistScreen(
     LaunchedEffect(Unit) { loadWishlist() }
 
     SuqiScreen(
-        title = strings.wishlistTitle,
+        title = strings.buyer.wishlistTitle,
         subtitle = "${wishlist.size} items",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -104,8 +104,8 @@ fun BuyerWishlistScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.Heart,
-                        title = strings.wishlistTitle,
-                        subtitle = strings.emptyWishlistSub,
+                        title = strings.buyer.wishlistTitle,
+                        subtitle = strings.buyer.emptyWishlistSub,
                         testTag = "wishlist_empty"
                     )
                 }
@@ -149,7 +149,7 @@ fun BuyerWishlistScreen(
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     SuqiButton(
-                                        text = strings.buyer.addToCart,
+                                        text = strings.addToCart,
                                         onClick = {
                                             viewModel.showToast("Added to cart")
                                         },
@@ -296,7 +296,7 @@ fun BuyerCompareScreen(
     var compared by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
 
     SuqiScreen(
-        title = strings.compareTitle,
+        title = "Compare Products",
         subtitle = "${compared.size} compared",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,
@@ -311,8 +311,8 @@ fun BuyerCompareScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     com.example.ui.components.SuqiEmptyState(
                         icon = LucideIcons.Compare,
-                        title = strings.compareTitle,
-                        subtitle = strings.compareEmptySub,
+                        title = "Compare Products",
+                        subtitle = "Add items to compare",
                         testTag = "compare_empty"
                     )
                 }
@@ -356,7 +356,7 @@ fun BuyerCompareScreen(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 SuqiButton(
-                                    text = strings.buyer.addToCart,
+                                    text = strings.addToCart,
                                     onClick = { viewModel.showToast("Added to cart") },
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
                                     isPrimary = false
