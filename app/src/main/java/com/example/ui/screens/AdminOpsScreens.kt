@@ -211,13 +211,13 @@ fun AdminListingsModerationScreen(
                                             viewModel.repository.reportOrModerateReview(
                                                 mapOf("id" to item.id, "action" to "REQUEST_EDIT")
                                             )
+                                            viewModel.showToast(strings.admin.requestChangesBtn)
                                             loadFlagged()
-                                            viewModel.showToast(strings.adminGov.requestChangesBtn)
                                         }
                                     },
                                     modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("moderation_edit_${item.id}"),
                                     colors = ButtonDefaults.buttonColors(containerColor = SuqiWarning)
-                                ) { Text(strings.adminGov.requestChangesBtn, color = Color.White) }
+                                ) { Text(strings.admin.requestChangesBtn, color = Color.White) }
                                 Button(
                                     onClick = {
                                         coroutineScope.launch {
