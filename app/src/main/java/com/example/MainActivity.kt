@@ -291,7 +291,7 @@ fun SuqiAppRoot(
                         is ScreenDestination.AboutApp -> AboutAppScreen(viewModel = viewModel)
                         is ScreenDestination.TicketThread -> TicketThreadScreen(ticketId = dest.ticketId, viewModel = viewModel)
                         is ScreenDestination.SavedAddresses -> SavedAddressesScreen(viewModel = viewModel)
-                        is ScreenDestination.Wishlist -> WishlistScreen(viewModel = viewModel)
+                        is ScreenDestination.Wishlist -> BuyerWishlistScreen(viewModel = viewModel)
                         is ScreenDestination.Reviews -> ReviewsScreen(
                             targetId = dest.targetId,
                             targetName = dest.targetName,

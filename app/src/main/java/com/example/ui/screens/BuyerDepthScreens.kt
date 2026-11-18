@@ -295,7 +295,7 @@ fun BuyerCompareScreen(
     var compared by remember { mutableStateOf<List<ProductDto>>(emptyList()) }
 
     SuqiScreen(
-        title = "Compare Products",
+        title = strings.phase6.compareTitle,
         subtitle = "${compared.size} compared",
         onBackClick = { viewModel.goBack() },
         isOffline = isOffline,

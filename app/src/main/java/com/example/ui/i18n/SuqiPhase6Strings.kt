@@ -7,6 +7,7 @@ package com.example.ui.i18n
  */
 data class SuqiPhase6Strings(
     val loadingLabel: String,
+    val compareTitle: String,
     // A-04 Users management
     val usersSearchHint: String,
     val chipBuyers: String,
@@ -149,6 +150,7 @@ data class SuqiPhase6Strings(
 object SuqiPhase6Catalog {
     val english = SuqiPhase6Strings(
         loadingLabel = "Loading…",
+        compareTitle = "Compare products",
         usersSearchHint = "Search by name, phone or email",
         chipBuyers = "Buyers",
         chipSellers = "Sellers",
@@ -279,6 +281,7 @@ object SuqiPhase6Catalog {
 
     val amharic = SuqiPhase6Strings(
         loadingLabel = "በመጫን ላይ…",
+        compareTitle = "ምርቶችን አወዳድር",
         usersSearchHint = "በስም፣ በስልክ ወይም በኢሜይል ይፈልጉ",
         chipBuyers = "ገዢዎች",
         chipSellers = "ሻጮች",
@@ -409,6 +412,7 @@ object SuqiPhase6Catalog {
 
     val afaanOromo = SuqiPhase6Strings(
         loadingLabel = "Fe'aa jira…",
+        compareTitle = "Meeshaalee wal bira qabuu",
         usersSearchHint = "Maqaa, bilbila yookaan imeelii barbaadi",
         chipBuyers = "Bittoota",
         chipSellers = "Gurgurtoota",

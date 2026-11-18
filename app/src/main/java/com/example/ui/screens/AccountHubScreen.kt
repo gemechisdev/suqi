@@ -429,8 +429,22 @@ fun AccountHubScreen(
                         icon = LucideIcons.Heart,
                         title = strings.wishlistTitle,
                         badge = if (wishlistCount > 0) wishlistCount.toString() else null,
-                        onClick = { viewModel.navigate(ScreenDestination.Wishlist) },
+                        onClick = { viewModel.navigate(ScreenDestination.BuyerWishlist) },
                         testTag = "account_menu_wishlist"
+                    )
+                    HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
+                    SuqiListRow(
+                        icon = LucideIcons.TicketPercent,
+                        title = strings.couponsTitle,
+                        onClick = { viewModel.navigate(ScreenDestination.BuyerCoupons) },
+                        testTag = "account_menu_coupons"
+                    )
+                    HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
+                    SuqiListRow(
+                        icon = LucideIcons.ArrowUpDown,
+                        title = strings.phase6.compareTitle,
+                        onClick = { viewModel.navigate(ScreenDestination.BuyerCompare) },
+                        testTag = "account_menu_compare"
                     )
                     HorizontalDivider(color = colors.border, modifier = Modifier.padding(horizontal = 8.dp))
                     SuqiListRow(

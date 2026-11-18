@@ -3057,6 +3057,30 @@ fun SellerMoreScreen(
                         onClick = { viewModel.navigate(ScreenDestination.SellerSubscription) },
                         testTag = "seller_more_subscription"
                     )
+                    SuqiListRow(
+                        icon = LucideIcons.Star,
+                        title = strings.seller.reviewsQaTitle,
+                        onClick = { viewModel.navigate(ScreenDestination.SellerReviewsQA) },
+                        testTag = "seller_more_reviews_qa"
+                    )
+                    SuqiListRow(
+                        icon = LucideIcons.Users,
+                        title = strings.seller.customersTitle,
+                        onClick = { viewModel.navigate(ScreenDestination.SellerCustomers) },
+                        testTag = "seller_more_customers"
+                    )
+                    SuqiListRow(
+                        icon = LucideIcons.LayoutGrid,
+                        title = strings.seller.collectionsManagerTitle,
+                        onClick = { viewModel.navigate(ScreenDestination.SellerCollections) },
+                        testTag = "seller_more_collections"
+                    )
+                    SuqiListRow(
+                        icon = LucideIcons.User,
+                        title = strings.seller.staffAccountsTitle,
+                        onClick = { viewModel.navigate(ScreenDestination.SellerStaffAccounts) },
+                        testTag = "seller_more_staff"
+                    )
                 }
             }
 

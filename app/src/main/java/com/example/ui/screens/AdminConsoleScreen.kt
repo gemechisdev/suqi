@@ -809,7 +809,7 @@ fun AdminConsoleScreen(
                                     icon = LucideIcons.MapPin,
                                     title = strings.admin.locationsTitle,
                                     subtitle = strings.adminGov.regionsHubsSubtitle,
-                                    onClick = { showLocationsSheet = true },
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminLocationsManager) },
                                     testTag = "manage_locations"
                                 )
                                 HorizontalDivider(color = colors.border)
@@ -817,9 +817,71 @@ fun AdminConsoleScreen(
                                     icon = LucideIcons.FileText,
                                     title = strings.admin.contentManagerTitle,
                                     subtitle = strings.helpSupportTitle,
-                                    onClick = { showContentSheet = true },
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminContentManager) },
                                     testTag = "manage_content"
                                 )
+                                HorizontalDivider(color = colors.border)
+                                SuqiListRow(
+                                    icon = LucideIcons.Users,
+                                    title = strings.admin.usersManagementTitle,
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminUsers) },
+                                    testTag = "manage_users"
+                                )
+                                HorizontalDivider(color = colors.border)
+                                SuqiListRow(
+                                    icon = LucideIcons.Store,
+                                    title = strings.admin.shopsManagementTitle,
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminShopsManager) },
+                                    testTag = "manage_shops"
+                                )
+                                HorizontalDivider(color = colors.border)
+                                SuqiListRow(
+                                    icon = LucideIcons.ShieldCheck,
+                                    title = strings.admin.listingsModerationTitle,
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminListingsModeration) },
+                                    testTag = "manage_listings"
+                                )
+                                HorizontalDivider(color = colors.border)
+                                SuqiListRow(
+                                    icon = LucideIcons.Handshake,
+                                    title = strings.admin.ordersDisputesTitle,
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminOrdersDisputes) },
+                                    testTag = "manage_disputes"
+                                )
+                                HorizontalDivider(color = colors.border)
+                                SuqiListRow(
+                                    icon = LucideIcons.History,
+                                    title = strings.admin.auditLogTitle,
+                                    onClick = { viewModel.navigate(ScreenDestination.AdminAuditLog) },
+                                    testTag = "manage_audit_log"
+                                )
+                                if (isOwnerTier) {
+                                    HorizontalDivider(color = colors.border)
+                                    SuqiListRow(
+                                        icon = LucideIcons.Landmark,
+                                        title = strings.admin.paymentProvidersTitle,
+                                        onClick = { viewModel.navigate(ScreenDestination.AdminPaymentProviders) },
+                                        testTag = "manage_payment_providers"
+                                    )
+                                }
+                                if (isOwnerTier) {
+                                    HorizontalDivider(color = colors.border)
+                                    SuqiListRow(
+                                        icon = LucideIcons.Download,
+                                        title = strings.admin.reportsExportsTitle,
+                                        onClick = { viewModel.navigate(ScreenDestination.AdminReportsExports) },
+                                        testTag = "manage_reports"
+                                    )
+                                }
+                                if (isOwnerTier) {
+                                    HorizontalDivider(color = colors.border)
+                                    SuqiListRow(
+                                        icon = LucideIcons.SlidersHorizontal,
+                                        title = strings.admin.platformSwitchesTitle,
+                                        onClick = { viewModel.navigate(ScreenDestination.AdminPlatformSwitches) },
+                                        testTag = "manage_platform_switches"
+                                    )
+                                }
                             }
                         }
                     }
