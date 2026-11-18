@@ -191,7 +191,7 @@ fun AdminLocationsManagerScreen(
                                         onClick = {},
                                         modifier = Modifier.heightIn(min = 36.dp),
                                         isPrimary = false
-                                    ) { Text("Disable") }
+                                    )
                                 }
                             }
                         }
