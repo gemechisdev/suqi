@@ -161,6 +161,7 @@ fun SuqiTextField(
     trailingIcon: @Composable (() -> Unit)? = null,
     singleLine: Boolean = true,
     enabled: Boolean = true,
+    readOnly: Boolean = false,
     isError: Boolean = false,
     errorMessage: String? = null,
     testTag: String = "suqi_text_field"
@@ -181,6 +182,7 @@ fun SuqiTextField(
             value = value,
             onValueChange = onValueChange,
             enabled = enabled,
+            readOnly = readOnly,
             placeholder = {
                 Text(
                     text = placeholder,
@@ -509,6 +511,7 @@ fun SuqiFloatingBottomNav(
             shadowElevation = 10.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
             modifier = Modifier
+                .widthIn(max = SuqiMaxContentWidth)
                 .fillMaxWidth()
                 .height(68.dp)
         ) {
@@ -666,9 +669,10 @@ private fun FluidNavItem(
                 scaleX = scale
                 scaleY = scale
             }
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
             .testTag(testTag)
     ) {
         Icon(
@@ -684,7 +688,8 @@ private fun FluidNavItem(
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
             fontSize = 11.sp,
             color = tint,
-            maxLines = 1
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -718,7 +723,7 @@ fun SuqiTopHeader(
             IconButton(
                 onClick = onBackClick,
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(colors.secondaryBackground)
                     .testTag("header_back_button")
@@ -769,7 +774,7 @@ fun SuqiTopHeader(
                 IconButton(
                     onClick = onToggleTheme,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(colors.secondaryBackground)
                         .testTag("header_theme_toggle")
@@ -789,7 +794,7 @@ fun SuqiTopHeader(
                 IconButton(
                     onClick = onNotificationClick,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(colors.secondaryBackground)
                         .testTag("header_notifications")
@@ -826,7 +831,7 @@ fun SuqiTopHeader(
             IconButton(
                 onClick = onCartClick,
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(colors.secondaryBackground)
                     .testTag("header_cart")

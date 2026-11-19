@@ -944,22 +944,22 @@ fun SuqiCouponTicket(
                         OutlinedButton(
                             onClick = onCopy,
                             shape = RoundedCornerShape(999.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             border = BorderStroke(1.dp, colors.border),
-                            modifier = Modifier.height(34.dp)
+                            modifier = Modifier.heightIn(min = 48.dp)
                         ) {
-                            Icon(LucideIcons.Copy, contentDescription = strings.common.copyLabel, tint = colors.primaryText, modifier = Modifier.size(13.dp))
+                            Icon(LucideIcons.Copy, contentDescription = strings.common.copyLabel, tint = colors.primaryText, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(strings.common.copyLabel, fontFamily = SuqiFontFamily, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
+                            Text(strings.common.copyLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Button(
                             onClick = onPrimaryAction,
                             shape = RoundedCornerShape(999.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SuqiPrimary),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                            modifier = Modifier.height(34.dp)
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            modifier = Modifier.heightIn(min = 48.dp)
                         ) {
-                            Text(effectiveActionLabel, fontFamily = SuqiFontFamily, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(effectiveActionLabel, fontFamily = SuqiFontFamily, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }

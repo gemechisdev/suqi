@@ -77,7 +77,7 @@ fun AccountHubScreen(
         headerActions = {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .suqiWarmShadow(CircleShape, elevation = 6.dp)
                     .clip(CircleShape)
                     .background(colors.cardBackground)
@@ -96,11 +96,18 @@ fun AccountHubScreen(
         modifier = modifier
     ) { paddingValues ->
         val listState = rememberLazyListState()
-        LazyColumn(
-            state = listState,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
+            contentAlignment = Alignment.TopCenter
+        ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = SuqiMaxContentWidth)
+                .fillMaxWidth(),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
@@ -239,27 +246,34 @@ fun AccountHubScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
+                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                             .clip(RoundedCornerShape(999.dp))
-                                            .background(colors.primaryTint)
                                             .clickable { showRoleSheet = true }
-                                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                                            .testTag("account_role_badge")
+                                            .testTag("account_role_badge"),
+                                        contentAlignment = Alignment.CenterStart
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                text = roleBadgeLabel,
-                                                fontFamily = SuqiFontFamily,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.sp,
-                                                color = SuqiPrimary
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Icon(
-                                                imageVector = LucideIcons.ChevronDown,
-                                                contentDescription = strings.extras.switchRoleDesc,
-                                                tint = SuqiPrimary,
-                                                modifier = Modifier.size(12.dp)
-                                            )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(colors.primaryTint)
+                                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = roleBadgeLabel,
+                                                    fontFamily = SuqiFontFamily,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 11.sp,
+                                                    color = SuqiPrimary
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Icon(
+                                                    imageVector = LucideIcons.ChevronDown,
+                                                    contentDescription = strings.extras.switchRoleDesc,
+                                                    tint = SuqiPrimary,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                            }
                                         }
                                     }
                                     Text(
@@ -617,12 +631,9 @@ fun AccountHubScreen(
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                 ) {
-                    Text(
-                        text = strings.extras.appVersionLine,
-                        fontFamily = SuqiFontFamily,
-                        fontSize = 12.sp,
-                        color = colors.mutedText,
+                    Box(
                         modifier = Modifier
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                             .clip(RoundedCornerShape(999.dp))
                             .clickable {
                                 versionTapCount++
@@ -634,10 +645,19 @@ fun AccountHubScreen(
                                 }
                             }
                             .padding(horizontal = 12.dp, vertical = 6.dp)
-                            .testTag("account_version_pill")
-                    )
+                            .testTag("account_version_pill"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = strings.extras.appVersionLine,
+                            fontFamily = SuqiFontFamily,
+                            fontSize = 12.sp,
+                            color = colors.mutedText
+                        )
+                    }
                 }
             }
+        }
         }
     }
 

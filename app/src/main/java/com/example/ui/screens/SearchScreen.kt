@@ -239,55 +239,57 @@ fun SearchScreen(
         },
         modifier = modifier
     ) { paddingValues ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Top Search Bar Row
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            ) {
-                Box(
+            val gridColumns = suqiGridColumns(maxWidth)
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Top Search Bar Row
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .size(44.dp)
-                        .suqiWarmShadow(CircleShape, elevation = 6.dp)
-                        .clip(CircleShape)
-                        .background(colors.cardBackground)
-                        .clickable { viewModel.goBack() }
-                        .testTag("search_back_button"),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    Icon(LucideIcons.ArrowLeft, contentDescription = strings.common.backLabel, tint = colors.primaryText, modifier = Modifier.size(20.dp))
-                }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .suqiWarmShadow(CircleShape, elevation = 6.dp)
+                            .clip(CircleShape)
+                            .background(colors.cardBackground)
+                            .clickable { viewModel.goBack() }
+                            .testTag("search_back_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(LucideIcons.ArrowLeft, contentDescription = strings.common.backLabel, tint = colors.primaryText, modifier = Modifier.size(20.dp))
+                    }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
-                SuqiSearchField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    onSearch = { performSearch(searchQuery, recordRecent = true) },
-                    placeholder = strings.searchPlaceholder,
-                    testTag = "search_input_field",
-                    modifier = Modifier.weight(1f)
-                )
+                    SuqiSearchField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        onSearch = { performSearch(searchQuery, recordRecent = true) },
+                        placeholder = strings.searchPlaceholder,
+                        testTag = "search_input_field",
+                        modifier = Modifier.weight(1f)
+                    )
 
-                Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .suqiWarmShadow(CircleShape, elevation = 6.dp)
-                        .clip(CircleShape)
-                        .background(colors.cardBackground)
-                        .clickable { viewModel.navigate(ScreenDestination.Cart) }
-                        .testTag("search_cart_button"),
-                    contentAlignment = Alignment.Center
-                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .suqiWarmShadow(CircleShape, elevation = 6.dp)
+                            .clip(CircleShape)
+                            .background(colors.cardBackground)
+                            .clickable { viewModel.navigate(ScreenDestination.Cart) }
+                            .testTag("search_cart_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
                     BadgedBox(
                         badge = {
                             if (cartCount > 0) {
@@ -352,7 +354,7 @@ fun SearchScreen(
                                                 recentSearches.remove(term)
                                                 persistRecent()
                                             },
-                                            modifier = Modifier.size(36.dp)
+                                            modifier = Modifier.size(48.dp)
                                         ) {
                                             Icon(LucideIcons.X, contentDescription = strings.buyer.removeTermDesc.replace("%s", term), tint = colors.mutedText, modifier = Modifier.size(15.dp))
                                         }
@@ -558,7 +560,7 @@ fun SearchScreen(
                                 )
                             }
                         } else if (isGridView) {
-                            val chunks = productResults.chunked(2)
+                            val chunks = productResults.chunked(gridColumns)
                             items(chunks) { chunk ->
                                 Row(
                                     modifier = Modifier
@@ -582,7 +584,7 @@ fun SearchScreen(
                                             )
                                         }
                                     }
-                                    if (chunk.size == 1) Spacer(modifier = Modifier.weight(1f))
+                                    repeat(gridColumns - chunk.size) { Spacer(modifier = Modifier.weight(1f)) }
                                 }
                             }
                         } else {
@@ -626,6 +628,7 @@ fun SearchScreen(
                 }
             }
         }
+    }
     }
 
     if (showFilterSheet) {

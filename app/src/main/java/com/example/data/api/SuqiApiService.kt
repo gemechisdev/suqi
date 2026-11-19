@@ -55,6 +55,13 @@ interface SuqiApiService {
     @POST(SuqiEndpoints.PRODUCT_QUESTIONS)
     suspend fun submitProductQuestion(@Path("id") productId: String, @Body payload: Map<String, String>): ApiResponse<ProductQuestionDto>
 
+    @POST(SuqiEndpoints.PRODUCT_QUESTION_ANSWER)
+    suspend fun answerProductQuestion(
+        @Path("id") productId: String,
+        @Path("questionId") questionId: String,
+        @Body payload: Map<String, String>
+    ): ApiResponse<ProductQuestionDto>
+
     @GET(SuqiEndpoints.SHOPS)
     suspend fun getShops(
         @Query("filter") filter: String = "ALL", // "ALL", "VERIFIED", "TOP_RATED", "NEARBY"
@@ -505,4 +512,13 @@ interface SuqiApiService {
 
     @POST(SuqiEndpoints.ADMIN_DEVTOOLS_DATA)
     suspend fun devDataAction(@Body payload: Map<String, String>): ApiResponse<Boolean>
+
+    @PUT(SuqiEndpoints.ADMIN_DEVTOOLS_CONFIG)
+    suspend fun updateDevConfig(@Body payload: Map<String, Any>): ApiResponse<AdminSettingsDto>
+
+    @GET(SuqiEndpoints.ADMIN_DEVTOOLS_SNAPSHOT)
+    suspend fun exportDevSnapshot(): ApiResponse<String>
+
+    @GET(SuqiEndpoints.ADMIN_DEVTOOLS_TEST)
+    suspend fun testDevConnection(): ApiResponse<Map<String, String>>
 }

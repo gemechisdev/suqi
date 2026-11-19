@@ -51,7 +51,6 @@ data class ShopEntity(
     val productCount: Int,
     val isVacationMode: Boolean = false,
     val acceptsOrders: Boolean = true,
-    val isFollowing: Boolean = false,
     val requireReceiptScreenshot: Boolean = false,
     val businessHoursJson: String = "",
     val vacationReturnDate: String = "",
@@ -102,7 +101,6 @@ data class ProductEntity(
     val colorsCsv: String = "",
     val specsCsv: String = "",
     val status: String = "ACTIVE",
-    val isWishlisted: Boolean = false,
     /** JSON document: item type, media, attributes, values, variants (see ProductDetails). */
     val detailsJson: String = ""
 )
@@ -303,7 +301,11 @@ data class AdminSettingsEntity(
     val homeSectionsOrderCsv: String = "featured_shops,new_arrivals,popular,recommended,recently_viewed",
     val hiddenHomeSectionsCsv: String = "",
     val isPilotMode: Boolean = true,
-    val pilotEndDate: String = "2026-12-31"
+    val pilotEndDate: String = "2026-12-31",
+    val maintenanceMode: Boolean = false,
+    val maintenanceMessage: String = "",
+    val enforceMinVersion: Boolean = false,
+    val minAppVersion: String = "1.0"
 )
 
 @Entity(tableName = "promo_banners")
@@ -629,7 +631,8 @@ data class ShopCollectionEntity(
     val productIdsCsv: String = "",
     val isVisible: Boolean = true,
     val sortOrder: Int = 0,
-    val createdAt: String = ""
+    val createdAt: String = "",
+    val coverImageUrl: String = ""
 )
 
 @Entity(tableName = "shop_staff")

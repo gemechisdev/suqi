@@ -103,6 +103,7 @@ sealed class ScreenDestination {
     data object AdminPaymentProviders : ScreenDestination()
     data object AdminContentManager : ScreenDestination()
     data object AdminPlatformSwitches : ScreenDestination()
+    data object DesignGallery : ScreenDestination()
     data object AppSettings : ScreenDestination()
     data object HelpLegal : ScreenDestination()
 }
@@ -227,25 +228,40 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         updateNavStack(prefix + NavEntry(nextNavId(), ScreenDestination.AdminConsole))
     }
 
+    private fun isAdminRoute(dest: ScreenDestination): Boolean = when (dest) {
+        ScreenDestination.AdminSignIn,
+        ScreenDestination.AdminConsole,
+        ScreenDestination.OwnerDashboard,
+        ScreenDestination.AdminFeatures,
+        ScreenDestination.AdminCategories,
+        ScreenDestination.AdminItemTypes,
+        ScreenDestination.AdminBanners,
+        ScreenDestination.AdminModeration,
+        ScreenDestination.AdminSubscriptionPlans,
+        ScreenDestination.AdminFinance,
+        ScreenDestination.AdminSupportInbox,
+        ScreenDestination.AdminBroadcast,
+        ScreenDestination.AdminUsers,
+        is ScreenDestination.AdminUserDetail,
+        ScreenDestination.AdminShopsManager,
+        is ScreenDestination.AdminShopDetail,
+        ScreenDestination.AdminAuditLog,
+        ScreenDestination.AdminListingsModeration,
+        ScreenDestination.AdminOrdersDisputes,
+        ScreenDestination.AdminReportsExports,
+        ScreenDestination.AdminLocationsManager,
+        ScreenDestination.AdminPaymentProviders,
+        ScreenDestination.AdminContentManager,
+        ScreenDestination.AdminPlatformSwitches,
+        ScreenDestination.AdminDevTools,
+        ScreenDestination.DesignGallery -> true
+        else -> false
+    }
+
     fun lockAdminSession() {
         setActiveRole("CUSTOMER")
-        val adminFlowDestinations = setOf(
-            ScreenDestination.AdminSignIn,
-            ScreenDestination.AdminConsole,
-            ScreenDestination.OwnerDashboard,
-            ScreenDestination.AdminFeatures,
-            ScreenDestination.AdminCategories,
-            ScreenDestination.AdminItemTypes,
-            ScreenDestination.AdminBanners,
-            ScreenDestination.AdminModeration,
-            ScreenDestination.AdminSubscriptionPlans,
-            ScreenDestination.AdminFinance,
-            ScreenDestination.AdminSupportInbox,
-            ScreenDestination.AdminBroadcast,
-            ScreenDestination.AdminDevTools
-        )
         val currentList = _navStack.value.toMutableList()
-        while (currentList.isNotEmpty() && currentList.last().destination in adminFlowDestinations) {
+        while (currentList.isNotEmpty() && isAdminRoute(currentList.last().destination)) {
             currentList.removeAt(currentList.lastIndex)
         }
         val prefix = if (currentList.isEmpty()) {
@@ -395,7 +411,12 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
         cachedAdminFinance = null
         cachedAdminBroadcasts = emptyList()
         cachedSubscriptionUpgrades = emptyList()
+        cachedAdminUsers = emptyList()
+        cachedAdminShopRows = emptyList()
+        cachedAuditLog = emptyList()
+        cachedAdminDisputes = emptyList()
 
+        _compareProducts.value = emptyList()
         _recentlyViewed.value = emptyList()
         unreadNotificationCount.value = 0
         _guestGateAction.value = null
@@ -562,6 +583,51 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
     val activeCheckoutShopId = MutableStateFlow("")
     val activeCheckoutShopName = MutableStateFlow("")
 
+    // Admin Settings & Maintenance / Min-Version Gate
+    private val _adminSettings = MutableStateFlow(AdminSettingsDto())
+    val adminSettings: StateFlow<AdminSettingsDto> = _adminSettings.asStateFlow()
+
+    suspend fun refreshAdminSettings() {
+        try {
+            val res = repository.getAdminSettings()
+            if (res.success && res.data != null) {
+                _adminSettings.value = res.data
+                cachedAdminSettings = res.data
+            }
+        } catch (e: IllegalStateException) {
+            if (e.message?.contains("closed", ignoreCase = true) != true) throw e
+        }
+    }
+
+    fun updateAdminSettingsState(settings: AdminSettingsDto) {
+        _adminSettings.value = settings
+        cachedAdminSettings = settings
+    }
+
+    // Compare Products (B-19)
+    private val _compareProducts = MutableStateFlow<List<ProductDto>>(emptyList())
+    val compareProducts: StateFlow<List<ProductDto>> = _compareProducts.asStateFlow()
+
+    fun toggleCompareProduct(product: ProductDto): Boolean {
+        val current = _compareProducts.value
+        return if (current.any { it.id == product.id }) {
+            _compareProducts.value = current.filterNot { it.id == product.id }
+            false
+        } else {
+            val updated = (listOf(product) + current).distinctBy { it.id }.take(4)
+            _compareProducts.value = updated
+            true
+        }
+    }
+
+    fun removeCompareProduct(productId: String) {
+        _compareProducts.value = _compareProducts.value.filterNot { it.id == productId }
+    }
+
+    fun clearCompareProducts() {
+        _compareProducts.value = emptyList()
+    }
+
     // Recently Viewed Products
     private val _recentlyViewed = MutableStateFlow<List<ProductDto>>(emptyList())
     val recentlyViewed: StateFlow<List<ProductDto>> = _recentlyViewed.asStateFlow()
@@ -658,6 +724,7 @@ class SuqiViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 refreshUnreadNotifications()
+                refreshAdminSettings()
             } catch (e: IllegalStateException) {
                 if (e.message?.contains("closed", ignoreCase = true) != true) throw e
             }

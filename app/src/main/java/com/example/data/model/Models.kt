@@ -322,7 +322,11 @@ data class AdminSettingsDto(
     val homeSectionsOrder: List<String> = HomeSectionKeys.defaultOrder,
     val hiddenHomeSections: List<String> = emptyList(),
     val isPilotMode: Boolean = true,
-    val pilotEndDate: String = "2026-12-31"
+    val pilotEndDate: String = "2026-12-31",
+    val maintenanceMode: Boolean = false,
+    val maintenanceMessage: String = "",
+    val enforceMinVersion: Boolean = false,
+    val minAppVersion: String = "1.0"
 )
 
 @JsonClass(generateAdapter = true)
@@ -880,7 +884,8 @@ data class ShopCollectionDto(
     val productIds: List<String> = emptyList(),
     val isVisible: Boolean = true,
     val sortOrder: Int = 0,
-    val createdAt: String = ""
+    val createdAt: String = "",
+    val coverImageUrl: String = ""
 )
 
 @JsonClass(generateAdapter = true)

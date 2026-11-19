@@ -80,7 +80,7 @@ fun CartScreen(
             if (cartItems.isNotEmpty()) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(colors.secondaryBackground)
                         .clickable { showClearDialog = true }
@@ -122,11 +122,18 @@ fun CartScreen(
                 )
             }
         } else {
-            LazyColumn(
-                state = listState,
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
+                contentAlignment = Alignment.TopCenter
+            ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = SuqiMaxContentWidth)
+                    .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -208,6 +215,7 @@ fun CartScreen(
                     }
                     Spacer(modifier = Modifier.height(24.dp))
                 }
+            }
             }
         }
     }
@@ -500,7 +508,10 @@ fun ShopCartGroupCard(
                     .background(colors.successBg)
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Icon(LucideIcons.Check, contentDescription = null, tint = SuqiSuccess, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     val promoText = if (isFreeDelivery) {
@@ -513,20 +524,26 @@ fun ShopCartGroupCard(
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
+                        maxLines = 2,
                         color = SuqiSuccess
                     )
                 }
-                Icon(
-                    imageVector = LucideIcons.X,
-                    contentDescription = strings.checkout.removePromoDesc,
-                    tint = SuqiSuccess,
+                IconButton(
+                    onClick = {
+                        appliedPromo = null
+                        promoCodeInput = ""
+                    },
                     modifier = Modifier
-                        .size(16.dp)
-                        .clickable {
-                            appliedPromo = null
-                            promoCodeInput = ""
-                        }
-                )
+                        .size(48.dp)
+                        .testTag("promo_remove_$shopId")
+                ) {
+                    Icon(
+                        imageVector = LucideIcons.X,
+                        contentDescription = strings.checkout.removePromoDesc,
+                        tint = SuqiSuccess,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
         if (promoError != null) {

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -168,15 +169,13 @@ fun SuqiProductCard(
                 }
             }
 
-            // Favourite button
+            // Favourite button (48dp accessible hit area around 36dp badge)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .suqiWarmShadow(CircleShape, elevation = 4.dp)
-                    .size(36.dp)
+                    .padding(2.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
                     .clickable(
                         role = Role.Button,
                         onClickLabel = if (product.isWishlisted) strings.common.removeFromWishlistDesc else strings.common.addToWishlistDesc,
@@ -185,12 +184,21 @@ fun SuqiProductCard(
                     .testTag("btn_wishlist_${product.id}"),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (product.isWishlisted) LucideIcons.HeartFilled else LucideIcons.Heart,
-                    contentDescription = if (product.isWishlisted) strings.common.removeFromWishlistDesc else strings.common.addToWishlistDesc,
-                    tint = if (product.isWishlisted) SuqiPrimary else SuqiPrimaryTextLight,
-                    modifier = Modifier.size(19.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .suqiWarmShadow(CircleShape, elevation = 4.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (product.isWishlisted) LucideIcons.HeartFilled else LucideIcons.Heart,
+                        contentDescription = if (product.isWishlisted) strings.common.removeFromWishlistDesc else strings.common.addToWishlistDesc,
+                        tint = if (product.isWishlisted) SuqiPrimary else SuqiPrimaryTextLight,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
             }
 
             // Low-stock hint (only when it matters)
@@ -326,14 +334,14 @@ fun SuqiProductCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .height(48.dp)
                         .clip(RoundedCornerShape(999.dp))
                         .background(SuqiPrimary)
                 ) {
                     IconButton(
                         onClick = { cartState.onChange(product, -1) },
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .testTag("card_cart_minus_${product.id}")
                     ) {
                         Icon(
@@ -355,7 +363,7 @@ fun SuqiProductCard(
                         onClick = onAddToCart,
                         enabled = inCart < product.stockQuantity,
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .testTag("card_cart_plus_${product.id}")
                     ) {
                         Icon(
@@ -386,7 +394,7 @@ fun SuqiProductCard(
                     contentPadding = PaddingValues(horizontal = 10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("btn_card_add_to_cart_${product.id}")
                 ) {
                     Icon(
@@ -400,7 +408,8 @@ fun SuqiProductCard(
                         fontFamily = SuqiFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

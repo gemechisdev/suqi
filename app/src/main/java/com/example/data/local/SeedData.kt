@@ -141,7 +141,6 @@ object SeedData {
                 productCount = 24,
                 isVacationMode = false,
                 acceptsOrders = true,
-                isFollowing = true,
                 createdAt = daysAgoTimestamp(60),
                 payoutProviderType = "TELEBIRR",
                 payoutBankName = "Telebirr",
@@ -173,7 +172,6 @@ object SeedData {
                 productCount = 42,
                 isVacationMode = false,
                 acceptsOrders = true,
-                isFollowing = false,
                 createdAt = daysAgoTimestamp(22)
             ),
             ShopEntity(
@@ -201,7 +199,6 @@ object SeedData {
                 productCount = 18,
                 isVacationMode = false,
                 acceptsOrders = true,
-                isFollowing = false,
                 createdAt = daysAgoTimestamp(6)
             ),
             ShopEntity(
@@ -229,7 +226,6 @@ object SeedData {
                 productCount = 35,
                 isVacationMode = false,
                 acceptsOrders = true,
-                isFollowing = false,
                 createdAt = daysAgoTimestamp(2)
             )
         )
@@ -267,8 +263,7 @@ object SeedData {
                 soldCount = "1.2k sold",
                 colorsCsv = "Silver,Space Gray,Black",
                 specsCsv = "8GB RAM / 512GB SSD,16GB RAM / 512GB SSD",
-                status = "ACTIVE",
-                isWishlisted = true
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_laptop_lenovo",
@@ -292,8 +287,7 @@ object SeedData {
                 soldCount = "890 sold",
                 colorsCsv = "Abyss Blue,Platinum Grey",
                 specsCsv = "8GB RAM / 256GB SSD",
-                status = "ACTIVE",
-                isWishlisted = false
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_laptop_dell",
@@ -317,8 +311,7 @@ object SeedData {
                 soldCount = "650 sold",
                 colorsCsv = "Carbon Black,Platinum Silver",
                 specsCsv = "16GB RAM / 512GB SSD",
-                status = "ACTIVE",
-                isWishlisted = false
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_headphones_sony",
@@ -342,8 +335,7 @@ object SeedData {
                 soldCount = "420 sold",
                 colorsCsv = "Black,Silver,Midnight Blue",
                 specsCsv = "Standard Edition",
-                status = "ACTIVE",
-                isWishlisted = true
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_airpods_pro",
@@ -367,8 +359,7 @@ object SeedData {
                 soldCount = "510 sold",
                 colorsCsv = "White",
                 specsCsv = "USB-C MagSafe",
-                status = "ACTIVE",
-                isWishlisted = false
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_phone_samsung",
@@ -392,8 +383,7 @@ object SeedData {
                 soldCount = "920 sold",
                 colorsCsv = "Blue Black,Light Blue,Yellow",
                 specsCsv = "128GB / 6GB RAM,256GB / 8GB RAM",
-                status = "ACTIVE",
-                isWishlisted = false
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_tshirt_mens",
@@ -417,8 +407,7 @@ object SeedData {
                 soldCount = "1.5k sold",
                 colorsCsv = "Orange,White,Black,Navy Blue",
                 specsCsv = "M,L,XL,XXL",
-                status = "ACTIVE",
-                isWishlisted = false
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_nike_af1",
@@ -442,8 +431,7 @@ object SeedData {
                 soldCount = "780 sold",
                 colorsCsv = "Triple White,White/Black",
                 specsCsv = "EU 40,EU 41,EU 42,EU 43,EU 44",
-                status = "ACTIVE",
-                isWishlisted = true
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_smart_watch",
@@ -467,8 +455,7 @@ object SeedData {
                 soldCount = "340 sold",
                 colorsCsv = "Midnight,Starlight,Silver",
                 specsCsv = "41mm,45mm",
-                status = "PAUSED",
-                isWishlisted = false
+                status = "PAUSED"
             ),
             ProductEntity(
                 id = "prod_backpack",
@@ -492,8 +479,7 @@ object SeedData {
                 soldCount = "210 sold",
                 colorsCsv = "Black,Grey,Army Green",
                 specsCsv = "30L Capacity",
-                status = "ACTIVE",
-                isWishlisted = false
+                status = "ACTIVE"
             ),
             ProductEntity(
                 id = "prod_living_sofa",
@@ -517,8 +503,7 @@ object SeedData {
                 soldCount = "45 sold",
                 colorsCsv = "Warm Grey,Emerald,Navy",
                 specsCsv = "3-Seater (220cm)",
-                status = "ACTIVE",
-                isWishlisted = false
+                status = "ACTIVE"
             )
         )
         db.productDao().insertAll(products.map { withDemoDetails(it) })

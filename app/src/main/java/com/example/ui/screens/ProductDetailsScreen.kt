@@ -59,6 +59,8 @@ fun ProductDetailsScreen(
     val lang = LocalSuqiLanguage.current
     val cartCount by viewModel.cartCount.collectAsState(initial = 0)
     val currentUser by viewModel.currentUser.collectAsState()
+    val compareProducts by viewModel.compareProducts.collectAsState()
+    val isInCompare = compareProducts.any { it.id == productId }
     val isOffline by viewModel.isOffline.collectAsState()
 
     val cachedProd = viewModel.cachedProductDetails[productId]
@@ -275,11 +277,18 @@ fun ProductDetailsScreen(
         },
         modifier = modifier
     ) { paddingValues ->
-        LazyColumn(
-            state = listState,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
+            contentAlignment = Alignment.TopCenter
+        ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = SuqiMaxContentWidth)
+                .fillMaxWidth(),
             contentPadding = PaddingValues(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -295,7 +304,7 @@ fun ProductDetailsScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(48.dp)
                             .suqiWarmShadow(CircleShape, elevation = 6.dp)
                             .clip(CircleShape)
                             .background(colors.cardBackground)
@@ -306,10 +315,33 @@ fun ProductDetailsScreen(
                         Icon(LucideIcons.ArrowLeft, contentDescription = strings.common.backLabel, tint = colors.primaryText, modifier = Modifier.size(20.dp))
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
+                                .suqiWarmShadow(CircleShape, elevation = 6.dp)
+                                .clip(CircleShape)
+                                .background(if (isInCompare) colors.primaryTint else colors.cardBackground)
+                                .clickable {
+                                    val added = viewModel.toggleCompareProduct(currentProd)
+                                    viewModel.showToast(
+                                        if (added) strings.admin6.addToCompareLabel else strings.admin6.removeFromCompareLabel
+                                    )
+                                }
+                                .testTag("pd_compare_button"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = LucideIcons.ArrowUpDown,
+                                contentDescription = if (isInCompare) strings.admin6.removeFromCompareLabel else strings.admin6.addToCompareLabel,
+                                tint = if (isInCompare) SuqiPrimary else colors.primaryText,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
                                 .suqiWarmShadow(CircleShape, elevation = 6.dp)
                                 .clip(CircleShape)
                                 .background(colors.cardBackground)
@@ -332,7 +364,7 @@ fun ProductDetailsScreen(
 
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .suqiWarmShadow(CircleShape, elevation = 6.dp)
                                 .clip(CircleShape)
                                 .background(colors.cardBackground)
@@ -345,7 +377,7 @@ fun ProductDetailsScreen(
 
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .suqiWarmShadow(CircleShape, elevation = 6.dp)
                                 .clip(CircleShape)
                                 .background(colors.cardBackground)
@@ -358,7 +390,7 @@ fun ProductDetailsScreen(
 
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .suqiWarmShadow(CircleShape, elevation = 6.dp)
                                 .clip(CircleShape)
                                 .background(colors.cardBackground)
@@ -481,14 +513,21 @@ fun ProductDetailsScreen(
                                     if (swatch != null) {
                                         Box(
                                             modifier = Modifier
-                                                .size(40.dp)
+                                                .size(48.dp)
                                                 .clip(CircleShape)
-                                                .border(if (isSel) 2.5.dp else 1.dp, if (isSel) SuqiPrimary else colors.border, CircleShape)
-                                                .padding(4.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(swatch))
-                                                .clickable { chosen[option.key] = value }
-                                        )
+                                                .clickable { chosen[option.key] = value },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(CircleShape)
+                                                    .border(if (isSel) 2.5.dp else 1.dp, if (isSel) SuqiPrimary else colors.border, CircleShape)
+                                                    .padding(4.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(swatch))
+                                            )
+                                        }
                                     } else {
                                         Box(
                                             modifier = Modifier
@@ -608,7 +647,7 @@ fun ProductDetailsScreen(
                             },
                             shape = RoundedCornerShape(999.dp),
                             border = BorderStroke(1.dp, SuqiPrimary),
-                            modifier = Modifier.weight(1f).height(44.dp)
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                         ) {
                             Icon(LucideIcons.MessageCircle, contentDescription = null, tint = SuqiPrimary, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
@@ -894,6 +933,7 @@ fun ProductDetailsScreen(
                     }
                 }
             }
+        }
         }
     }
 

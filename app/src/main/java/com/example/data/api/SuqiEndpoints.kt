@@ -78,6 +78,7 @@ object SuqiEndpoints {
     const val SUBSCRIPTION_UPGRADE_DECISION = "subscriptions/upgrades/{id}/decision"
     const val SELLER_SUBSCRIPTION_CANCEL = "seller/subscription/cancel"
     const val PRODUCT_QUESTIONS = "products/{id}/questions"
+    const val PRODUCT_QUESTION_ANSWER = "products/{id}/questions/{questionId}/answer"
     const val SUPPORT_TICKETS = "support/tickets"
     const val SUPPORT_TICKET_RESOLVE = "support/tickets/{id}/resolve"
     const val SUPPORT_TICKET_UPDATE = "support/tickets/{id}"
@@ -129,4 +130,7 @@ object SuqiEndpoints {
     const val ADMIN_REPORTS = "admin/reports"
     const val ADMIN_DEVTOOLS_ENV = "admin/devtools/environment"
     const val ADMIN_DEVTOOLS_DATA = "admin/devtools/data"
+    const val ADMIN_DEVTOOLS_CONFIG = "admin/devtools/config"
+    const val ADMIN_DEVTOOLS_SNAPSHOT = "admin/devtools/snapshot"
+    const val ADMIN_DEVTOOLS_TEST = "admin/devtools/test"
 }

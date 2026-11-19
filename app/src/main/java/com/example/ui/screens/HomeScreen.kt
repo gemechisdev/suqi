@@ -250,22 +250,26 @@ fun HomeScreen(
         containerColor = colors.surfaceBackground,
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
-        if (isLoading && products.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(top = 16.dp)) {
-                SuqiSkeletonProductGrid(count = 4)
-            }
-        } else {
-            val sectionOrder = (adminSettings.homeSectionsOrder + HomeSectionKeys.defaultOrder)
-                .distinct()
-                .filter { it !in adminSettings.hiddenHomeSections }
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            val gridColumns = suqiGridColumns(maxWidth)
+            if (isLoading && products.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize().padding(top = 16.dp)) {
+                    SuqiSkeletonProductGrid(count = gridColumns * 2)
+                }
+            } else {
+                val sectionOrder = (adminSettings.homeSectionsOrder + HomeSectionKeys.defaultOrder)
+                    .distinct()
+                    .filter { it !in adminSettings.hiddenHomeSections }
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
-            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
+                ) {
                 // Location row (mockup: under logo)
                 item {
                     Row(
@@ -597,7 +601,7 @@ fun HomeScreen(
                                 }
                             }
 
-                            val productChunks = products.chunked(2)
+                            val productChunks = products.chunked(gridColumns)
                             items(productChunks, key = { chunk -> "pop_${chunk.joinToString("_") { it.id }}" }) { chunk ->
                                 Row(
                                     modifier = Modifier
@@ -624,7 +628,7 @@ fun HomeScreen(
                                             )
                                         }
                                     }
-                                    if (chunk.size == 1) {
+                                    repeat(gridColumns - chunk.size) {
                                         Spacer(modifier = Modifier.weight(1f))
                                     }
                                 }
@@ -738,6 +742,7 @@ fun HomeScreen(
                 }
             }
         }
+    }
     }
 
     // Location Picker Bottom Sheet (Reusable as specified in Checklist Item 08)

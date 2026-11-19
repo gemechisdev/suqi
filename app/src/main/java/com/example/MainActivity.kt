@@ -17,18 +17,32 @@ import com.example.ui.components.LocalCartUiState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import com.example.ui.ScreenDestination
 import com.example.ui.SuqiViewModel
+import com.example.ui.components.SuqiButton
 import com.example.ui.components.SuqiFloatingBottomNav
 import com.example.ui.components.SuqiGuestGateSheet
+import com.example.ui.components.SuqiMaxContentWidth
 import com.example.ui.components.SuqiOfflineBanner
 import com.example.ui.components.SuqiRestrictedState
+import com.example.ui.components.SuqiSectionCard
 import com.example.ui.components.SuqiSellerFloatingBottomNav
 import com.example.ui.screens.*
+import com.example.ui.theme.LocalSuqiColors
+import com.example.ui.theme.LucideIcons
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.SuqiBackground
+import com.example.ui.theme.SuqiFontFamily
 import com.example.ui.theme.SuqiPrimary
+import com.example.ui.theme.SuqiWarning
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -72,6 +86,8 @@ fun SuqiAppRoot(
     val currentUser by viewModel.currentUser.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
     val adminTier by viewModel.adminTier.collectAsState()
+    val isDeveloperUnlocked by viewModel.isDeveloperUnlocked.collectAsState()
+    val adminSettings by viewModel.adminSettings.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
     val guestGateAction by viewModel.guestGateAction.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -155,6 +171,13 @@ fun SuqiAppRoot(
     val hasSellerAccess = (currentUser?.role == "SELLER" || !currentUser?.shopId.isNullOrBlank()) ||
         (activeRole == "ADMIN")
     val hasAdminAccess = currentUser?.role == "ADMIN" || activeRole == "ADMIN"
+    val versionBlocked = adminSettings.enforceMinVersion &&
+        isVersionBelow(BuildConfig.VERSION_NAME, adminSettings.minAppVersion)
+    val maintenanceBlocked = adminSettings.maintenanceMode
+    val isRuntimeGateBlocking = (maintenanceBlocked || versionBlocked) &&
+        !hasAdminAccess &&
+        !isDeveloperUnlocked &&
+        currentScreen != ScreenDestination.AdminSignIn
 
     Scaffold(
         snackbarHost = {
@@ -194,6 +217,15 @@ fun SuqiAppRoot(
                 }
 
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    if (isRuntimeGateBlocking) {
+                        MaintenanceOrVersionGateScreen(
+                            isMaintenance = maintenanceBlocked,
+                            maintenanceMessage = adminSettings.maintenanceMessage,
+                            minAppVersion = adminSettings.minAppVersion,
+                            onRetry = { coroutineScope.launch { viewModel.refreshAdminSettings() } },
+                            onAdminAccess = { viewModel.navigate(ScreenDestination.AdminSignIn) }
+                        )
+                    } else {
                     saveableStateHolder.SaveableStateProvider(key = currentNavEntry.id) {
                         CompositionLocalProvider(LocalCartUiState provides cartUiState) {
                         when (val dest = currentNavEntry.destination) {
@@ -506,6 +538,20 @@ fun SuqiAppRoot(
                             }
                         }
                         is ScreenDestination.AdminDevTools -> AdminDevToolsScreen(viewModel = viewModel)
+                        is ScreenDestination.DesignGallery -> {
+                            if (!hasAdminAccess && !isDeveloperUnlocked) {
+                                SuqiRestrictedState(
+                                    title = strings.admin.adminRestrictedTitle,
+                                    subtitle = strings.admin.adminRestrictedSub,
+                                    primaryButtonText = strings.admin.adminSignInBtn,
+                                    onPrimaryClick = { viewModel.navigate(ScreenDestination.AdminSignIn) },
+                                    onBackClick = { viewModel.goBack() },
+                                    testTag = "admin_restricted"
+                                )
+                            } else {
+                                DesignGalleryScreen(viewModel = viewModel)
+                            }
+                        }
                         is ScreenDestination.AdminUsers -> {
                             if (!hasAdminAccess) {
                                 SuqiRestrictedState(
@@ -679,11 +725,12 @@ fun SuqiAppRoot(
                         }
                     }
                     }
+                    }
                 }
             }
 
             // Buyer Floating Liquid Bottom Navigation
-            if (isBuyerRootNav) {
+            if (isBuyerRootNav && !isRuntimeGateBlocking) {
                 SuqiFloatingBottomNav(
                     currentRoute = currentBuyerRouteKey,
                     onNavigate = { route ->
@@ -700,7 +747,7 @@ fun SuqiAppRoot(
             }
 
             // Seller 5-Tab Floating Bottom Navigation (F-02)
-            if (isSellerRootNav && hasSellerAccess) {
+            if (isSellerRootNav && hasSellerAccess && !isRuntimeGateBlocking) {
                 SuqiSellerFloatingBottomNav(
                     currentRoute = currentSellerRouteKey,
                     pendingOrdersCount = sellerPendingCount,
@@ -719,7 +766,7 @@ fun SuqiAppRoot(
 
             // B-16 Guest Gate Bottom Sheet
             val gateAction = guestGateAction
-            if (gateAction != null) {
+            if (gateAction != null && !isRuntimeGateBlocking) {
                 SuqiGuestGateSheet(
                     actionLabel = gateAction,
                     onSignInClick = {
@@ -727,6 +774,106 @@ fun SuqiAppRoot(
                         viewModel.navigate(ScreenDestination.Auth)
                     },
                     onDismiss = { viewModel.dismissGuestGate() }
+                )
+            }
+        }
+    }
+}
+
+internal fun isVersionBelow(current: String, minimum: String): Boolean {
+    if (minimum.isBlank()) return false
+    val curParts = current.split(".").map { it.filter(Char::isDigit).toIntOrNull() ?: 0 }
+    val minParts = minimum.split(".").map { it.filter(Char::isDigit).toIntOrNull() ?: 0 }
+    val len = maxOf(curParts.size, minParts.size)
+    for (i in 0 until len) {
+        val c = curParts.getOrElse(i) { 0 }
+        val m = minParts.getOrElse(i) { 0 }
+        if (c != m) return c < m
+    }
+    return false
+}
+
+@Composable
+private fun MaintenanceOrVersionGateScreen(
+    isMaintenance: Boolean,
+    maintenanceMessage: String,
+    minAppVersion: String,
+    onRetry: () -> Unit,
+    onAdminAccess: () -> Unit
+) {
+    val colors = LocalSuqiColors.current
+    val strings = com.example.ui.i18n.suqiStrings()
+    val p6 = strings.admin6
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.surfaceBackground)
+            .padding(24.dp)
+            .testTag("maintenance_blocking_screen"),
+        contentAlignment = Alignment.Center
+    ) {
+        SuqiSectionCard(
+            modifier = Modifier
+                .widthIn(max = SuqiMaxContentWidth)
+                .fillMaxWidth()
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(colors.warningBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isMaintenance) LucideIcons.Wrench else LucideIcons.TriangleAlert,
+                        contentDescription = if (isMaintenance) p6.maintenanceBannerTitle else p6.updateRequiredTitle,
+                        tint = SuqiWarning,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = if (isMaintenance) p6.maintenanceBannerTitle else p6.updateRequiredTitle,
+                    fontFamily = SuqiFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = colors.primaryText,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (isMaintenance) {
+                        maintenanceMessage.ifBlank { p6.maintenanceBannerDefaultBody }
+                    } else {
+                        String.format(p6.updateRequiredBodyTemplate, minAppVersion)
+                    },
+                    fontFamily = SuqiFontFamily,
+                    fontSize = 14.sp,
+                    color = colors.secondaryText,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                SuqiButton(
+                    text = strings.retryLabel,
+                    icon = LucideIcons.RefreshCw,
+                    isPill = true,
+                    onClick = onRetry,
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "maintenance_retry_btn"
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                SuqiButton(
+                    text = p6.adminSignInAccessBtn,
+                    icon = LucideIcons.ShieldCheck,
+                    isPrimary = false,
+                    isPill = true,
+                    onClick = onAdminAccess,
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "maintenance_admin_signin_btn"
                 )
             }
         }

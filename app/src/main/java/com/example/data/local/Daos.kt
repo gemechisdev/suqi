@@ -124,6 +124,9 @@ interface CartDao {
 
     @Query("DELETE FROM cart_items WHERE userId = :userId")
     suspend fun clearAll(userId: String)
+
+    @Query("DELETE FROM cart_items")
+    suspend fun clearAllEvery()
 }
 
 @Dao
@@ -166,6 +169,9 @@ interface OrderDao {
 
     @Query("UPDATE orders SET customerUserId = 'deleted_user', customerName = 'Deleted user', customerPhone = '', deliveryAddress = 'Removed', payerIdentifier = '' WHERE customerUserId = :userId")
     suspend fun anonymizeByCustomerId(userId: String)
+
+    @Query("DELETE FROM orders")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -250,6 +256,9 @@ interface ReviewDao {
 
     @Query("UPDATE reviews SET userId = 'deleted_user', userName = 'Deleted user', userAvatar = '' WHERE userId = :userId")
     suspend fun anonymizeByUserId(userId: String)
+
+    @Query("DELETE FROM reviews")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -280,6 +289,9 @@ interface ChatDao {
 
     @Query("DELETE FROM chat_messages WHERE customerUserId = :userId")
     suspend fun deleteByCustomerUserId(userId: String)
+
+    @Query("DELETE FROM chat_messages")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -304,6 +316,9 @@ interface WishlistDao {
 
     @Query("DELETE FROM wishlist_items WHERE productId = :productId")
     suspend fun deleteByProductId(productId: String)
+
+    @Query("DELETE FROM wishlist_items")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -325,6 +340,9 @@ interface ShopFollowDao {
 
     @Query("DELETE FROM shop_follows WHERE userId = :userId")
     suspend fun deleteByUserId(userId: String)
+
+    @Query("DELETE FROM shop_follows")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -349,6 +367,9 @@ interface NotificationDao {
 
     @Query("DELETE FROM notifications WHERE userId = :userId")
     suspend fun deleteByUserId(userId: String)
+
+    @Query("DELETE FROM notifications")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -445,6 +466,9 @@ interface FlaggedReviewDao {
 
     @Query("UPDATE flagged_reviews SET status = :status, moderatorNote = :note WHERE id = :id")
     suspend fun updateStatusWithNote(id: String, status: String, note: String)
+
+    @Query("DELETE FROM flagged_reviews")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -455,11 +479,20 @@ interface ProductQuestionDao {
     @Query("SELECT * FROM product_questions WHERE shopId = :shopId ORDER BY createdAt DESC")
     suspend fun getQuestionsForShop(shopId: String): List<ProductQuestionEntity>
 
+    @Query("SELECT * FROM product_questions WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ProductQuestionEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(question: ProductQuestionEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(questions: List<ProductQuestionEntity>)
+
+    @Update
+    suspend fun update(question: ProductQuestionEntity)
+
+    @Query("DELETE FROM product_questions")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -502,6 +535,9 @@ interface SupportTicketDao {
 
     @Query("DELETE FROM support_tickets WHERE userId = :userId")
     suspend fun deleteByUserId(userId: String)
+
+    @Query("DELETE FROM support_tickets")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -544,6 +580,9 @@ interface ReturnRequestDao {
 
     @Update
     suspend fun update(entity: ReturnRequestEntity)
+
+    @Query("DELETE FROM return_requests")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -565,6 +604,9 @@ interface PayoutRequestDao {
 
     @Update
     suspend fun update(entity: PayoutRequestEntity)
+
+    @Query("DELETE FROM payout_requests")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -637,6 +679,9 @@ interface SupportTicketMessageDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<SupportTicketMessageEntity>)
+
+    @Query("DELETE FROM support_ticket_messages")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -667,6 +712,9 @@ interface AnalyticsEventDao {
 
     @Query("SELECT COUNT(*) FROM analytics_events")
     suspend fun totalCount(): Int
+
+    @Query("DELETE FROM analytics_events")
+    suspend fun clearAll()
 }
 
 // ==================== PHASE 6: ADMIN PLATFORM MANAGEMENT ====================

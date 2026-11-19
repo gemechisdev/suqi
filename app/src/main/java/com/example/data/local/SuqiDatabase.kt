@@ -58,7 +58,7 @@ import kotlinx.coroutines.sync.withLock
         ShopCollectionEntity::class,
         ShopStaffEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class SuqiDatabase : RoomDatabase() {
@@ -134,7 +134,12 @@ abstract class SuqiDatabase : RoomDatabase() {
         }
     }
 
+    fun resetSeedVerified() {
+        isSeedVerified = false
+    }
+
     companion object {
+        const val SCHEMA_VERSION = 15
         /** v2: products.detailsJson (media, dynamic attributes, variants) + new item-type categories. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -673,6 +678,136 @@ abstract class SuqiDatabase : RoomDatabase() {
             }
         }
 
+        /** v15: maintenance/min-version fields on admin_settings, coverImageUrl on shop_collections, and drop unused isFollowing/isWishlisted columns via table rebuild. */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `admin_settings` ADD COLUMN `maintenanceMode` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `admin_settings` ADD COLUMN `maintenanceMessage` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `admin_settings` ADD COLUMN `enforceMinVersion` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `admin_settings` ADD COLUMN `minAppVersion` TEXT NOT NULL DEFAULT '1.0'")
+                db.execSQL("ALTER TABLE `shop_collections` ADD COLUMN `coverImageUrl` TEXT NOT NULL DEFAULT ''")
+
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `shops_new` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `ownerUserId` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `slug` TEXT NOT NULL,
+                        `logoUrl` TEXT NOT NULL,
+                        `coverUrl` TEXT NOT NULL,
+                        `category` TEXT NOT NULL,
+                        `shopType` TEXT NOT NULL,
+                        `description` TEXT NOT NULL,
+                        `rating` REAL NOT NULL,
+                        `reviewCount` INTEGER NOT NULL,
+                        `isVerified` INTEGER NOT NULL,
+                        `verificationStatus` TEXT NOT NULL,
+                        `phone` TEXT NOT NULL,
+                        `telegramLink` TEXT NOT NULL,
+                        `whatsappLink` TEXT NOT NULL,
+                        `address` TEXT NOT NULL,
+                        `region` TEXT NOT NULL,
+                        `city` TEXT NOT NULL,
+                        `subCity` TEXT NOT NULL,
+                        `followersCount` INTEGER NOT NULL,
+                        `productCount` INTEGER NOT NULL,
+                        `isVacationMode` INTEGER NOT NULL,
+                        `acceptsOrders` INTEGER NOT NULL,
+                        `requireReceiptScreenshot` INTEGER NOT NULL,
+                        `businessHoursJson` TEXT NOT NULL,
+                        `vacationReturnDate` TEXT NOT NULL,
+                        `vacationNote` TEXT NOT NULL,
+                        `freeDeliveryThreshold` REAL NOT NULL,
+                        `coverageSubCitiesCsv` TEXT NOT NULL,
+                        `verificationDocsJson` TEXT NOT NULL,
+                        `verificationRejectionReason` TEXT,
+                        `createdAt` TEXT NOT NULL,
+                        `galleryJson` TEXT NOT NULL,
+                        `instagramLink` TEXT NOT NULL,
+                        `tiktokLink` TEXT NOT NULL,
+                        `websiteUrl` TEXT NOT NULL,
+                        `returnPolicy` TEXT NOT NULL,
+                        `deliveryNotesPolicy` TEXT NOT NULL,
+                        `standardCutoffTime` TEXT NOT NULL,
+                        `expressCutoffTime` TEXT NOT NULL,
+                        `payoutProviderType` TEXT NOT NULL,
+                        `payoutBankName` TEXT NOT NULL,
+                        `payoutAccountName` TEXT NOT NULL,
+                        `payoutAccountNumber` TEXT NOT NULL
+                    )"""
+                )
+                db.execSQL(
+                    """INSERT INTO `shops_new` (
+                        id, ownerUserId, name, slug, logoUrl, coverUrl, category, shopType, description,
+                        rating, reviewCount, isVerified, verificationStatus, phone, telegramLink, whatsappLink,
+                        address, region, city, subCity, followersCount, productCount, isVacationMode, acceptsOrders,
+                        requireReceiptScreenshot, businessHoursJson, vacationReturnDate, vacationNote,
+                        freeDeliveryThreshold, coverageSubCitiesCsv, verificationDocsJson, verificationRejectionReason,
+                        createdAt, galleryJson, instagramLink, tiktokLink, websiteUrl, returnPolicy,
+                        deliveryNotesPolicy, standardCutoffTime, expressCutoffTime,
+                        payoutProviderType, payoutBankName, payoutAccountName, payoutAccountNumber
+                    ) SELECT
+                        id, ownerUserId, name, slug, logoUrl, coverUrl, category, shopType, description,
+                        rating, reviewCount, isVerified, verificationStatus, phone, telegramLink, whatsappLink,
+                        address, region, city, subCity, followersCount, productCount, isVacationMode, acceptsOrders,
+                        requireReceiptScreenshot, businessHoursJson, vacationReturnDate, vacationNote,
+                        freeDeliveryThreshold, coverageSubCitiesCsv, verificationDocsJson, verificationRejectionReason,
+                        createdAt, galleryJson, instagramLink, tiktokLink, websiteUrl, returnPolicy,
+                        deliveryNotesPolicy, standardCutoffTime, expressCutoffTime,
+                        payoutProviderType, payoutBankName, payoutAccountName, payoutAccountNumber
+                    FROM `shops`"""
+                )
+                db.execSQL("DROP TABLE `shops`")
+                db.execSQL("ALTER TABLE `shops_new` RENAME TO `shops`")
+
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `products_new` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `shopId` TEXT NOT NULL,
+                        `shopName` TEXT NOT NULL,
+                        `shopVerified` INTEGER NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `nameAmharic` TEXT NOT NULL,
+                        `nameAfaanOromo` TEXT NOT NULL,
+                        `description` TEXT NOT NULL,
+                        `descriptionAmharic` TEXT NOT NULL,
+                        `descriptionAfaanOromo` TEXT NOT NULL,
+                        `primaryImageUrl` TEXT NOT NULL,
+                        `extraImagesCsv` TEXT NOT NULL,
+                        `categoryId` TEXT NOT NULL,
+                        `subCategory` TEXT NOT NULL,
+                        `price` REAL NOT NULL,
+                        `originalPrice` REAL NOT NULL,
+                        `discountPercent` INTEGER NOT NULL,
+                        `stockQuantity` INTEGER NOT NULL,
+                        `stockHoldEnabled` INTEGER NOT NULL,
+                        `rating` REAL NOT NULL,
+                        `reviewCount` INTEGER NOT NULL,
+                        `soldCount` TEXT NOT NULL,
+                        `colorsCsv` TEXT NOT NULL,
+                        `specsCsv` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `detailsJson` TEXT NOT NULL
+                    )"""
+                )
+                db.execSQL(
+                    """INSERT INTO `products_new` (
+                        id, shopId, shopName, shopVerified, name, nameAmharic, nameAfaanOromo,
+                        description, descriptionAmharic, descriptionAfaanOromo, primaryImageUrl, extraImagesCsv,
+                        categoryId, subCategory, price, originalPrice, discountPercent, stockQuantity,
+                        stockHoldEnabled, rating, reviewCount, soldCount, colorsCsv, specsCsv, status, detailsJson
+                    ) SELECT
+                        id, shopId, shopName, shopVerified, name, nameAmharic, nameAfaanOromo,
+                        description, descriptionAmharic, descriptionAfaanOromo, primaryImageUrl, extraImagesCsv,
+                        categoryId, subCategory, price, originalPrice, discountPercent, stockQuantity,
+                        stockHoldEnabled, rating, reviewCount, soldCount, colorsCsv, specsCsv, status, detailsJson
+                    FROM `products`"""
+                )
+                db.execSQL("DROP TABLE `products`")
+                db.execSQL("ALTER TABLE `products_new` RENAME TO `products`")
+            }
+        }
+
         @Volatile
         private var INSTANCE: SuqiDatabase? = null
 
@@ -699,7 +834,7 @@ abstract class SuqiDatabase : RoomDatabase() {
                     ).addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-                        MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14
+                        MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
                     ).addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)

@@ -385,7 +385,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             productCount = 0,
             isVacationMode = false,
             acceptsOrders = true,
-            isFollowing = false,
             createdAt = getCurrentTime()
         )
         db.shopDao().insertShop(newShop)
@@ -528,6 +527,30 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         )
         db.productQuestionDao().insert(entity)
         ApiResponse(success = true, data = entity.toDto())
+    }
+
+    override suspend fun answerProductQuestion(
+        productId: String,
+        questionId: String,
+        payload: Map<String, String>
+    ): ApiResponse<ProductQuestionDto> = withContext(Dispatchers.IO) {
+        val caller = requireSignedInUser()
+            ?: return@withContext ApiResponse(success = false, message = "Sign in required.")
+        if (staffLacks("CATALOG")) {
+            return@withContext ApiResponse(success = false, message = "Your staff role cannot do this.")
+        }
+        val existing = db.productQuestionDao().getById(questionId)
+            ?: return@withContext ApiResponse(success = false, message = "Question not found")
+        if (!caller.ownsShop(existing.shopId) && !caller.isAdmin()) {
+            return@withContext ApiResponse(success = false, message = "Permission denied.")
+        }
+        val answer = payload["answer"]?.trim().orEmpty()
+        if (answer.isBlank()) {
+            return@withContext ApiResponse(success = false, message = "Please enter an answer.")
+        }
+        val updated = existing.copy(answer = answer, answeredByShop = true)
+        db.productQuestionDao().update(updated)
+        ApiResponse(success = true, data = updated.toDto())
     }
 
     override suspend fun getShops(
@@ -1092,7 +1115,6 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             colorsCsv = colorsCsv,
             specsCsv = specsCsv,
             status = data["status"] as? String ?: existing?.status ?: "ACTIVE",
-            isWishlisted = false,
             detailsJson = details?.toJson() ?: existing?.detailsJson ?: ""
         )
     }
@@ -1233,8 +1255,7 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             nameAfaanOromo = if (existing.nameAfaanOromo.isNotBlank()) "${existing.nameAfaanOromo} (Garagalcha)" else "",
             status = "DRAFT",
             reviewCount = 0,
-            soldCount = "New",
-            isWishlisted = false
+            soldCount = "New"
         )
         db.productDao().insertProduct(copy)
         db.shopDao().getShopById(existing.shopId)?.let { shop ->
@@ -1786,7 +1807,11 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
                 homeSectionsOrder = normalizedOrder,
                 hiddenHomeSections = hidden,
                 isPilotMode = settings.isPilotMode,
-                pilotEndDate = settings.pilotEndDate
+                pilotEndDate = settings.pilotEndDate,
+                maintenanceMode = settings.maintenanceMode,
+                maintenanceMessage = settings.maintenanceMessage,
+                enforceMinVersion = settings.enforceMinVersion,
+                minAppVersion = settings.minAppVersion
             )
         )
     }
@@ -3837,7 +3862,8 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
             productIdsCsv = collection.productIds.filter { it in ownProductIds }.distinct().joinToString(","),
             isVisible = collection.isVisible,
             sortOrder = collection.sortOrder,
-            createdAt = existing?.createdAt ?: getCurrentTime()
+            createdAt = existing?.createdAt ?: getCurrentTime(),
+            coverImageUrl = collection.coverImageUrl.trim()
         )
         db.shopCollectionDao().upsert(entity)
         ApiResponse(success = true, data = entity.toDto())
@@ -4163,16 +4189,29 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
     override suspend fun getDevEnvironment(): ApiResponse<Map<String, String>> = withContext(Dispatchers.IO) {
         db.ensureSeeded()
         requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val settings = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
+        val envName = if (com.example.data.api.BackendConfig.useBuiltinSqliteBackend) "Builtin" else "Remote"
+        val activeUrl = if (com.example.data.api.BackendConfig.useBuiltinSqliteBackend) {
+            "builtin://suqi_marketplace.db"
+        } else {
+            com.example.data.api.BackendConfig.customBaseUrl
+        }
         val data = mapOf(
-            "environment" to "Builtin",
-            "baseUrl" to "builtin://local",
-            "schemaVersion" to "13",
+            "environment" to envName,
+            "baseUrl" to activeUrl,
+            "remoteUrl" to com.example.data.api.BackendConfig.customBaseUrl,
+            "schemaVersion" to SuqiDatabase.SCHEMA_VERSION.toString(),
             "products" to db.productDao().getAllProducts().size.toString(),
             "users" to db.userDao().getAllUsers().size.toString(),
             "shops" to db.shopDao().getAllShops().size.toString(),
             "orders" to db.orderDao().getAllOrders().size.toString(),
             "analyticsEvents" to db.analyticsEventDao().totalCount().toString(),
-            "auditEntries" to db.auditLogDao().getAll().size.toString()
+            "auditEntries" to db.auditLogDao().getAll().size.toString(),
+            "maintenanceMode" to settings.maintenanceMode.toString(),
+            "maintenanceMessage" to settings.maintenanceMessage,
+            "enforceMinVersion" to settings.enforceMinVersion.toString(),
+            "minAppVersion" to settings.minAppVersion,
+            "errorCount" to com.example.data.api.DevDiagnosticsLog.errorCount().toString()
         )
         ApiResponse(success = true, data = data)
     }
@@ -4183,14 +4222,265 @@ class BuiltinSqliteBackend(private val db: SuqiDatabase) : SuqiApiService {
         val action = payload["action"]?.trim()?.uppercase().orEmpty()
         when (action) {
             "CLEAR_STATE" -> {
+                db.cartDao().clearAllEvery()
+                db.orderDao().clearAll()
+                db.reviewDao().clearAll()
+                db.flaggedReviewDao().clearAll()
+                db.productQuestionDao().clearAll()
+                db.supportTicketDao().clearAll()
+                db.supportTicketMessageDao().clearAll()
+                db.returnRequestDao().clearAll()
+                db.payoutRequestDao().clearAll()
+                db.analyticsEventDao().clearAll()
+                db.notificationDao().clearAll()
+                db.chatDao().clearAll()
+                db.wishlistDao().clearAll()
+                db.shopFollowDao().clearAll()
                 db.auditLogDao().clearAll()
-                recordAudit("DEV_DATA_ACTION", "SYSTEM", "audit_log", "Cleared local state")
+                recordAudit("DEV_DATA_ACTION", "SYSTEM", "CLEAR_STATE", "Cleared runtime marketplace state")
+            }
+            "SEED_DEMO" -> {
+                db.resetSeedVerified()
+                SeedData.seedDatabase(db)
+                SeedData.ensureSecondaryTablesSeeded(db)
+                recordAudit("DEV_DATA_ACTION", "SYSTEM", "SEED_DEMO", "Re-seeded demo marketplace dataset")
+            }
+            "IMPORT_SNAPSHOT" -> {
+                val raw = payload["value"]?.trim().orEmpty()
+                if (raw.isBlank()) {
+                    return@withContext ApiResponse(success = false, data = false, message = "Paste a snapshot JSON payload first.")
+                }
+                val parsed = runCatching { org.json.JSONObject(raw) }.getOrNull()
+                    ?: return@withContext ApiResponse(success = false, data = false, message = "Invalid JSON snapshot format.")
+                if (!parsed.has("schemaVersion")) {
+                    return@withContext ApiResponse(success = false, data = false, message = "Snapshot missing schemaVersion.")
+                }
+                parsed.optJSONObject("adminSettings")?.let { obj ->
+                    val current = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
+                    db.adminSettingsDao().insert(
+                        current.copy(
+                            isChatEnabled = obj.optBoolean("isChatEnabled", current.isChatEnabled),
+                            isExternalContactEnabled = obj.optBoolean("isExternalContactEnabled", current.isExternalContactEnabled),
+                            isSubscriptionModeEnabled = obj.optBoolean("isSubscriptionModeEnabled", current.isSubscriptionModeEnabled),
+                            sellerReviewsEnabled = obj.optBoolean("sellerReviewsEnabled", current.sellerReviewsEnabled),
+                            showFeaturedShops = obj.optBoolean("showFeaturedShops", current.showFeaturedShops),
+                            isPilotMode = obj.optBoolean("isPilotMode", current.isPilotMode),
+                            pilotEndDate = obj.optString("pilotEndDate", current.pilotEndDate),
+                            maintenanceMode = obj.optBoolean("maintenanceMode", current.maintenanceMode),
+                            maintenanceMessage = obj.optString("maintenanceMessage", current.maintenanceMessage),
+                            enforceMinVersion = obj.optBoolean("enforceMinVersion", current.enforceMinVersion),
+                            minAppVersion = obj.optString("minAppVersion", current.minAppVersion)
+                        )
+                    )
+                }
+                parsed.optJSONArray("platformSwitches")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.optJSONObject(i) ?: continue
+                        val id = obj.optString("id").trim()
+                        if (id.isBlank()) continue
+                        db.platformSwitchDao().upsert(
+                            PlatformSwitchEntity(
+                                id = id,
+                                groupName = obj.optString("groupName", "EXPERIENCE"),
+                                isEnabled = obj.optBoolean("isEnabled", true),
+                                numericValue = obj.optDouble("numericValue", 0.0),
+                                sortOrder = obj.optInt("sortOrder", i)
+                            )
+                        )
+                    }
+                }
+                parsed.optJSONArray("paymentProviders")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.optJSONObject(i) ?: continue
+                        val id = obj.optString("id").trim()
+                        if (id.isBlank()) continue
+                        db.paymentProviderDao().upsert(
+                            PaymentProviderEntity(
+                                id = id,
+                                displayName = obj.optString("displayName", id),
+                                logoEmoji = obj.optString("logoEmoji", "🏦"),
+                                accountFormat = obj.optString("accountFormat", ""),
+                                referenceHint = obj.optString("referenceHint", ""),
+                                isActive = obj.optBoolean("isActive", true),
+                                sortOrder = obj.optInt("sortOrder", i)
+                            )
+                        )
+                    }
+                }
+                parsed.optJSONArray("locationAreas")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.optJSONObject(i) ?: continue
+                        val id = obj.optString("id").trim()
+                        if (id.isBlank()) continue
+                        db.locationAreaDao().upsert(
+                            LocationAreaEntity(
+                                id = id,
+                                name = obj.optString("name", id),
+                                parentId = obj.optString("parentId", ""),
+                                level = obj.optString("level", "REGION"),
+                                isEnabled = obj.optBoolean("isEnabled", true),
+                                isDefaultZone = obj.optBoolean("isDefaultZone", false),
+                                sortOrder = obj.optInt("sortOrder", i)
+                            )
+                        )
+                    }
+                }
+                parsed.optJSONArray("contentEntries")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.optJSONObject(i) ?: continue
+                        val id = obj.optString("id").trim()
+                        if (id.isBlank()) continue
+                        db.contentEntryDao().upsert(
+                            ContentEntryEntity(
+                                id = id,
+                                section = obj.optString("section", "FAQ"),
+                                titleEn = obj.optString("titleEn", ""),
+                                titleAm = obj.optString("titleAm", ""),
+                                titleOm = obj.optString("titleOm", ""),
+                                bodyEn = obj.optString("bodyEn", ""),
+                                bodyAm = obj.optString("bodyAm", ""),
+                                bodyOm = obj.optString("bodyOm", ""),
+                                isPublished = obj.optBoolean("isPublished", true),
+                                updatedAt = getCurrentTime()
+                            )
+                        )
+                    }
+                }
+                recordAudit("DEV_SNAPSHOT_IMPORTED", "SYSTEM", "snapshot", "Imported configuration snapshot")
             }
             else -> {
                 recordAudit("DEV_DATA_ACTION", "SYSTEM", action, action)
             }
         }
         ApiResponse(success = true, data = true)
+    }
+
+    override suspend fun updateDevConfig(payload: Map<String, Any>): ApiResponse<AdminSettingsDto> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val current = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
+        val updated = current.copy(
+            maintenanceMode = (payload["maintenanceMode"] as? Boolean) ?: current.maintenanceMode,
+            maintenanceMessage = (payload["maintenanceMessage"] as? String)?.trim() ?: current.maintenanceMessage,
+            enforceMinVersion = (payload["enforceMinVersion"] as? Boolean) ?: current.enforceMinVersion,
+            minAppVersion = (payload["minAppVersion"] as? String)?.trim()?.ifBlank { "1.0" } ?: current.minAppVersion
+        )
+        db.adminSettingsDao().insert(updated)
+        recordAudit(
+            action = "DEV_CONFIG_UPDATED",
+            targetType = "ADMIN_SETTINGS",
+            targetId = "1",
+            targetLabel = "Maintenance=${updated.maintenanceMode}, MinVer=${updated.enforceMinVersion}:${updated.minAppVersion}"
+        )
+        getAdminSettings()
+    }
+
+    override suspend fun exportDevSnapshot(): ApiResponse<String> = withContext(Dispatchers.IO) {
+        db.ensureSeeded()
+        requireAdmin() ?: return@withContext ApiResponse(success = false, message = "Admin permission required.")
+        val settings = db.adminSettingsDao().getSettings() ?: AdminSettingsEntity()
+        val switches = db.platformSwitchDao().getAll()
+        val providers = db.paymentProviderDao().getAll()
+        val locations = db.locationAreaDao().getAll()
+        val content = db.contentEntryDao().getAll()
+        val root = org.json.JSONObject().apply {
+            put("schemaVersion", SuqiDatabase.SCHEMA_VERSION)
+            put("exportedAt", getCurrentTime())
+            put("counts", org.json.JSONObject().apply {
+                put("users", db.userDao().getAllUsers().size)
+                put("shops", db.shopDao().getAllShops().size)
+                put("products", db.productDao().getAllProducts().size)
+                put("orders", db.orderDao().getAllOrders().size)
+                put("auditEntries", db.auditLogDao().getAll().size)
+            })
+            put("adminSettings", org.json.JSONObject().apply {
+                put("isChatEnabled", settings.isChatEnabled)
+                put("isExternalContactEnabled", settings.isExternalContactEnabled)
+                put("isSubscriptionModeEnabled", settings.isSubscriptionModeEnabled)
+                put("sellerReviewsEnabled", settings.sellerReviewsEnabled)
+                put("showFeaturedShops", settings.showFeaturedShops)
+                put("isPilotMode", settings.isPilotMode)
+                put("pilotEndDate", settings.pilotEndDate)
+                put("maintenanceMode", settings.maintenanceMode)
+                put("maintenanceMessage", settings.maintenanceMessage)
+                put("enforceMinVersion", settings.enforceMinVersion)
+                put("minAppVersion", settings.minAppVersion)
+            })
+            put("platformSwitches", JSONArray().apply {
+                switches.forEach { s ->
+                    put(org.json.JSONObject().apply {
+                        put("id", s.id)
+                        put("groupName", s.groupName)
+                        put("isEnabled", s.isEnabled)
+                        put("numericValue", s.numericValue)
+                        put("sortOrder", s.sortOrder)
+                    })
+                }
+            })
+            put("paymentProviders", JSONArray().apply {
+                providers.forEach { p ->
+                    put(org.json.JSONObject().apply {
+                        put("id", p.id)
+                        put("displayName", p.displayName)
+                        put("logoEmoji", p.logoEmoji)
+                        put("accountFormat", p.accountFormat)
+                        put("referenceHint", p.referenceHint)
+                        put("isActive", p.isActive)
+                        put("sortOrder", p.sortOrder)
+                    })
+                }
+            })
+            put("locationAreas", JSONArray().apply {
+                locations.forEach { l ->
+                    put(org.json.JSONObject().apply {
+                        put("id", l.id)
+                        put("name", l.name)
+                        put("parentId", l.parentId)
+                        put("level", l.level)
+                        put("isEnabled", l.isEnabled)
+                        put("isDefaultZone", l.isDefaultZone)
+                        put("sortOrder", l.sortOrder)
+                    })
+                }
+            })
+            put("contentEntries", JSONArray().apply {
+                content.forEach { c ->
+                    put(org.json.JSONObject().apply {
+                        put("id", c.id)
+                        put("section", c.section)
+                        put("titleEn", c.titleEn)
+                        put("titleAm", c.titleAm)
+                        put("titleOm", c.titleOm)
+                        put("bodyEn", c.bodyEn)
+                        put("bodyAm", c.bodyAm)
+                        put("bodyOm", c.bodyOm)
+                        put("isPublished", c.isPublished)
+                    })
+                }
+            })
+        }
+        ApiResponse(success = true, data = root.toString(2))
+    }
+
+    override suspend fun testDevConnection(): ApiResponse<Map<String, String>> = withContext(Dispatchers.IO) {
+        val startNs = System.nanoTime()
+        return@withContext try {
+            db.ensureSeeded()
+            val productCount = db.productDao().getAllProducts().size
+            val elapsedMs = ((System.nanoTime() - startNs) / 1_000_000L).coerceAtLeast(1L)
+            ApiResponse(
+                success = true,
+                data = mapOf(
+                    "status" to "OK",
+                    "environment" to if (com.example.data.api.BackendConfig.useBuiltinSqliteBackend) "Builtin SQLite" else "Remote HTTP",
+                    "schemaVersion" to SuqiDatabase.SCHEMA_VERSION.toString(),
+                    "latencyMs" to elapsedMs.toString(),
+                    "products" to productCount.toString()
+                )
+            )
+        } catch (t: Throwable) {
+            ApiResponse(success = false, message = t.message ?: "Health check failed")
+        }
     }
 }
 
@@ -4203,7 +4493,7 @@ fun UserEntity.toDto() = UserDto(
     activeRole = activeRole.ifBlank { role }, isActiveSession = isActiveSession, createdAt = createdAt
 )
 
-fun ShopEntity.toDto(isFollowing: Boolean = this.isFollowing) = ShopDto(
+fun ShopEntity.toDto(isFollowing: Boolean = false) = ShopDto(
     id = id, ownerUserId = ownerUserId, name = name, slug = slug, logoUrl = logoUrl,
     coverUrl = coverUrl, category = category, shopType = shopType, description = description,
     rating = rating, reviewCount = reviewCount, isVerified = isVerified,
@@ -4221,7 +4511,7 @@ fun ShopEntity.toDto(isFollowing: Boolean = this.isFollowing) = ShopDto(
     standardCutoffTime = standardCutoffTime, expressCutoffTime = expressCutoffTime
 )
 
-fun ProductEntity.toDto(isWishlisted: Boolean = this.isWishlisted) = ProductDto(
+fun ProductEntity.toDto(isWishlisted: Boolean = false) = ProductDto(
     id = id, shopId = shopId, shopName = shopName, shopVerified = shopVerified,
     name = name, nameAmharic = nameAmharic, nameAfaanOromo = nameAfaanOromo,
     description = description, descriptionAmharic = descriptionAmharic,
@@ -4510,7 +4800,8 @@ fun AuditLogEntity.toDto() = AuditLogEntryDto(
 fun ShopCollectionEntity.toDto() = ShopCollectionDto(
     id = id, shopId = shopId, name = name,
     productIds = productIdsCsv.split(",").filter { it.isNotBlank() },
-    isVisible = isVisible, sortOrder = sortOrder, createdAt = createdAt
+    isVisible = isVisible, sortOrder = sortOrder, createdAt = createdAt,
+    coverImageUrl = coverImageUrl
 )
 
 fun ShopStaffEntity.toDto() = ShopStaffDto(

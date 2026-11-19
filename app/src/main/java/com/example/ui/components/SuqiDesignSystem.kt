@@ -56,6 +56,14 @@ import com.example.ui.i18n.suqiStrings
 import com.example.ui.theme.*
 import kotlin.math.roundToInt
 
+val SuqiMaxContentWidth = 600.dp
+
+fun suqiGridColumns(maxWidth: Dp): Int = when {
+    maxWidth >= 840.dp -> 4
+    maxWidth >= 600.dp -> 3
+    else -> 2
+}
+
 /**
  * F-01 standardized page scaffold on Warm Cream (#FFF8F0) / Dark (#121212).
  */
@@ -121,7 +129,7 @@ fun SuqiHeader(
         if (onBackClick != null) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .suqiWarmShadow(CircleShape, elevation = 6.dp)
                     .clip(CircleShape)
                     .background(colors.cardBackground)
@@ -308,43 +316,48 @@ fun SuqiSkeleton(
 
 @Composable
 fun SuqiSkeletonProductGrid(count: Int = 4, modifier: Modifier = Modifier) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        val rows = (count + 1) / 2
-        repeat(rows) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                repeat(2) {
-                    SuqiSectionCard(
-                        padding = 10.dp,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        SuqiSkeleton(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(132.dp),
-                            shape = RoundedCornerShape(18.dp)
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        SuqiSkeleton(
-                            modifier = Modifier
-                                .fillMaxWidth(0.8f)
-                                .height(14.dp),
-                            shape = RoundedCornerShape(7.dp)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        SuqiSkeleton(
-                            modifier = Modifier
-                                .fillMaxWidth(0.45f)
-                                .height(16.dp),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+        val cols = suqiGridColumns(maxWidth)
+        val rows = (count + cols - 1) / cols
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            repeat(rows) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    repeat(cols) {
+                        SuqiSectionCard(
+                            padding = 10.dp,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            SuqiSkeleton(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(132.dp),
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            SuqiSkeleton(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .height(14.dp),
+                                shape = RoundedCornerShape(7.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            SuqiSkeleton(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.45f)
+                                    .height(16.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -406,24 +419,27 @@ fun SuqiBottomSheet(
         contentColor = colors.primaryText,
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp)
-        ) {
-            if (!title.isNullOrBlank()) {
-                Text(
-                    text = title,
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = colors.primaryText,
-                    modifier = Modifier.padding(bottom = 14.dp)
-                )
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = SuqiMaxContentWidth)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 24.dp)
+            ) {
+                if (!title.isNullOrBlank()) {
+                    Text(
+                        text = title,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = colors.primaryText,
+                        modifier = Modifier.padding(bottom = 14.dp)
+                    )
+                }
+                content()
             }
-            content()
         }
     }
 }
@@ -454,25 +470,33 @@ fun SuqiFilterChips(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .height(36.dp)
+                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(bg)
-                    .then(
-                        if (!selected) Modifier.border(1.dp, colors.border, RoundedCornerShape(999.dp))
-                        else Modifier
-                    )
                     .clickable { onSelect(key) }
-                    .padding(horizontal = 16.dp)
                     .testTag("${testTagPrefix}_$key")
             ) {
-                Text(
-                    text = label,
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    fontSize = 13.sp,
-                    color = fg,
-                    maxLines = 1
-                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .heightIn(min = 36.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(bg)
+                        .then(
+                            if (!selected) Modifier.border(1.dp, colors.border, RoundedCornerShape(999.dp))
+                            else Modifier
+                        )
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = label,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        fontSize = 13.sp,
+                        color = fg,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -646,7 +670,7 @@ fun SuqiSearchField(
             IconButton(
                 onClick = onClear,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(48.dp)
                     .testTag("${testTag}_clear")
             ) {
                 Icon(
@@ -691,7 +715,7 @@ fun SuqiStepper(
             onClick = onDecrement,
             enabled = quantity > minValue,
             modifier = Modifier
-                .size(40.dp)
+                .size(48.dp)
                 .testTag("${testTagPrefix}_minus")
         ) {
             Icon(
@@ -713,7 +737,7 @@ fun SuqiStepper(
             onClick = onIncrement,
             enabled = quantity < maxValue,
             modifier = Modifier
-                .size(40.dp)
+                .size(48.dp)
                 .testTag("${testTagPrefix}_plus")
         ) {
             Icon(
@@ -1194,58 +1218,65 @@ fun SuqiSellerFloatingBottomNav(
             shadowElevation = if (colors.isDark) 0.dp else 10.dp,
             border = BorderStroke(1.dp, colors.border),
             modifier = Modifier
+                .widthIn(max = SuqiMaxContentWidth)
                 .fillMaxWidth()
-                .height(68.dp)
+                .heightIn(min = 68.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                tabs.forEach { (route, label, icon) ->
-                    val selected = currentRoute == route
-                    val tint by animateColorAsState(
-                        targetValue = if (selected) SuqiPrimary else colors.secondaryText,
-                        label = "seller_nav_tint"
-                    )
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable { onNavigate(route) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                            .testTag("seller_nav_$route")
-                    ) {
-                        BadgedBox(
-                            badge = {
-                                if (route == "seller_orders" && pendingOrdersCount > 0) {
-                                    Badge(containerColor = SuqiPrimary, contentColor = Color.White) {
-                                        Text(
-                                            text = pendingOrdersCount.toString(),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val tightNav = maxWidth < 360.dp
+                Row(
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    tabs.forEach { (route, label, icon) ->
+                        val selected = currentRoute == route
+                        val tint by animateColorAsState(
+                            targetValue = if (selected) SuqiPrimary else colors.secondaryText,
+                            label = "seller_nav_tint"
+                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable { onNavigate(route) }
+                                .padding(horizontal = if (tightNav) 4.dp else 8.dp, vertical = 6.dp)
+                                .testTag("seller_nav_$route")
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    if (route == "seller_orders" && pendingOrdersCount > 0) {
+                                        Badge(containerColor = SuqiPrimary, contentColor = Color.White) {
+                                            Text(
+                                                text = pendingOrdersCount.toString(),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = label,
+                                    tint = tint,
+                                    modifier = Modifier.size(21.dp)
+                                )
                             }
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = label,
-                                tint = tint,
-                                modifier = Modifier.size(21.dp)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = label,
+                                fontFamily = SuqiFontFamily,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                fontSize = if (tightNav) 10.sp else 11.sp,
+                                color = tint,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = label,
-                            fontFamily = SuqiFontFamily,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            fontSize = 11.sp,
-                            color = tint,
-                            maxLines = 1
-                        )
                     }
                 }
             }
@@ -1271,36 +1302,41 @@ fun SuqiAdminSegmentedTabs(
         add("manage" to strings.admin.tabManage)
         if (isDeveloperVisible) add("tools" to strings.admin.tabTools)
     }
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(colors.cardBackground)
-            .border(1.dp, colors.border, RoundedCornerShape(20.dp))
-            .padding(4.dp)
-    ) {
-        tabs.forEach { (key, label) ->
-            val selected = key == selectedTab
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (selected) SuqiPrimary else Color.Transparent)
-                    .clickable { onSelectTab(key) }
-                    .testTag("admin_tab_$key")
-            ) {
-                Text(
-                    text = label,
-                    fontFamily = SuqiFontFamily,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    fontSize = 13.sp,
-                    color = if (selected) Color.White else colors.secondaryText,
-                    maxLines = 1
-                )
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .widthIn(max = SuqiMaxContentWidth)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(colors.cardBackground)
+                .border(1.dp, colors.border, RoundedCornerShape(20.dp))
+                .padding(4.dp)
+        ) {
+            tabs.forEach { (key, label) ->
+                val selected = key == selectedTab
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (selected) SuqiPrimary else Color.Transparent)
+                        .clickable { onSelectTab(key) }
+                        .padding(horizontal = 6.dp)
+                        .testTag("admin_tab_$key")
+                ) {
+                    Text(
+                        text = label,
+                        fontFamily = SuqiFontFamily,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        fontSize = 13.sp,
+                        color = if (selected) Color.White else colors.secondaryText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

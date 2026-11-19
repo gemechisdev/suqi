@@ -152,7 +152,7 @@ fun CategoryListingScreen(
         headerActions = {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .suqiWarmShadow(CircleShape, elevation = 6.dp)
                     .clip(CircleShape)
                     .background(colors.cardBackground)
@@ -175,18 +175,22 @@ fun CategoryListingScreen(
         },
         modifier = modifier
     ) { paddingValues ->
-        if (isLoading && products.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(top = 12.dp)) {
-                SuqiSkeletonProductGrid(count = 4)
-            }
-        } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = 32.dp)
-            ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            val gridColumns = suqiGridColumns(maxWidth)
+            if (isLoading && products.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize().padding(top = 12.dp)) {
+                    SuqiSkeletonProductGrid(count = gridColumns * 2)
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 32.dp)
+                ) {
                 item {
                     SuqiFilterChips(
                         items = subCategories.map { it to if (it == "All") strings.allLabel else it },
@@ -282,7 +286,7 @@ fun CategoryListingScreen(
                         )
                     }
                 } else if (isGridView) {
-                    val chunks = products.chunked(2)
+                    val chunks = products.chunked(gridColumns)
                     items(chunks) { chunk ->
                         Row(
                             modifier = Modifier
@@ -306,7 +310,7 @@ fun CategoryListingScreen(
                                     )
                                 }
                             }
-                            if (chunk.size == 1) Spacer(modifier = Modifier.weight(1f))
+                            repeat(gridColumns - chunk.size) { Spacer(modifier = Modifier.weight(1f)) }
                         }
                     }
                 } else {
@@ -325,6 +329,7 @@ fun CategoryListingScreen(
                 }
             }
         }
+    }
     }
 
     if (showFilterSheet) {

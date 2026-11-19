@@ -2,7 +2,9 @@ package com.example.data.repository
 
 import android.content.Context
 import com.example.data.api.BackendConfig
+import com.example.data.api.DevDiagnosticsLog
 import com.example.data.api.SuqiApiService
+import com.example.data.api.SuqiEndpoints
 import com.example.data.backend.BuiltinSqliteBackend
 import com.example.data.local.SuqiDatabase
 import com.example.data.model.*
@@ -21,25 +23,80 @@ class SuqiRepository private constructor(context: Context) {
     private val db = SuqiDatabase.getInstance(context)
     private val builtinBackend: SuqiApiService = BuiltinSqliteBackend(db)
 
-    // Remote Retrofit service for when BackendConfig.useBuiltinSqliteBackend is toggled to false
-    private val remoteService: SuqiApiService by lazy {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-        val client = OkHttpClient.Builder()
-            .addInterceptor(logging)
-            .build()
+    @Volatile
+    private var cachedRemoteUrl: String = ""
+    @Volatile
+    private var cachedRemoteService: SuqiApiService? = null
 
-        Retrofit.Builder()
-            .baseUrl(BackendConfig.customBaseUrl)
-            .client(client)
-            .addConverterFactory(MoshiConverterFactory.create())
-            .build()
-            .create(SuqiApiService::class.java)
+    private fun normalizedBaseUrl(raw: String): String {
+        val trimmed = raw.trim().ifBlank { SuqiEndpoints.BASE_URL }
+        val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) trimmed else "https://$trimmed"
+        return if (withScheme.endsWith("/")) withScheme else "$withScheme/"
+    }
+
+    private fun getOrCreateRemoteService(): SuqiApiService {
+        val targetUrl = normalizedBaseUrl(BackendConfig.customBaseUrl)
+        val existing = cachedRemoteService
+        if (existing != null && cachedRemoteUrl == targetUrl) {
+            return existing
+        }
+        return synchronized(this) {
+            val current = cachedRemoteService
+            if (current != null && cachedRemoteUrl == targetUrl) {
+                current
+            } else {
+                val logging = HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BASIC
+                }
+                val client = OkHttpClient.Builder()
+                    .addInterceptor(DevDiagnosticsLog.diagnosticsInterceptor)
+                    .addInterceptor(logging)
+                    .build()
+                Retrofit.Builder()
+                    .baseUrl(targetUrl)
+                    .client(client)
+                    .addConverterFactory(MoshiConverterFactory.create())
+                    .build()
+                    .create(SuqiApiService::class.java)
+                    .also {
+                        cachedRemoteService = it
+                        cachedRemoteUrl = targetUrl
+                    }
+            }
+        }
     }
 
     private val api: SuqiApiService
-        get() = if (BackendConfig.useBuiltinSqliteBackend) builtinBackend else remoteService
+        get() = if (BackendConfig.useBuiltinSqliteBackend) builtinBackend else getOrCreateRemoteService()
+
+    private suspend fun <T> callApi(operation: String, block: suspend SuqiApiService.() -> ApiResponse<T>): ApiResponse<T> {
+        val startNs = System.nanoTime()
+        val target = if (BackendConfig.useBuiltinSqliteBackend) "BuiltinSQLite" else normalizedBaseUrl(BackendConfig.customBaseUrl)
+        return try {
+            val res = api.block()
+            val elapsedMs = (System.nanoTime() - startNs) / 1_000_000L
+            if (BackendConfig.useBuiltinSqliteBackend) {
+                DevDiagnosticsLog.record(
+                    operation = operation,
+                    target = target,
+                    success = res.success,
+                    durationMs = elapsedMs,
+                    detail = res.message ?: if (res.success) "OK" else "Failed"
+                )
+            }
+            res
+        } catch (t: Throwable) {
+            val elapsedMs = (System.nanoTime() - startNs) / 1_000_000L
+            DevDiagnosticsLog.record(
+                operation = operation,
+                target = target,
+                success = false,
+                durationMs = elapsedMs,
+                detail = t.message ?: t.javaClass.simpleName
+            )
+            ApiResponse(success = false, message = t.message ?: "Request failed")
+        }
+    }
 
     // Reactive Cart Count Flow
     private val _cartCount = MutableStateFlow(0)
@@ -130,9 +187,11 @@ class SuqiRepository private constructor(context: Context) {
 
     suspend fun getProductDetails(id: String) = api.getProductDetails(id)
     suspend fun toggleWishlist(id: String) = api.toggleWishlist(id)
-    suspend fun getProductQuestions(productId: String) = api.getProductQuestions(productId)
+    suspend fun getProductQuestions(productId: String) = callApi("GET /products/$productId/questions") { getProductQuestions(productId) }
     suspend fun submitProductQuestion(productId: String, question: String) =
-        api.submitProductQuestion(productId, mapOf("question" to question))
+        callApi("POST /products/$productId/questions") { submitProductQuestion(productId, mapOf("question" to question)) }
+    suspend fun answerProductQuestion(productId: String, questionId: String, answer: String) =
+        callApi("POST /products/$productId/questions/$questionId/answer") { answerProductQuestion(productId, questionId, mapOf("answer" to answer)) }
     suspend fun getShops(filter: String = "ALL", category: String? = null, query: String? = null) =
         api.getShops(filter, category, query)
     suspend fun getShopDetails(id: String) = api.getShopDetails(id)
@@ -233,8 +292,8 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun getSupportTickets() = api.getSupportTickets()
 
     // Admin
-    suspend fun getAdminSettings() = api.getAdminSettings()
-    suspend fun updateFeatureToggle(feature: String, enabled: Boolean) = api.updateFeatureToggle(feature, enabled)
+    suspend fun getAdminSettings() = callApi("GET /admin/settings") { getAdminSettings() }
+    suspend fun updateFeatureToggle(feature: String, enabled: Boolean) = callApi("PUT /admin/features") { updateFeatureToggle(feature, enabled) }
     suspend fun getAdminSellerVerificationQueue() = api.getAdminSellerVerificationQueue()
     suspend fun adminVerifySellerDecision(
         shopId: String,
@@ -394,9 +453,37 @@ class SuqiRepository private constructor(context: Context) {
     suspend fun decideDispute(orderId: String, decision: String, note: String, refundAmount: Double = 0.0) =
         api.decideDispute(orderId, buildMap { put("decision", decision); put("note", note); put("refundAmount", refundAmount.toString()) })
     suspend fun getAdminReport(kind: String) = api.getAdminReport(kind)
-    suspend fun getDevEnvironment() = api.getDevEnvironment()
+    suspend fun getDevEnvironment() = callApi("GET /admin/devtools/environment") { getDevEnvironment() }
     suspend fun devDataAction(action: String, value: String = "") =
-        api.devDataAction(buildMap { put("action", action); if (value.isNotBlank()) put("value", value) })
+        callApi("POST /admin/devtools/data ($action)") {
+            devDataAction(buildMap { put("action", action); if (value.isNotBlank()) put("value", value) })
+        }
+    suspend fun updateDevConfig(
+        maintenanceMode: Boolean,
+        maintenanceMessage: String,
+        enforceMinVersion: Boolean,
+        minAppVersion: String
+    ) = callApi("PUT /admin/devtools/config") {
+        updateDevConfig(
+            mapOf(
+                "maintenanceMode" to maintenanceMode,
+                "maintenanceMessage" to maintenanceMessage,
+                "enforceMinVersion" to enforceMinVersion,
+                "minAppVersion" to minAppVersion
+            )
+        )
+    }
+    suspend fun exportDevSnapshot() = callApi("GET /admin/devtools/snapshot") { exportDevSnapshot() }
+    suspend fun testDevConnection() = callApi("GET /admin/devtools/test") { testDevConnection() }
+    fun currentResolvedBaseUrl(): String = if (BackendConfig.useBuiltinSqliteBackend) "builtin://suqi_marketplace.db" else normalizedBaseUrl(BackendConfig.customBaseUrl)
+    suspend fun getProductsLogged(
+        query: String? = null,
+        categoryId: String? = null,
+        subCategory: String? = null,
+        shopId: String? = null,
+        inStockOnly: Boolean = false,
+        sortBy: String = "POPULAR"
+    ) = callApi("GET /products") { getProducts(query, categoryId, subCategory, shopId, inStockOnly, sortBy) }
 
     companion object {
         @Volatile

@@ -137,80 +137,90 @@ fun ShopsScreen(
                 }
             )
 
-            LazyColumn(
-                state = listState,
+            Box(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
+                contentAlignment = Alignment.TopCenter
             ) {
-                item {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(categoryOptions) { (catKey, catLabel) ->
-                            val isSel = catKey == selectedCategory
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(if (isSel) SuqiPrimary else colors.secondaryBackground)
-                                    .clickable { selectedCategory = catKey }
-                                    .padding(horizontal = 14.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = catLabel,
-                                    fontFamily = SuqiFontFamily,
-                                    fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
-                                    fontSize = 12.sp,
-                                    maxLines = 2,
-                                    color = if (isSel) Color.White else colors.primaryText
-                                )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .widthIn(max = SuqiMaxContentWidth)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = SuqiBottomNavContentPadding)
+                ) {
+                    item {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(categoryOptions) { (catKey, catLabel) ->
+                                val isSel = catKey == selectedCategory
+                                Box(
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(if (isSel) SuqiPrimary else colors.secondaryBackground)
+                                        .clickable { selectedCategory = catKey }
+                                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = catLabel,
+                                        fontFamily = SuqiFontFamily,
+                                        fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontSize = 12.sp,
+                                        maxLines = 2,
+                                        color = if (isSel) Color.White else colors.primaryText
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                item {
-                    SuqiFilterChips(
-                        items = filterOptions,
-                        selectedKey = selectedFilter,
-                        onSelect = { selectedFilter = it },
-                        testTagPrefix = "shop_filter"
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
-
-                if (isLoading) {
                     item {
-                        SuqiSkeletonList(count = 4, modifier = Modifier.padding(top = 8.dp))
-                    }
-                } else if (filteredShops.isEmpty()) {
-                    item {
-                        SuqiEmptyState(
-                            icon = LucideIcons.Store,
-                            title = strings.buyer.noMatchingShops,
-                            subtitle = strings.buyer.noProductsFilterSub,
-                            ctaText = strings.buyer.resetFiltersTitle,
-                            onCtaClick = {
-                                selectedFilter = "All"
-                                selectedCategory = "All Categories"
-                            },
-                            testTag = "shops_empty_state"
+                        SuqiFilterChips(
+                            items = filterOptions,
+                            selectedKey = selectedFilter,
+                            onSelect = { selectedFilter = it },
+                            testTagPrefix = "shop_filter"
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
                     }
-                } else {
-                    items(filteredShops, key = { it.id }) { shop ->
-                        ShopListItemRow(
-                            shop = shop,
-                            onClick = { viewModel.navigate(ScreenDestination.ShopStorefront(shop.id)) },
-                            onToggleFollow = {
-                                viewModel.requireSignedInOrPrompt(strings.extras.gateFollowShops) {
-                                    coroutineScope.launch {
-                                        viewModel.repository.toggleFollowShop(shop.id)
-                                        loadShops()
+
+                    if (isLoading) {
+                        item {
+                            SuqiSkeletonList(count = 4, modifier = Modifier.padding(top = 8.dp))
+                        }
+                    } else if (filteredShops.isEmpty()) {
+                        item {
+                            SuqiEmptyState(
+                                icon = LucideIcons.Store,
+                                title = strings.buyer.noMatchingShops,
+                                subtitle = strings.buyer.noProductsFilterSub,
+                                ctaText = strings.buyer.resetFiltersTitle,
+                                onCtaClick = {
+                                    selectedFilter = "All"
+                                    selectedCategory = "All Categories"
+                                },
+                                testTag = "shops_empty_state"
+                            )
+                        }
+                    } else {
+                        items(filteredShops, key = { it.id }) { shop ->
+                            ShopListItemRow(
+                                shop = shop,
+                                onClick = { viewModel.navigate(ScreenDestination.ShopStorefront(shop.id)) },
+                                onToggleFollow = {
+                                    viewModel.requireSignedInOrPrompt(strings.extras.gateFollowShops) {
+                                        coroutineScope.launch {
+                                            viewModel.repository.toggleFollowShop(shop.id)
+                                            loadShops()
+                                        }
                                     }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -309,7 +319,7 @@ fun ShopListItemRow(
 
             Box(
                 modifier = Modifier
-                    .defaultMinSize(minHeight = 40.dp)
+                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                     .clip(RoundedCornerShape(999.dp))
                     .background(if (shop.isFollowing) colors.secondaryBackground else colors.primaryTint)
                     .clickable(onClick = onToggleFollow)
@@ -476,11 +486,15 @@ fun ShopStorefrontScreen(
         },
         modifier = modifier
     ) { paddingValues ->
-        LazyColumn(
-            state = storefrontListState,
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
+        ) {
+            val gridColumns = suqiGridColumns(maxWidth)
+        LazyColumn(
+            state = storefrontListState,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             // Cover Image & Logo
@@ -765,7 +779,7 @@ fun ShopStorefrontScreen(
                         )
                     }
                 } else {
-                    val chunks = filteredProducts.chunked(2)
+                    val chunks = filteredProducts.chunked(gridColumns)
                     items(chunks) { chunk ->
                         Row(
                             modifier = Modifier
@@ -793,7 +807,7 @@ fun ShopStorefrontScreen(
                                     )
                                 }
                             }
-                            if (chunk.size == 1) {
+                            repeat(gridColumns - chunk.size) {
                                 Spacer(modifier = Modifier.weight(1f))
                             }
                         }
@@ -811,7 +825,9 @@ fun ShopStorefrontScreen(
                     Triple(
                         "col:${c.id}",
                         c.name,
-                        products.firstOrNull { it.id in c.productIds }?.primaryImageUrl ?: currentShop.coverUrl
+                        c.coverImageUrl.ifBlank {
+                            products.firstOrNull { it.id in c.productIds }?.primaryImageUrl ?: currentShop.coverUrl
+                        }
                     )
                 }
 
@@ -880,6 +896,7 @@ fun ShopStorefrontScreen(
                     }
                 }
             }
+        }
         }
     }
 
